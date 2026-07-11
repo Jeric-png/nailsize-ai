@@ -254,6 +254,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Cloud Run is locked to one request per instance, one warm instance, the load-tested maximum, 2 vCPU, 4 GiB, a 15-second timeout, exact CORS origin, immutable image/model identifiers, load-balancer-only ingress, and a disabled default `run.app` URL. Public IAM grants only `roles/run.invoker`; the network boundary forces internet traffic through Cloud Armor.
 - Cloud Armor requires an explicit per-IP threshold and supported interval, emits full backend request logs, begins in caller-selected preview mode, and returns `429` only after reviewed enforcement. Six provider-backed Terraform tests prove the secure boundary and reject a mutable image, wildcard origin, unapproved environment, and invalid rate interval.
 - Local verification passed formatting, Google provider 7.39.0 validation, and all six platform tests. No Google Cloud resource was created or changed, no domain was pointed, and no rate threshold was inferred. Provisioning, certificate activation, preview-log review, enforcement, IAM inspection, and deployment smoke evidence remain open.
+- GitHub CI run [29164498124](https://github.com/Jeric-png/nailsize-ai/actions/runs/29164498124) passed all eight jobs for commit `63139ac`, including separate Linux validation/test jobs for the platform and observability roots, 214 Python/ML tests, contract drift, web checks, security scans, Playwright, and live container readiness.
 
 ## Evidence rules
 
