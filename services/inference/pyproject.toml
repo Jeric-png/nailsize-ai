@@ -22,7 +22,7 @@ landmarks = ["mediapipe==0.10.35"]
 dev = [
   "onnx>=1.19,<2",
   "pytest>=8.4,<9",
-  "pytest-cov>=6.2,<7",
+  "pytest-cov>=6.2,<8",
   "ruff>=0.12,<1"
 ]
 
