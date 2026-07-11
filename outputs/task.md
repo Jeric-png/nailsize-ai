@@ -74,11 +74,12 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 ## 5. Dataset and Model
 
-- [ ] Write the consent, capture, physical measurement, best-fit, annotation, and adjudication protocols.
-- [ ] Define inclusion/exclusion criteria for bare natural nails and unsupported conditions.
-- [ ] Create versioned annotation schemas for nail masks, digit, axis, lateral boundaries, quality, physical width, and best-fitting size.
-- [ ] Establish a participant-level train/validation/test split and prevent identity leakage.
-- [ ] Build annotation quality checks and inter-annotator agreement reports.
+- [x] Write the consent, capture, physical measurement, best-fit, annotation, and adjudication protocols.
+- [x] Define inclusion/exclusion criteria for bare natural nails and unsupported conditions.
+- [x] Create versioned annotation schemas for nail masks, digit, axis, lateral boundaries, quality, physical width, and best-fitting size.
+- [x] Establish a participant-level train/validation/test split and prevent identity leakage.
+- [x] Build annotation quality checks and an inter-annotator agreement report generator.
+- [ ] Produce and review inter-annotator agreement reports from the collected study annotations.
 - [ ] Train the DeepLabV3-MobileNetV3 baseline on fingertip crops.
 - [ ] Evaluate mask boundary error as well as IoU; do not approve based on IoU alone.
 - [ ] Export the selected model to ONNX and verify output parity with PyTorch.

@@ -31,6 +31,16 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Rotated synthetic nail masks prove PCA axis estimation and transverse chord widths at 0°, 23°, 67°, 90°, and 135°.
 - Calibrated-width tests prove scale and segmentation-boundary error propagation and deterministic confidence thresholds.
 - API tests prove valid reference geometry still returns `LOW_CONFIDENCE` with no measurements until validated segmentation is available.
+- GitHub CI: [run 29159296041](https://github.com/Jeric-png/nailsize-ai/actions/runs/29159296041) passed all five jobs for calibration commit `7ea38e2`.
+
+## 2026-07-12 dataset-tooling verification
+
+- `.venv/bin/pytest ml/tests -q`: 14 tests passed.
+- Combined inference and ML verification: 70 tests passed with 93% coverage, exceeding the 85% CI threshold.
+- JSON Schema validation proves representative annotations include nail masks, digit labels, axes, lateral boundaries, quality codes, physical widths, best-fit sizes, and annotator provenance.
+- Deterministic participant-level split tests prove one participant cannot appear in more than one dataset partition.
+- Annotation-quality tests cover validation failures, Dice overlap, symmetric boundary distance, digit and quality-code agreement, Cohen's kappa, width disagreement, and pairwise agreement reports.
+- No real participant data, trained-model metrics, or inter-annotator study results are claimed by these tooling tests.
 
 ## Evidence rules
 

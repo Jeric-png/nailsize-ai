@@ -31,10 +31,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -e 'services/inference[dev]'
+      - run: pip install -e 'services/inference[dev]' -e ml
       - run: ruff format --check services/inference
       - run: ruff check services/inference
-      - run: pytest services/inference/tests --cov=services/inference/app --cov-fail-under=85
+      - run: ruff format --check ml
+      - run: ruff check ml
+      - run: pytest services/inference/tests ml/tests --cov=services/inference/app --cov=nailsize_ml --cov-fail-under=85
 
   contracts:
     runs-on: ubuntu-latest

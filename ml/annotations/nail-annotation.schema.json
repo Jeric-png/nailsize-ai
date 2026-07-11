@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nailsize.ai/schemas/nail-annotation-1.json",
+  "title": "Nail annotation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "participant_id",
+    "image_id",
+    "capture_type",
+    "digit",
+    "mask_uri",
+    "axis",
+    "lateral_boundaries",
+    "physical_width_mm",
+    "best_fit_size",
+    "quality_codes",
+    "annotator_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "participant_id": { "type": "string", "minLength": 8 },
+    "image_id": { "type": "string", "minLength": 8 },
+    "capture_type": {
+      "enum": ["left_fingers", "left_thumb", "right_fingers", "right_thumb"]
+    },
+    "digit": { "enum": ["thumb", "index", "middle", "ring", "pinky"] },
+    "mask_uri": { "type": "string", "minLength": 1 },
+    "axis": { "$ref": "#/$defs/line" },
+    "lateral_boundaries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/point" },
+      "minItems": 2
+    },
+    "physical_width_mm": { "type": "number", "exclusiveMinimum": 0 },
+    "best_fit_size": {
+      "enum": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    },
+    "quality_codes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "exclusion_reason": { "type": ["string", "null"] },
+    "annotator_id": { "type": "string", "minLength": 1 },
+    "adjudicator_id": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "minimum": 0, "maximum": 1 },
+        { "type": "number", "minimum": 0, "maximum": 1 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "line": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/point" },
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
