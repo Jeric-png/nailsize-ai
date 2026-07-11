@@ -1,0 +1,97 @@
+# Design
+
+## Source of truth
+
+- Status: Active
+- Last refreshed: 2026-07-11
+- Primary product surfaces: landing, preparation, four guided captures, quality review, processing, results, and recoverable errors.
+- Evidence reviewed: Stitch project `8073142126445672722`, its eight approved screens, `outputs/plan.md`, and `outputs/task.md`.
+
+## Brand
+
+- Personality: clinical, objective, precise, calm, and trustworthy.
+- Trust signals: explicit calibration requirements, plain privacy language, visible confidence, and honest retake instructions.
+- Avoid: beauty-editor styling, gradients, decorative shadows, rounded cards, medical claims, or implied certainty.
+
+## Product goals
+
+- Goals: help customers capture valid photos and give nail artists calibrated projected widths and press-on size recommendations.
+- Non-goals: diagnosis, accounts, saved history, ecommerce, or permanent photo storage.
+- Success signals: users complete four captures, understand retakes, and can copy a ten-nail text summary.
+
+## Personas and jobs
+
+- Primary personas: press-on nail customers and nail artists receiving measurements.
+- User jobs: capture safely, understand image requirements, obtain honest measurements, and share results without photos.
+- Key contexts: mobile camera use at home under variable lighting; desktop review by nail artists.
+
+## Information architecture
+
+- Primary navigation: one linear sizing task with explicit back, retake, reset, and cancel actions.
+- Core routes/screens: `/`, `/prepare`, `/capture/:captureType`, `/processing`, `/results`, and terminal recovery states.
+- Content hierarchy: current action, capture requirements, privacy/calibration warning, primary action, secondary help.
+
+## Design principles
+
+- Calibration before confidence: never visually imply that an uncalibrated photo can produce millimetres.
+- Recovery over blame: every rejection names the fix and preserves accepted captures.
+- Data minimization is visible: explain transient processing at upload and results.
+- Tradeoffs: error clarity and accessibility take precedence over pixel-level Stitch fidelity.
+
+## Visual language
+
+- Color: charcoal `#1A202C`, background `#F7FAFC`, white surfaces, border `#CBD5E0`, text `#181C1E`, muted text `#45474C`, error `#BA1A1A`.
+- Typography: Inter; optional Courier Prime for technical metadata.
+- Spacing/layout rhythm: 8px grid, 16px mobile margins, 24px desktop gutters, 1280px maximum width.
+- Shape/radius/elevation: square corners, 1px structural borders, 2px priority/focus borders, no shadows.
+- Motion: restrained progress feedback; honor reduced motion.
+- Imagery/iconography: structural hand/card guides and line icons with text labels.
+
+## Components
+
+- Existing components to reuse: none; implementation starts from the approved screen system.
+- New/changed components: button, card, status message, progress stepper, capture frame, measurement row, confidence badge, and error callout.
+- Variants and states: primary/secondary/destructive; idle/loading/success/retake/error/disabled.
+- Token/component ownership: CSS custom properties in `apps/web/src/styles/tokens.css`; React primitives in `apps/web/src/components`.
+
+## Accessibility
+
+- Target standard: WCAG 2.2 AA.
+- Keyboard/focus behavior: complete keyboard operation and a visible 2px focus ring.
+- Contrast/readability: minimum 4.5:1 for text; status never uses color alone.
+- Screen-reader semantics: one page heading, labelled capture controls, live status announcements, and descriptive errors.
+- Reduced motion and sensory considerations: no required animation, vibration, or color-only instruction.
+
+## Responsive behavior
+
+- Supported breakpoints/devices: 390px mobile baseline and fluid desktop through 1280px; supported browsers follow `outputs/plan.md`.
+- Layout adaptations: four-column mobile flow; twelve-column desktop results with measurements beside the summary.
+- Touch/hover differences: minimum 44px touch targets; hover is enhancement only.
+
+## Interaction states
+
+- Loading: named processing stages with an announced status.
+- Empty: capture frame explains the required hand and reference placement.
+- Error: typed, actionable retake or infrastructure recovery.
+- Success: accepted capture is retained only in browser memory.
+- Disabled: action explains the missing prerequisite.
+- Offline/slow network: preserve accepted local state and offer retry or cancellation.
+
+## Content voice
+
+- Tone: direct, supportive, factual, and non-medical.
+- Terminology: “projected nail width,” “reference card,” “retake,” and “recommended press-on size.”
+- Microcopy rules: explain why, give one concrete correction, and never promise perfect fit.
+
+## Implementation constraints
+
+- Framework/styling system: React, TypeScript, Vite, and plain CSS variables.
+- Design-token constraints: implement the Clinical Wireframe System without a parallel theme abstraction.
+- Performance constraints: downscale before upload and keep UI interactive during processing.
+- Compatibility constraints: Vercel-hosted static frontend posting directly to the Cloud Run inference API.
+- Test/screenshot expectations: 390px and 1280px Playwright baselines compared with the listed Stitch screens.
+
+## Open questions
+
+- [ ] Product owner: approve final consumer-facing name before public launch; impacts branding only.
+- [ ] Nail technician: approve default chart and result terminology before field validation; impacts sizing copy and validation.

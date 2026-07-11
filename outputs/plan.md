@@ -23,7 +23,8 @@ The application must not send customer photos to a general-purpose vision-langua
 
 Credentials required later:
 
-- Google Cloud credentials for Firebase Hosting, Artifact Registry, Cloud Run, monitoring, and deployment.
+- Vercel credentials for frontend preview and production deployments.
+- Google Cloud credentials for Artifact Registry, Cloud Run, monitoring, and deployment.
 - The existing Stitch connection for reading the approved screens.
 - CI/CD deployment credentials after a source repository is configured.
 
@@ -35,16 +36,16 @@ Use Stitch project **NailSize AI Guide**, project ID `8073142126445672722`.
 
 ### Screen mapping
 
-| Product route/state | Stitch screen | Screen ID |
-| --- | --- | --- |
-| Landing | Landing Page - Mobile Wireframe | `0fe481c4ae524371a965bdbacd64846c` |
-| Preparation | Preparation Instructions - Mobile Wireframe | `eedc165261574b8fa64bfbb0b109dd5c` |
-| Guided capture | Guided Capture - Left Fingers | `a2e72e4483724093b18c67260e5350a0` |
-| Quality check | Photo Quality Check | `b230e530ded64687b7d0179404a3de69` |
-| Processing | AI Processing Screen | `7f9fa8f92b3b43fabf43a358bfac8199` |
-| Results, mobile | Sizing Results - Mobile Wireframe | `7c2120dc69554f7fbcab9510ef84455c` |
-| Results, desktop | Sizing Results - Desktop Wireframe | `032c6ffdff5244f3a841db78c11d1861` |
-| Failure states | Supporting Error States | `440f911247a34c8989c7cf22abc057f7` |
+| Product route/state | Stitch screen                               | Screen ID                          |
+| ------------------- | ------------------------------------------- | ---------------------------------- |
+| Landing             | Landing Page - Mobile Wireframe             | `0fe481c4ae524371a965bdbacd64846c` |
+| Preparation         | Preparation Instructions - Mobile Wireframe | `eedc165261574b8fa64bfbb0b109dd5c` |
+| Guided capture      | Guided Capture - Left Fingers               | `a2e72e4483724093b18c67260e5350a0` |
+| Quality check       | Photo Quality Check                         | `b230e530ded64687b7d0179404a3de69` |
+| Processing          | AI Processing Screen                        | `7f9fa8f92b3b43fabf43a358bfac8199` |
+| Results, mobile     | Sizing Results - Mobile Wireframe           | `7c2120dc69554f7fbcab9510ef84455c` |
+| Results, desktop    | Sizing Results - Desktop Wireframe          | `032c6ffdff5244f3a841db78c11d1861` |
+| Failure states      | Supporting Error States                     | `440f911247a34c8989c7cf22abc057f7` |
 
 The left-fingers capture screen is the reusable template for `left_fingers`, `left_thumb`, `right_fingers`, and `right_thumb`. Change instructional content and placement guides through typed configuration rather than duplicating page implementations.
 
@@ -86,7 +87,7 @@ V1 is public and stateless. It has no account, saved history, artist portal, eco
 - Client-side orientation handling, preview, safe downscaling, and object-URL cleanup.
 - TanStack Query or a small typed API client for request lifecycle and retries; do not add global state infrastructure unless the session state becomes difficult to maintain with a reducer.
 - Vitest, Testing Library, axe-core, and Playwright.
-- Static deployment to Firebase Hosting.
+- Static deployment to Vercel with SPA rewrites and environment-specific inference origins.
 
 ### Inference service
 
@@ -138,7 +139,10 @@ Successful domain response:
       "recommended_size": "3",
       "alternate_size": "4",
       "confidence": "high",
-      "contour": [[0.42, 0.31], [0.44, 0.32]]
+      "contour": [
+        [0.42, 0.31],
+        [0.44, 0.32]
+      ]
     }
   ],
   "quality_issues": [],
@@ -205,7 +209,7 @@ services/inference/        FastAPI inference API
 ml/                        training, evaluation, export, and model-card tooling
 packages/contracts/        generated/shared API schema and enums
 tests/e2e/                 cross-service Playwright tests
-infra/                     Firebase, Cloud Run, monitoring, and deployment config
+infra/                     Vercel, Cloud Run, monitoring, and deployment config
 docs/                      privacy, model card, data protocol, and validation reports
 ```
 

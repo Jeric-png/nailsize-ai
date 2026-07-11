@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+.venv/
+__pycache__/
+*.py[cod]
 
 # Framework output
 .next/
@@ -16,6 +19,7 @@ build/
 
 # Tests and tooling
 coverage/
+.coverage
 playwright-report/
 test-results/
 *.tsbuildinfo

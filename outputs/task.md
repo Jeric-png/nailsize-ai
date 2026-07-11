@@ -8,21 +8,21 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 ## 0. Goal Controls and Evidence
 
-- [ ] Create a source repository and the monorepo structure defined in `plan.md`.
-- [ ] Add a goal evidence ledger at `docs/goal-evidence.md` linking every completed task to code, test output, deployment evidence, or validation reports.
-- [ ] Add `docs/decisions.md` for architecture and product deviations.
-- [ ] Configure CI to run formatting checks, lint, typecheck, unit tests, API contract tests, build, security scans, and E2E smoke tests.
+- [x] Create a source repository and the monorepo structure defined in `plan.md`.
+- [x] Add a goal evidence ledger at `docs/goal-evidence.md` linking every completed task to code, test output, deployment evidence, or validation reports.
+- [x] Add `docs/decisions.md` for architecture and product deviations.
+- [x] Configure CI to run formatting checks, lint, typecheck, unit tests, API contract tests, build, security scans, and E2E smoke tests.
 - [ ] Configure separate development, staging, and production environments.
-- [ ] Record secrets only in the deployment secret manager or CI secret store; commit `.env.example` without credentials.
+- [x] Record secrets only in the deployment secret manager or CI secret store; commit `.env.example` without credentials.
 
 ## 1. Stitch Design Implementation
 
-- [ ] Export or inspect the approved Stitch HTML/screens and record their screen IDs in frontend documentation.
-- [ ] Implement the Clinical Wireframe System tokens as CSS variables and typed theme constants.
-- [ ] Build shared primitives: buttons, bordered cards, labels, status messages, progress stepper, photo placeholder, measurement row, confidence badge, and error callout.
-- [ ] Implement the landing page from Stitch screen `0fe481c4ae524371a965bdbacd64846c`.
-- [ ] Implement preparation from `eedc165261574b8fa64bfbb0b109dd5c`.
-- [ ] Implement the reusable four-step capture flow from `a2e72e4483724093b18c67260e5350a0`.
+- [x] Export or inspect the approved Stitch HTML/screens and record their screen IDs in frontend documentation.
+- [x] Implement the Clinical Wireframe System tokens as CSS variables and typed theme constants.
+- [x] Build shared primitives: buttons, bordered cards, labels, status messages, progress stepper, photo placeholder, measurement row, confidence badge, and error callout.
+- [x] Implement the landing page from Stitch screen `0fe481c4ae524371a965bdbacd64846c`.
+- [x] Implement preparation from `eedc165261574b8fa64bfbb0b109dd5c`.
+- [x] Implement the reusable four-step capture flow from `a2e72e4483724093b18c67260e5350a0`.
 - [ ] Implement quality-check behavior from `b230e530ded64687b7d0179404a3de69`.
 - [ ] Implement processing behavior from `7f9fa8f92b3b43fabf43a358bfac8199`.
 - [ ] Implement mobile results from `7c2120dc69554f7fbcab9510ef84455c`.
@@ -33,36 +33,36 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 ## 2. Frontend Workflow
 
-- [ ] Implement the typed session state machine for preparation, four captures, retakes, processing, completion, and reset.
-- [ ] Implement camera capture and file upload with permission-denied fallback.
-- [ ] Support JPEG, PNG, WebP, HEIC, and HEIF user flows.
+- [x] Implement the typed session state machine for preparation, four captures, retakes, processing, completion, and reset.
+- [x] Implement camera capture and file upload with permission-denied fallback.
+- [x] Support JPEG, PNG, WebP, HEIC, and HEIF user flows.
 - [ ] Normalize orientation and downscale oversized images without changing aspect ratio.
-- [ ] Keep selected photos and results only in memory; release object URLs and buffers on replacement, reset, navigation away, and completion.
-- [ ] Add placement guidance for a fully visible ISO ID-1 card and required nails.
-- [ ] Warn users not to photograph payment or government-ID cards.
-- [ ] Submit captures independently and support a targeted retake without losing accepted captures.
+- [x] Keep selected photos and results only in memory; release object URLs and buffers on replacement, reset, navigation away, and completion.
+- [x] Add placement guidance for a fully visible ISO ID-1 card and required nails.
+- [x] Warn users not to photograph payment or government-ID cards.
+- [x] Submit captures independently and support a targeted retake without losing accepted captures.
 - [ ] Overlay normalized returned contours on the local preview.
-- [ ] Assemble all ten measurements in browser memory.
+- [x] Assemble all ten measurements in browser memory.
 - [ ] Implement copy and native-share result summaries without including photos.
-- [ ] Prevent accidental duplicate requests and make technical retries idempotent from the user’s perspective.
+- [x] Prevent accidental duplicate requests and make technical retries idempotent from the user’s perspective.
 
 ## 3. API Foundation and Security
 
-- [ ] Scaffold FastAPI, Pydantic schemas, health/readiness endpoints, and structured error handling.
-- [ ] Implement the `/v1/measure` multipart contract from `plan.md`.
-- [ ] Generate OpenAPI and TypeScript client types in CI.
-- [ ] Enforce the 12 MB encoded and 25 MP decoded limits before expensive processing.
+- [x] Scaffold FastAPI, Pydantic schemas, health/readiness endpoints, and structured error handling.
+- [x] Implement the `/v1/measure` multipart contract from `plan.md`.
+- [x] Generate OpenAPI and TypeScript client types in CI.
+- [x] Enforce the 12 MB encoded and 25 MP decoded limits before expensive processing.
 - [ ] Verify extensions, MIME types, magic bytes, decoder output, and animation status.
-- [ ] Normalize orientation, strip EXIF, and rewrite decoded image data before inference.
-- [ ] Return `Cache-Control: no-store` on all measurement responses.
-- [ ] Close transient files and buffers in all success and failure paths.
+- [x] Normalize orientation, strip EXIF, and rewrite decoded image data before inference.
+- [x] Return `Cache-Control: no-store` on all measurement responses.
+- [x] Close transient files and buffers in all success and failure paths.
 - [ ] Add CORS origin restrictions, bot/rate controls, Cloud Run maximum instances, and billing alerts.
-- [ ] Add dependency, container, and static security scanning.
-- [ ] Add tests proving request bodies, filenames, photos, contours, widths, and results never enter logs or traces.
+- [x] Add dependency, container, and static security scanning.
+- [x] Add tests proving request bodies, filenames, photos, contours, widths, and results never enter logs or traces.
 
 ## 4. Calibration and Classical Computer Vision
 
-- [ ] Implement reference-card candidate detection and four-corner validation.
+- [x] Implement reference-card candidate detection and four-corner validation.
 - [ ] Reject missing, cropped, distorted, or uncertain reference cards.
 - [ ] Implement homography/perspective rectification using the known ID-1 dimensions.
 - [ ] Quantify reference corner error and propagate it into measurement uncertainty.
@@ -88,11 +88,11 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 ## 6. Size Mapping and Results
 
-- [ ] Implement the immutable `platform-default@1` chart and unit tests for every size.
-- [ ] Implement next-wider-tip selection for between-size measurements.
-- [ ] Return an alternate size when uncertainty overlaps a boundary.
-- [ ] Return `OUTSIDE_DEFAULT_CHART` instead of clamping.
-- [ ] Keep projected millimetres primary and size numbers secondary in UI and shared text.
+- [x] Implement the immutable `platform-default@1` chart and unit tests for every size.
+- [x] Implement next-wider-tip selection for between-size measurements.
+- [x] Return an alternate size when uncertainty overlaps a boundary.
+- [x] Return `OUTSIDE_DEFAULT_CHART` instead of clamping.
+- [x] Keep projected millimetres primary and size numbers secondary in UI and shared text.
 - [ ] Calibrate size recommendations against the physical best-fit labels.
 - [ ] Add repeatability tests across repeated captures of the same participant.
 
@@ -137,7 +137,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 ## 10. Privacy, Release, and Goal Closure
 
-- [ ] Complete a data-flow and threat-model review.
+- [x] Complete a data-flow and threat-model review.
 - [ ] Verify that production photos are excluded from model-training workflows by technical controls, not policy alone.
 - [ ] Publish privacy copy that accurately says images are never persistently stored and explains transient processing.
 - [ ] Verify monitoring, backups, crash reporting, and analytics cannot capture image or result payloads.

@@ -1,0 +1,28 @@
+{
+  "name": "nailsize-ai",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @nailsize/web",
+    "dev": "npm run dev --workspace @nailsize/web",
+    "lint": "npm run lint --workspace @nailsize/web",
+    "test": "npm run test --workspace @nailsize/web",
+    "test:e2e": "playwright test",
+    "contracts:generate": ".venv/bin/python services/inference/scripts/export_openapi.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/generated.ts",
+    "contracts:check": "npm run contracts:generate && git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/generated.ts",
+    "typecheck": "npm run typecheck --workspace @nailsize/web"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.54.1",
+    "openapi-typescript": "^7.9.1",
+    "prettier": "^3.6.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,379 @@
+{
+  "components": {
+    "schemas": {
+      "Body_measure_v1_measure_post": {
+        "properties": {
+          "capture_type": {
+            "$ref": "#/components/schemas/CaptureType"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "reference_type": {
+            "title": "Reference Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image",
+          "capture_type",
+          "reference_type"
+        ],
+        "title": "Body_measure_v1_measure_post",
+        "type": "object"
+      },
+      "CaptureType": {
+        "enum": [
+          "left_fingers",
+          "left_thumb",
+          "right_fingers",
+          "right_thumb"
+        ],
+        "title": "CaptureType",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "not_ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "model_version"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "MeasureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "capture_type": {
+            "$ref": "#/components/schemas/CaptureType"
+          },
+          "chart_id": {
+            "const": "platform-default",
+            "default": "platform-default",
+            "title": "Chart Id",
+            "type": "string"
+          },
+          "chart_version": {
+            "const": "1",
+            "default": "1",
+            "title": "Chart Version",
+            "type": "string"
+          },
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/NailMeasurement"
+            },
+            "title": "Measurements",
+            "type": "array"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "processing_ms": {
+            "minimum": 0.0,
+            "title": "Processing Ms",
+            "type": "integer"
+          },
+          "quality_issues": {
+            "items": {
+              "$ref": "#/components/schemas/QualityIssue"
+            },
+            "title": "Quality Issues",
+            "type": "array"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "retake"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "request_id",
+          "capture_type",
+          "measurements",
+          "quality_issues",
+          "model_version",
+          "processing_ms"
+        ],
+        "title": "MeasureResponse",
+        "type": "object"
+      },
+      "NailMeasurement": {
+        "additionalProperties": false,
+        "properties": {
+          "alternate_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alternate Size"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "contour": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Contour",
+            "type": "array"
+          },
+          "digit": {
+            "enum": [
+              "thumb",
+              "index",
+              "middle",
+              "ring",
+              "pinky"
+            ],
+            "title": "Digit",
+            "type": "string"
+          },
+          "projected_width_mm": {
+            "exclusiveMinimum": 0.0,
+            "title": "Projected Width Mm",
+            "type": "number"
+          },
+          "recommended_size": {
+            "title": "Recommended Size",
+            "type": "string"
+          },
+          "uncertainty_mm": {
+            "minimum": 0.0,
+            "title": "Uncertainty Mm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "digit",
+          "projected_width_mm",
+          "uncertainty_mm",
+          "recommended_size",
+          "alternate_size",
+          "confidence",
+          "contour"
+        ],
+        "title": "NailMeasurement",
+        "type": "object"
+      },
+      "QualityIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/QualityIssueCode"
+          },
+          "correction": {
+            "title": "Correction",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "correction"
+        ],
+        "title": "QualityIssue",
+        "type": "object"
+      },
+      "QualityIssueCode": {
+        "enum": [
+          "REFERENCE_MISSING",
+          "REFERENCE_INVALID",
+          "BLUR",
+          "GLARE",
+          "ANGLE_TOO_STEEP",
+          "NAIL_CROPPED",
+          "NAIL_OCCLUDED",
+          "WRONG_NAIL_COUNT",
+          "UNSUPPORTED_NAIL_CONDITION",
+          "LOW_CONFIDENCE",
+          "OUTSIDE_DEFAULT_CHART"
+        ],
+        "title": "QualityIssueCode",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "NailSize Inference API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "ready_ready_get",
+        "responses": {
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready"
+      }
+    },
+    "/v1/measure": {
+      "post": {
+        "operationId": "measure_v1_measure_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_measure_v1_measure_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Measure"
+      }
+    }
+  }
+}
