@@ -200,6 +200,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Docker build fails when either artifact is absent or empty. Repository tests lock the narrow copy allowlist so research data/tooling cannot enter the image. CI generates a clearly named synthetic graph, builds the container, starts it with matching version/checksum/boundary configuration, and requires `/ready`; the fixture is never uploaded or used as accuracy evidence. A production image still cannot be approved until validated ONNX weights pass the same smoke.
 - GitHub CI run [29162862065](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162862065) passed all six jobs for commit `b65fe0d`, including the container build and live readiness smoke. Two preceding failed runs exposed and then verified the required native OpenCV dependencies, demonstrating that the smoke checks runtime startup rather than image construction alone.
 
+## 2026-07-12 participant-clustered accuracy-report contract
+
+- The dependency-light `nailsize-accuracy-report` CLI accepts participant-disjoint JSONL observations and produces versioned, deterministic JSON containing overall metrics, 95% participant-clustered bootstrap intervals, dataset-size checks, and explicitly declared adequately sampled cohort results.
+- It enforces the plan's 200-participant/2,000-nail holdout minimum, all six overall width/size gates, subgroup MAE at most 0.85 mm, and subgroup exact-size accuracy no more than five percentage points below overall. Missing declared cohorts, duplicate declarations, invalid observations, insufficient bootstrap iterations, and any failed gate prevent a passing report.
+- Cohort adequacy is deliberately supplied by the approved study review rather than inferred from an invented count threshold. Fifteen focused evaluation/reporting tests pass on synthetic records; this verifies calculations and fail-closed behavior only, not real-world accuracy or fairness.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

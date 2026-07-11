@@ -38,6 +38,10 @@ nailsize-train \
 
 The command fixes preprocessing to the production tensor contract, enables deterministic algorithms, records configuration/loss history/PyTorch version in the checkpoint, and never writes source images into the repository. A checkpoint is a research artifact, not a releasable model; evaluation, ONNX export, model-card review, and release gates still follow training.
 
+## Accuracy release report
+
+Run `nailsize-accuracy-report observations.jsonl --adequate-cohort skin_tone=monk-5 --output accuracy-report.json` after the public holdout is locked. Each JSONL row must contain `participant_id`, predicted and ground-truth width/size fields, and a `cohorts` string map. The report enforces the 200-participant/2,000-nail minimum, all overall measurement gates, reviewer-declared adequately sampled cohort gates, and deterministic participant-clustered 95% bootstrap intervals. It exits non-zero unless every available gate passes. Declaring cohort adequacy remains a documented study-review decision; the tool never infers adequacy from an arbitrary count.
+
 The default CI suite measures coverage for production and dependency-light ML modules; the heavy PyTorch modules are excluded because their optional dependencies are not installed there. Run the `Model Tooling` GitHub Actions workflow after changes to `modeling.py`, `training.py`, or their pinned dependencies. It installs the research extra on Linux and executes the real factory/export/training tests.
 
 Benchmark the exported candidate inside the exact Cloud Run container/revision before approval:
