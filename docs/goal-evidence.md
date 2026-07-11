@@ -112,6 +112,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Repository-wide inference/ML verification passed 135 tests at 93.94% coverage. `WRONG_NAIL_COUNT` and `UNSUPPORTED_NAIL_CONDITION` are intentionally excluded from this milestone because honest detection requires the representative labeled dataset and validated model path.
 - GitHub CI run [29161304340](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161304340) passed all five jobs for quality-gate commit `033f140`, including Linux inference/ML tests, contract drift, security scanning, the production build, and all 14 browser scenarios.
 
+## 2026-07-12 model-evaluation contract
+
+- Dependency-light ML tooling now computes segmentation IoU/Dice and symmetric mean/p95 boundary errors, preventing model selection from relying on overlap alone.
+- Physical evaluation computes width MAE, p90 absolute error, signed bias, exact-size rate, exact-or-adjacent rate, and more-than-one-size miss rate. An executable gate applies the exact thresholds in `outputs/plan.md` and passes only when every threshold passes.
+- Tests cover shifted boundaries, paired and one-sided empty masks, passing/failing release cohorts, and malformed/non-finite/unpaired inputs. These synthetic checks validate metric definitions only; no model or accuracy task is marked complete.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
