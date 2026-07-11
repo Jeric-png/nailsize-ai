@@ -1,0 +1,148 @@
+# NailSize AI — Single Goal Task List
+
+## Goal
+
+Deliver, deploy, and validate the complete NailSize AI web application using Stitch project `8073142126445672722`, with calibrated nail measurement, a stateless privacy-preserving architecture, and documented evidence that every release gate in `plan.md` passes.
+
+The goal remains open until implementation **and** validation are complete. A working mock UI, a model demo, or a deployed endpoint alone does not complete the goal.
+
+## 0. Goal Controls and Evidence
+
+- [ ] Create a source repository and the monorepo structure defined in `plan.md`.
+- [ ] Add a goal evidence ledger at `docs/goal-evidence.md` linking every completed task to code, test output, deployment evidence, or validation reports.
+- [ ] Add `docs/decisions.md` for architecture and product deviations.
+- [ ] Configure CI to run formatting checks, lint, typecheck, unit tests, API contract tests, build, security scans, and E2E smoke tests.
+- [ ] Configure separate development, staging, and production environments.
+- [ ] Record secrets only in the deployment secret manager or CI secret store; commit `.env.example` without credentials.
+
+## 1. Stitch Design Implementation
+
+- [ ] Export or inspect the approved Stitch HTML/screens and record their screen IDs in frontend documentation.
+- [ ] Implement the Clinical Wireframe System tokens as CSS variables and typed theme constants.
+- [ ] Build shared primitives: buttons, bordered cards, labels, status messages, progress stepper, photo placeholder, measurement row, confidence badge, and error callout.
+- [ ] Implement the landing page from Stitch screen `0fe481c4ae524371a965bdbacd64846c`.
+- [ ] Implement preparation from `eedc165261574b8fa64bfbb0b109dd5c`.
+- [ ] Implement the reusable four-step capture flow from `a2e72e4483724093b18c67260e5350a0`.
+- [ ] Implement quality-check behavior from `b230e530ded64687b7d0179404a3de69`.
+- [ ] Implement processing behavior from `7f9fa8f92b3b43fabf43a358bfac8199`.
+- [ ] Implement mobile results from `7c2120dc69554f7fbcab9510ef84455c`.
+- [ ] Implement desktop results from `032c6ffdff5244f3a841db78c11d1861`.
+- [ ] Implement all typed error and recovery states represented by `440f911247a34c8989c7cf22abc057f7`.
+- [ ] Add responsive visual regression screenshots for 390px mobile and 1280px desktop.
+- [ ] Document every intentional deviation from Stitch and its accessibility or implementation reason.
+
+## 2. Frontend Workflow
+
+- [ ] Implement the typed session state machine for preparation, four captures, retakes, processing, completion, and reset.
+- [ ] Implement camera capture and file upload with permission-denied fallback.
+- [ ] Support JPEG, PNG, WebP, HEIC, and HEIF user flows.
+- [ ] Normalize orientation and downscale oversized images without changing aspect ratio.
+- [ ] Keep selected photos and results only in memory; release object URLs and buffers on replacement, reset, navigation away, and completion.
+- [ ] Add placement guidance for a fully visible ISO ID-1 card and required nails.
+- [ ] Warn users not to photograph payment or government-ID cards.
+- [ ] Submit captures independently and support a targeted retake without losing accepted captures.
+- [ ] Overlay normalized returned contours on the local preview.
+- [ ] Assemble all ten measurements in browser memory.
+- [ ] Implement copy and native-share result summaries without including photos.
+- [ ] Prevent accidental duplicate requests and make technical retries idempotent from the user’s perspective.
+
+## 3. API Foundation and Security
+
+- [ ] Scaffold FastAPI, Pydantic schemas, health/readiness endpoints, and structured error handling.
+- [ ] Implement the `/v1/measure` multipart contract from `plan.md`.
+- [ ] Generate OpenAPI and TypeScript client types in CI.
+- [ ] Enforce the 12 MB encoded and 25 MP decoded limits before expensive processing.
+- [ ] Verify extensions, MIME types, magic bytes, decoder output, and animation status.
+- [ ] Normalize orientation, strip EXIF, and rewrite decoded image data before inference.
+- [ ] Return `Cache-Control: no-store` on all measurement responses.
+- [ ] Close transient files and buffers in all success and failure paths.
+- [ ] Add CORS origin restrictions, bot/rate controls, Cloud Run maximum instances, and billing alerts.
+- [ ] Add dependency, container, and static security scanning.
+- [ ] Add tests proving request bodies, filenames, photos, contours, widths, and results never enter logs or traces.
+
+## 4. Calibration and Classical Computer Vision
+
+- [ ] Implement reference-card candidate detection and four-corner validation.
+- [ ] Reject missing, cropped, distorted, or uncertain reference cards.
+- [ ] Implement homography/perspective rectification using the known ID-1 dimensions.
+- [ ] Quantify reference corner error and propagate it into measurement uncertainty.
+- [ ] Implement blur, glare, clipping, angle, nail-pixel-count, and occlusion quality checks.
+- [ ] Implement hand landmark inference and deterministic finger crop ordering for every capture type.
+- [ ] Implement nail longitudinal-axis estimation and maximum valid transverse-chord measurement.
+- [ ] Add synthetic geometry tests with known dimensions, perspective, rotation, blur, and compression.
+- [ ] Add golden-image tests for every quality rejection code.
+
+## 5. Dataset and Model
+
+- [ ] Write the consent, capture, physical measurement, best-fit, annotation, and adjudication protocols.
+- [ ] Define inclusion/exclusion criteria for bare natural nails and unsupported conditions.
+- [ ] Create versioned annotation schemas for nail masks, digit, axis, lateral boundaries, quality, physical width, and best-fitting size.
+- [ ] Establish a participant-level train/validation/test split and prevent identity leakage.
+- [ ] Build annotation quality checks and inter-annotator agreement reports.
+- [ ] Train the DeepLabV3-MobileNetV3 baseline on fingertip crops.
+- [ ] Evaluate mask boundary error as well as IoU; do not approve based on IoU alone.
+- [ ] Export the selected model to ONNX and verify output parity with PyTorch.
+- [ ] Benchmark ONNX Runtime on the Cloud Run CPU configuration.
+- [ ] Add model versioning, checksum validation, startup warmup, and readiness failure when the model cannot load.
+- [ ] Publish a model card with dataset, metrics, subgroup results, limitations, and intended-use restrictions.
+
+## 6. Size Mapping and Results
+
+- [ ] Implement the immutable `platform-default@1` chart and unit tests for every size.
+- [ ] Implement next-wider-tip selection for between-size measurements.
+- [ ] Return an alternate size when uncertainty overlaps a boundary.
+- [ ] Return `OUTSIDE_DEFAULT_CHART` instead of clamping.
+- [ ] Keep projected millimetres primary and size numbers secondary in UI and shared text.
+- [ ] Calibrate size recommendations against the physical best-fit labels.
+- [ ] Add repeatability tests across repeated captures of the same participant.
+
+## 7. Integration, Deployment, and Observability
+
+- [ ] Containerize the API and bundle the verified ONNX model.
+- [ ] Provision Artifact Registry, Cloud Run, Firebase Hosting, TLS, and environment configuration.
+- [ ] Configure Cloud Run with one worker, concurrency `1`, one warm minimum instance, 2 vCPU, 4 GiB RAM, and a 15-second timeout.
+- [ ] Deploy the frontend so photos post directly to the inference service rather than through a frontend server function.
+- [ ] Add stage-level latency metrics, request/error counts, retake reasons, saturation, cold starts, and model/chart version dashboards.
+- [ ] Configure sanitized log retention for 30 days.
+- [ ] Add alerts for error rate, p95 latency, instance saturation, malformed-upload spikes, and budget thresholds.
+- [ ] Run staging smoke tests after every deployment and production smoke tests after promotion.
+- [ ] Document rollback for frontend, container revision, model version, and chart version.
+
+## 8. Functional and Adversarial QA
+
+- [ ] Unit-test state transitions, chart mapping, quality rules, geometry, schemas, and sanitization.
+- [ ] Contract-test all success, retake, 413, 415, 429, timeout, and 5xx responses.
+- [ ] E2E-test the happy path for all four captures and ten results.
+- [ ] E2E-test every targeted retake without losing previously accepted measurements.
+- [ ] Test camera denial, file fallback, upload cancellation, offline interruption, retry, duplicate submission, and reset.
+- [ ] Test malformed images, MIME spoofing, decompression bombs, animated images, huge dimensions, corrupted HEIC, and unsupported files.
+- [ ] Verify zero persistent image and measurement-result writes under success, failure, cancellation, timeout, and process termination.
+- [ ] Test current and previous two major browser versions required by `plan.md`.
+- [ ] Complete automated accessibility scans and manual keyboard, VoiceOver, and TalkBack tests.
+- [ ] Complete visual regression review against every referenced Stitch screen.
+
+## 9. Accuracy and Performance Validation
+
+- [ ] Complete the 100-participant/1,000-nail feasibility study.
+- [ ] Confirm the four-photo approach can satisfy the measurement gates; otherwise add and validate the oblique-capture fallback before continuing.
+- [ ] Lock the participant-disjoint public-release holdout before final model selection.
+- [ ] Evaluate at least 200 people and 2,000 held-out nails with adjudicated physical ground truth.
+- [ ] Demonstrate width MAE ≤ 0.6 mm, p90 error ≤ 1.0 mm, and signed bias within ±0.2 mm.
+- [ ] Demonstrate exact size ≥ 90%, exact-or-adjacent ≥ 99%, and more-than-one-size miss ≤ 1%.
+- [ ] Demonstrate first-pass ten-nail completion ≥ 85% and completion after one retake ≥ 95%.
+- [ ] Demonstrate invalid false acceptance ≤ 2% and valid false rejection ≤ 10%.
+- [ ] Demonstrate required subgroup accuracy and rejection-rate parity.
+- [ ] Load-test expected peak plus 20% and prove p50 ≤ 2s, p95 ≤ 5s, and p99 ≤ 10s per capture.
+- [ ] Publish reproducible accuracy, fairness, rejection, repeatability, and performance reports.
+
+## 10. Privacy, Release, and Goal Closure
+
+- [ ] Complete a data-flow and threat-model review.
+- [ ] Verify that production photos are excluded from model-training workflows by technical controls, not policy alone.
+- [ ] Publish privacy copy that accurately says images are never persistently stored and explains transient processing.
+- [ ] Verify monitoring, backups, crash reporting, and analytics cannot capture image or result payloads.
+- [ ] Resolve every critical/high security issue and every severity-1/2 product defect.
+- [ ] Confirm all CI, staging, production smoke, E2E, accessibility, visual, performance, privacy, and model-validation checks are green.
+- [ ] Complete the goal evidence ledger with links to every report and deployment revision.
+- [ ] Obtain final product, nail-tech, privacy/security, and engineering sign-off.
+- [ ] Mark the single goal complete only after every mandatory checkbox above and every release gate in `plan.md` has evidence.
