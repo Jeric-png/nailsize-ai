@@ -102,6 +102,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Playwright simulates unavailable camera capability, cancels the browser picker, then proves the same control still accepts a saved file. A separate scenario aborts the first network request, displays offline recovery, retries, and accepts the unchanged capture.
 - The end-to-end completion scenario now erases all object URLs/results and proves `/results` immediately enters privacy recovery. The added assertion exposed a reset/navigation race; an explicit erasing transition now wins before the missing-results guard.
 - TypeScript, ESLint, 19 web unit/component tests, and 14 mobile/desktop Playwright scenarios passed after the fix.
+- GitHub CI run [29161165178](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161165178) passed all five jobs for frontend-interruption commit `980b13a`, including 119 Python/ML tests, contracts, security scanning, the production build, and all 14 browser scenarios.
 
 ## Evidence rules
 
