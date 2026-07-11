@@ -39,3 +39,14 @@ nailsize-train \
 The command fixes preprocessing to the production tensor contract, enables deterministic algorithms, records configuration/loss history/PyTorch version in the checkpoint, and never writes source images into the repository. A checkpoint is a research artifact, not a releasable model; evaluation, ONNX export, model-card review, and release gates still follow training.
 
 The default CI suite measures coverage for production and dependency-light ML modules; the heavy PyTorch modules are excluded because their optional dependencies are not installed there. Run the `Model Tooling` GitHub Actions workflow after changes to `modeling.py`, `training.py`, or their pinned dependencies. It installs the research extra on Linux and executes the real factory/export/training tests.
+
+Benchmark the exported candidate inside the exact Cloud Run container/revision before approval:
+
+```bash
+nailsize-benchmark /models/nail-segmentation.onnx \
+  --iterations 200 \
+  --warmup-iterations 20 \
+  --output /reports/onnx-benchmark.json
+```
+
+The report includes the model checksum, ONNX Runtime provider, iteration counts, p50/p95/p99/mean latency, logical CPU count, machine/platform, and Python version. A laptop or generic CI result only verifies the harness; only a report from the configured 2-vCPU/4-GiB Cloud Run revision satisfies the deployment benchmark task.

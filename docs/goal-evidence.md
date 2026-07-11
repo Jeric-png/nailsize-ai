@@ -136,6 +136,11 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - GitHub CI run [29161629250](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161629250) passed all five standard jobs after separating the dependency-light 94.45% coverage gate from optional PyTorch execution.
 - Dedicated Linux run [29161631910](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161631910) installed the pinned research stack and passed all seven model factory, loss, ONNX export/parity, manifest, preprocessing, and deterministic training-loop tests.
 
+## 2026-07-12 ONNX benchmark harness
+
+- The benchmark runner rejects models outside the fixed production input/output contract, performs configurable warmup, validates every output, and records checksum/provider/host metadata with p50, p95, p99, and mean inference latency.
+- Two synthetic ONNX tests prove successful CPU-provider reporting and rejection of an invalid output tensor. These tests validate the harness only; the Cloud Run CPU benchmark checklist remains open until a selected model runs inside the configured 2-vCPU/4-GiB revision.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
