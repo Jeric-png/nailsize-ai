@@ -50,6 +50,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Geometry tests prove explicit capture types produce the expected thumb-only or index/middle/ring/pinky semantic order for both sides.
 - Crop tests prove fixed tensor shape, source-coordinate mapping, boundary clipping detection, and rejection of incomplete or degenerate landmarks.
 - MediaPipe's handedness classification is retained only as diagnostic metadata; it cannot override the submitted left/right capture type.
+- GitHub CI: [run 29159701659](https://github.com/Jeric-png/nailsize-ai/actions/runs/29159701659) passed all five jobs, including checksum-pinned model download and real MediaPipe initialization/inference on Linux.
 
 ## Evidence rules
 
