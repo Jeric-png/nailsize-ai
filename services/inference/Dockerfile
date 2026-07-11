@@ -6,7 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN useradd --create-home --uid 10001 appuser
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libegl1 libgl1 libgles2 \
+    && apt-get install -y --no-install-recommends \
+        libegl1 \
+        libgl1 \
+        libgles2 \
+        libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY pyproject.toml ./

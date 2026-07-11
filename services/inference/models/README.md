@@ -9,4 +9,4 @@ Model binaries are fetched during a controlled build and are not stored in Git.
 - The production Docker build requires both files in this directory, installs the pinned MediaPipe extra and native EGL/GLES libraries, and copies only the two runtime artifacts. Build the immutable image only after the selected ONNX checksum, version metadata, parity, and release metrics are approved.
 
 The runtime must fail readiness when either required model is absent or fails checksum/startup validation.
-Linux images also require the `libegl1`, `libgl1`, and `libgles2` runtime libraries used by MediaPipe's native bindings and OpenCV import path.
+Linux images also require `libegl1`, `libgl1`, `libgles2`, and `libglib2.0-0` for MediaPipe's native bindings and OpenCV import path.
