@@ -7,3 +7,4 @@ Model binaries are fetched during a controlled build and are not stored in Git.
 - The nail-segmentation ONNX model will be added only after participant-disjoint validation and parity checks.
 
 The runtime must fail readiness when either required model is absent or fails checksum/startup validation.
+Linux images also require the `libegl1` and `libgles2` runtime libraries used by MediaPipe's native bindings.
