@@ -30,6 +30,12 @@
     "sha256": "aae29873236eefdacd4822958fe5930650d302374c5544c415af196dabc438a1"
   },
   {
+    "file": "wrong-nail-count.png",
+    "evaluator": "pipeline_no_hand",
+    "expected_code": "WRONG_NAIL_COUNT",
+    "sha256": "1e0c1efe668dfbcf61083b7566ce52153e0ddc19b830298eb59483ecef82b86c"
+  },
+  {
     "file": "nail-low-pixels.png",
     "evaluator": "mask",
     "expected_code": "LOW_CONFIDENCE",
@@ -46,5 +52,11 @@
     "evaluator": "mask",
     "expected_code": "NAIL_OCCLUDED",
     "sha256": "8682031965a992d2d31e65a1b4e7c29c1dc70a93e50d386ff0f333c8c51fe64f"
+  },
+  {
+    "file": "outside-default-chart.png",
+    "evaluator": "pipeline_outside_chart",
+    "expected_code": "OUTSIDE_DEFAULT_CHART",
+    "sha256": "16ab7a715045487279dc6b6006fdfe29717d9189f17b8f831ec6b5152d66e5f0"
   }
 ]

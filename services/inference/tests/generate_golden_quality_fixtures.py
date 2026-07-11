@@ -41,6 +41,8 @@ def fixtures() -> dict[str, tuple[np.ndarray, str, str]]:
     occluded = np.zeros((120, 120), dtype=np.uint8)
     cv2.ellipse(occluded, (60, 60), (30, 45), 0, 0, 360, 255, -1)
     cv2.circle(occluded, (60, 60), 15, 0, -1)
+    outside_chart = np.zeros((224, 160), dtype=np.uint8)
+    cv2.ellipse(outside_chart, (80, 112), (25, 62), 0, 0, 360, 255, -1)
 
     return {
         "blur.png": (cv2.GaussianBlur(valid, (91, 91), 25), "capture", "BLUR"),
@@ -56,9 +58,15 @@ def fixtures() -> dict[str, tuple[np.ndarray, str, str]]:
             "REFERENCE_INVALID",
         ),
         "reference-missing.png": (missing, "capture", "REFERENCE_MISSING"),
+        "wrong-nail-count.png": (valid, "pipeline_no_hand", "WRONG_NAIL_COUNT"),
         "nail-low-pixels.png": (low_pixels, "mask", "LOW_CONFIDENCE"),
         "nail-cropped.png": (cropped, "mask", "NAIL_CROPPED"),
         "nail-occluded.png": (occluded, "mask", "NAIL_OCCLUDED"),
+        "outside-default-chart.png": (
+            outside_chart,
+            "pipeline_outside_chart",
+            "OUTSIDE_DEFAULT_CHART",
+        ),
     }
 
 

@@ -73,7 +73,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Implement nail longitudinal-axis estimation and maximum valid transverse-chord measurement.
 - [x] Add synthetic geometry tests with known dimensions, perspective, rotation, blur, and compression.
 - [ ] Add golden-image tests for every quality rejection code.
-  - Deterministic capture/mask codes are covered by checksum-locked PNGs; `WRONG_NAIL_COUNT` and `UNSUPPORTED_NAIL_CONDITION` remain pending the validated model/data path.
+  - Ten checksum-locked PNGs now cover every code the current production service can emit. The added calibrated no-hand capture passes through the real pinned MediaPipe detector to return `WRONG_NAIL_COUNT`; the added narrow mask traverses calibration, projection, uncertainty, and chart mapping to return `OUTSIDE_DEFAULT_CHART`. `UNSUPPORTED_NAIL_CONDITION` remains intentionally uncovered because the service has no honest condition-classification emitter; closing this checkbox still requires representative labeled condition data and a validated detection design.
 
 ## 5. Dataset and Model
 

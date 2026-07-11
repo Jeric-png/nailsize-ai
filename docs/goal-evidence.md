@@ -334,6 +334,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Fresh local verification passed 293 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the production build, 18 Chromium visual/E2E scenarios, 45 current browser-engine scenarios, all 16 Terraform tests and provider validation, workflow lint, changed-file Ruff/Prettier checks, JSON evidence equivalence, and the high-severity npm audit with zero reported vulnerabilities.
 - GitHub CI run [29168205712](https://github.com/Jeric-png/nailsize-ai/actions/runs/29168205712) passed all ten jobs for implementation commit `d5d4d31`, including the 293-test inference/ML suite, both browser gates, security scanning, contracts, all Terraform roots, and the live read-only runtime-container termination smoke.
 
+## 2026-07-12 production-boundary golden rejection coverage
+
+- The golden manifest now contains ten checksum-locked PNG fixtures and rejects unmanifested/stale PNGs. Its coverage assertion equals every `QualityIssueCode` the service can currently emit, with `UNSUPPORTED_NAIL_CONDITION` explicitly excluded because no validated production emitter exists.
+- `wrong-nail-count.png` first passes production reference calibration, then runs the real checksum-validated MediaPipe hand landmarker and requires the production pipeline to return `WRONG_NAIL_COUNT` before segmentation. `outside-default-chart.png` supplies a locked segmentation mask that traverses production crop projection, mask quality, calibrated measurement, uncertainty scoring, and immutable chart mapping before requiring `OUTSIDE_DEFAULT_CHART`.
+- These fixtures prove deterministic wiring and fail-closed behavior, not real-world sensitivity, nail-condition recognition, physical accuracy, or participant-level validation. The task remains open until representative labeled condition data supports an approved `UNSUPPORTED_NAIL_CONDITION` design and golden fixture.
+- Fresh local verification passed 295 Python/ML tests at 93.50% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the production build, 18 Chromium visual/E2E scenarios, 45 current browser-engine scenarios, all 16 Terraform tests and provider validation, workflow lint, fixture formatting/checksums, and the high-severity npm audit with zero reported vulnerabilities.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
