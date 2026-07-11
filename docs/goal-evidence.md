@@ -110,6 +110,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Occlusion is a conservative deterministic geometry signal: the larger of enclosed-hole fraction and convex-hull deficit must remain at or below `0.12`. This threshold fails closed but is not evidence of real-world sensitivity or specificity.
 - Eight committed PNG fixtures have SHA-256 values in `services/inference/tests/fixtures/golden_quality/manifest.json`; a coverage assertion locks the fixture set to every code emitted by the deterministic capture/mask quality layer.
 - Repository-wide inference/ML verification passed 135 tests at 93.94% coverage. `WRONG_NAIL_COUNT` and `UNSUPPORTED_NAIL_CONDITION` are intentionally excluded from this milestone because honest detection requires the representative labeled dataset and validated model path.
+- GitHub CI run [29161304340](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161304340) passed all five jobs for quality-gate commit `033f140`, including Linux inference/ML tests, contract drift, security scanning, the production build, and all 14 browser scenarios.
 
 ## Evidence rules
 
