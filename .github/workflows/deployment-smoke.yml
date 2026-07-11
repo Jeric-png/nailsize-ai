@@ -60,7 +60,7 @@ jobs:
       SMOKE_MODEL_VERSION: ${{ inputs.expected_model_version }}
     steps:
       # v5, pinned for the production verification boundary.
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       # v6, pinned for the production verification boundary.
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
