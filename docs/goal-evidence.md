@@ -59,6 +59,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Preprocessing uses fixed RGB/ImageNet normalization; postprocessing applies sigmoid probabilities, a fixed threshold, and largest-connected-component cleanup.
 - Application readiness now requires initialized hand-landmark and nail-segmentation runtimes; a configured version string alone cannot report ready.
 - This verifies the runtime contract only. It is not evidence that a trained nail model is accurate or approved.
+- GitHub CI: [run 29159828508](https://github.com/Jeric-png/nailsize-ai/actions/runs/29159828508) passed all five jobs with ONNX Runtime, real MediaPipe Linux initialization, 86 Python tests, contract drift, web, E2E, and security checks.
 
 ## Evidence rules
 
