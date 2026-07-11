@@ -107,7 +107,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Configure sanitized log retention for 30 days.
 - [ ] Add alerts for error rate, p95 latency, instance saturation, malformed-upload spikes, and budget thresholds.
 - [ ] Run staging smoke tests after every deployment and production smoke tests after promotion.
-- [ ] Document rollback for frontend, container revision, model version, and chart version.
+- [x] Document rollback for frontend, container revision, model version, and chart version.
 
 ## 8. Functional and Adversarial QA
 

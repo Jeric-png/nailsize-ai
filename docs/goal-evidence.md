@@ -9,7 +9,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 | Privacy     | Current application has no persistent image/result path and log fields fail closed | `docs/privacy-and-threat-model.md`; `test_logging.py`; `session.test.ts`        | Foundation complete; staging verification pending |
 | Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                     |
 | Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                             |
-| Deployment  | Vercel frontend production build passes                                            | `npm run build` on 2026-07-11; `vercel.json`                                    | Frontend build complete; deployment pending       |
+| Deployment  | Versioned frontend and API deployment contracts pass local checks                   | `vercel.json`; `infra/cloud-run/service.template.yaml`; `docs/deployment.md`     | Configuration ready; deployment/load tuning pending |
 
 ## 2026-07-11 foundation verification
 
@@ -73,6 +73,15 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Browser-decodable static JPEG, PNG, and WebP captures are orientation-normalized, metadata-free WebP uploads capped at a 4096px edge and 16 MP without aspect distortion. Animated files, HEIC/HEIF, oversized encoded sources, and decode failures remain unchanged for the hardened server path; E2E multipart assertions prove the normal browser path uploads the rewritten WebP.
 - ADR-005 through ADR-007 record intentional Stitch adaptations for honest processing state, account-free recovery, and calibrated result evidence.
 - GitHub CI bootstrap run [29160372615](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160372615) passed all five jobs and generated the checked-in Linux baselines. Strict follow-up run [29160434743](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160434743) verified them without snapshot updates.
+
+## 2026-07-12 deployment-hardening verification
+
+- GitHub CI run [29160620416](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160620416) passed all five jobs for client-side image preparation commit `5486751`, including strict visual baselines, contracts, dependency audit, and Trivy scanning.
+- Twenty-six targeted API/configuration/deployment tests prove exact configured origins receive CORS headers, unknown origins do not, wildcard and malformed origins fail startup validation, HTTP is loopback-only in development, staging/production require HTTPS, and required deployment controls remain versioned.
+- Repository-wide Python/ML verification passed 103 tests at 92.26% coverage. Ruff formatting and lint, contract drift, TypeScript typecheck, ESLint, 17 web unit tests, the Vercel-compatible production build, 10 Playwright scenarios, and the high-severity npm audit all passed.
+- `vercel.json` parsed successfully with seven source-controlled security headers. `infra/cloud-run/service.template.yaml` parsed successfully as YAML and encodes load-balancer-only ingress, concurrency `1`, minimum instances `1`, 2 vCPU, 4 GiB, a 15-second timeout, probes, and immutable runtime metadata.
+- `docs/deployment.md` now defines environment isolation, manifest rendering, load-balancer/Cloud Armor requirements, smoke checks, immutable evidence, and frontend/API/model/chart rollback.
+- No staging or production resources were changed. Maximum instance count, Cloud Armor enforcement thresholds, billing alerts, public endpoints, and deployment smoke evidence remain pending load-test results and deployment credentials.
 
 ## Evidence rules
 

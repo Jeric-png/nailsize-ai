@@ -49,6 +49,34 @@ def test_no_store_header_is_present() -> None:
     assert response.headers["cache-control"] == "no-store"
 
 
+def test_cors_preflight_allows_the_configured_exact_origin() -> None:
+    response = client.options(
+        "/v1/measure",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type,X-Request-ID",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert "access-control-allow-credentials" not in response.headers
+
+
+def test_cors_preflight_rejects_an_unconfigured_origin() -> None:
+    response = client.options(
+        "/v1/measure",
+        headers={
+            "Origin": "https://attacker.example",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
 def test_mime_spoofing_is_rejected() -> None:
     response = post_image(b"not an image")
     assert response.status_code == 415

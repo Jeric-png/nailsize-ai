@@ -1,0 +1,59 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ${SERVICE_NAME}
+  annotations:
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "${MAX_INSTANCES}"
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 1
+      timeoutSeconds: 15
+      serviceAccountName: ${SERVICE_ACCOUNT_EMAIL}
+      containers:
+        - name: inference
+          image: ${IMAGE_URI}
+          ports:
+            - name: http1
+              containerPort: 8080
+          env:
+            - name: DEPLOYMENT_ENVIRONMENT
+              value: ${DEPLOYMENT_ENVIRONMENT}
+            - name: ALLOWED_ORIGINS
+              value: ${ALLOWED_ORIGINS}
+            - name: MODEL_PATH
+              value: models/nail-segmentation.onnx
+            - name: MODEL_SHA256
+              value: ${MODEL_SHA256}
+            - name: MODEL_VERSION
+              value: ${MODEL_VERSION}
+            - name: HAND_LANDMARKER_PATH
+              value: models/hand_landmarker.task
+            - name: HAND_LANDMARKER_SHA256
+              value: fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1
+            - name: LOG_LEVEL
+              value: INFO
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 2
+            timeoutSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 1
