@@ -98,6 +98,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Keep projected millimetres primary and size numbers secondary in UI and shared text.
 - [ ] Calibrate size recommendations against the physical best-fit labels.
 - [ ] Add repeatability tests across repeated captures of the same participant.
+  - The operational-report CLI now validates exactly two complete ten-nail capture sets per participant and publishes signed, mean-absolute, and p90-absolute repeated-capture differences with clustered intervals. The checkbox remains open until the locked study data and named review are supplied.
 
 ## 7. Integration, Deployment, and Observability
 
@@ -143,7 +144,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Load-test expected peak plus 20% and prove p50 ≤ 2s, p95 ≤ 5s, and p99 ≤ 10s per capture.
   - A bounded-concurrency staging harness now produces aggregate status/throughput/p50/p95/p99 JSON and fails the documented gates. Running it at the approved traffic target still requires a deployed validated model and staging endpoint.
 - [ ] Publish reproducible accuracy, fairness, rejection, repeatability, and performance reports.
-  - The accuracy-report CLI now enforces the public-holdout minimums, overall measurement gates, reviewer-declared adequately sampled cohort gates, and participant-clustered confidence intervals. A real locked holdout and the remaining rejection/repeatability/performance evidence are still required.
+  - The accuracy-report CLI enforces the public-holdout minimums, overall measurement gates, reviewer-declared adequately sampled cohort gates, and participant-clustered confidence intervals. The operational-report CLI enforces completion and rejection gates and publishes repeatability and subgroup rejection gaps with required review references; the load harness covers performance. Real locked-study exports, completed reviews, and deployment evidence are still required.
 
 ## 10. Privacy, Release, and Goal Closure
 

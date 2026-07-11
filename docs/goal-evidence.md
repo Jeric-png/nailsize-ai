@@ -218,6 +218,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The product footer links to a dedicated notice explaining that photos, previews, and measurements live in browser memory; server uploads and decoded buffers are transient; application storage receives no photos or measurement results; logs exclude filenames, pixels, contours, widths, and results; and production uploads cannot enter the separate consented research workflow.
 - The notice repeats the prohibition on payment/government-ID reference cards and names a blank ISO ID-1 card as the safe alternative. An E2E accessibility scenario locks the core claims and scans the rendered page. The publication task remains open until this notice is deployed at the public production origin.
 
+## 2026-07-12 operational validation-report contract
+
+- The `nailsize-operational-report` CLI consumes a versioned, image-free private study bundle and reports first-pass and one-retake completion, invalid false acceptance, valid false rejection, repeated-capture differences, and reviewer-declared adequately sampled cohort rejection gaps.
+- It enforces the plan's 200-participant minimum and numeric completion/rejection gates, requires participant coverage across all inputs, requires all four planned cohort dimensions, and publishes deterministic participant-clustered 95% bootstrap intervals.
+- The plan does not define universal numeric repeatability or subgroup rejection-parity thresholds. The report therefore exposes the measurements and requires named study-review references instead of inventing cutoffs. Synthetic tests validate calculations and fail-closed behavior only; the related study checkboxes remain open pending consented real-world evidence.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
