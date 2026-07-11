@@ -41,6 +41,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Deterministic participant-level split tests prove one participant cannot appear in more than one dataset partition.
 - Annotation-quality tests cover validation failures, Dice overlap, symmetric boundary distance, digit and quality-code agreement, Cohen's kappa, width disagreement, and pairwise agreement reports.
 - No real participant data, trained-model metrics, or inter-annotator study results are claimed by these tooling tests.
+- GitHub CI: [run 29159473072](https://github.com/Jeric-png/nailsize-ai/actions/runs/29159473072) passed all five jobs for dataset-tooling commit `992f321`.
 
 ## Evidence rules
 
