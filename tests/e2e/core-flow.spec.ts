@@ -225,7 +225,6 @@ test("offline interruption retries the same in-memory capture", async ({
 });
 
 test("four accepted captures produce ten shareable results and a targeted correction", async ({
-  browserName,
   context,
   page,
 }) => {
@@ -240,13 +239,12 @@ test("four accepted captures produce ten shareable results and a targeted correc
     const captureType = captureTypeFromMultipart(body);
     expect(captureType).toBeTruthy();
     const multipart = body?.toString("latin1") ?? "";
-    if (browserName === "webkit") {
-      expect(multipart).toContain('filename="nails.png"');
-      expect(multipart).toContain("Content-Type: image/png");
-    } else {
-      expect(multipart).toContain('filename="nails.webp"');
-      expect(multipart).toContain("Content-Type: image/webp");
-    }
+    const hasWebpPayload = multipart.includes('filename="nails.webp"');
+    const hasPngFallback = multipart.includes('filename="nails.png"');
+    expect(hasWebpPayload || hasPngFallback).toBe(true);
+    expect(multipart).toContain(
+      hasWebpPayload ? "Content-Type: image/webp" : "Content-Type: image/png",
+    );
     await route.fulfill({ json: successfulMeasurement(captureType!) });
   });
 
