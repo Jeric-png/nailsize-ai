@@ -21,6 +21,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - `.venv/bin/pytest services/inference/tests --cov=services/inference/app`: 21 tests passed; 93% coverage.
 - `npm run test:e2e`: 4 Chromium tests passed across 390px and 1280px projects; no critical or serious axe findings.
 - Visual inspection: capture layouts preserve the approved sharp, structural clinical wireframe language at both target widths.
+- GitHub CI: [run 29159062823](https://github.com/Jeric-png/nailsize-ai/actions/runs/29159062823) passed all web, inference, contract-drift, E2E, dependency-audit, and Trivy filesystem-scan jobs for commit `bb8c71f`.
 
 ## Evidence rules
 
