@@ -70,4 +70,44 @@ describe("measureCapture", () => {
       code: "offline",
     });
   });
+
+  it("preserves AbortError and removes the cancelled request from deduplication", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce((_url: string, init: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            reject(new DOMException("cancelled", "AbortError"));
+          });
+        });
+      })
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "retake",
+            request_id: "request-after-cancel",
+            capture_type: "left_fingers",
+            quality_issues: [],
+            measurements: [],
+            model_version: "test",
+            chart_id: "platform-default",
+            chart_version: "1",
+            processing_ms: 1,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["image"], "cancel.jpg", { type: "image/jpeg" });
+    const controller = new AbortController();
+
+    const cancelled = measureCapture("left_fingers", file, controller.signal);
+    controller.abort();
+
+    await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
+    await expect(measureCapture("left_fingers", file)).resolves.toMatchObject({
+      status: "retake",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

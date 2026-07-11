@@ -275,7 +275,7 @@ function CapturePage({
   );
 }
 
-function QualityPage({
+export function QualityPage({
   state,
   dispatch,
 }: {
@@ -294,7 +294,8 @@ function QualityPage({
   useEffect(() => {
     if (!record || state.status !== "submitting") return;
     let current = true;
-    void measureCapture(captureType, record.file)
+    const controller = new AbortController();
+    void measureCapture(captureType, record.file, controller.signal)
       .then((response) => {
         if (!current) return;
         if (response.status === "retake")
@@ -318,6 +319,7 @@ function QualityPage({
       });
     return () => {
       current = false;
+      controller.abort();
     };
   }, [captureType, dispatch, record, state.status]);
 
@@ -573,6 +575,7 @@ function Results({
   const navigate = useNavigate();
   const [shareStatus, setShareStatus] = useState("");
   const [activeSide, setActiveSide] = useState<"Left" | "Right">("Left");
+  const [erasing, setErasing] = useState(false);
   const measurements: ResultMeasurement[] = results.flatMap((result) =>
     result.measurements.map((item) => ({
       ...item,
@@ -582,6 +585,7 @@ function Results({
       captureType: result.capture_type,
     })),
   );
+  if (erasing) return <Navigate to="/" replace />;
   if (measurements.length !== 10)
     return (
       <Navigate
@@ -710,8 +714,8 @@ function Results({
             <Button
               className="button--secondary"
               onClick={() => {
+                setErasing(true);
                 reset();
-                navigate("/");
               }}
             >
               Start over and erase session

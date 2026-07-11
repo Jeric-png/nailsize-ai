@@ -116,6 +116,62 @@ test("an expired in-memory session explains the privacy-safe reset", async ({
   await expect(page).toHaveURL(/\/$/);
 });
 
+test("camera denial and picker cancellation preserve the file fallback", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: () =>
+          Promise.reject(new DOMException("Camera denied", "NotAllowedError")),
+      },
+    });
+  });
+  await page.goto("/capture/left_fingers");
+
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Take or choose photo" }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles([]);
+  await expect(
+    page.getByRole("button", { name: "Check this photo" }),
+  ).toBeDisabled();
+
+  await selectTestPhoto(page);
+  await expect(
+    page.getByRole("button", { name: "Check this photo" }),
+  ).toBeEnabled();
+});
+
+test("offline interruption retries the same in-memory capture", async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route("http://localhost:8000/v1/measure", async (route) => {
+    attempts += 1;
+    if (attempts === 1) {
+      await route.abort("internetdisconnected");
+      return;
+    }
+    await route.fulfill({ json: successfulMeasurement("left_thumb") });
+  });
+  await page.goto("/capture/left_thumb");
+  await selectTestPhoto(page);
+  await page.getByRole("button", { name: "Check this photo" }).click();
+
+  await expect(
+    page.getByText(
+      "The sizing service could not be reached. Check your connection and retry.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Retry check" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Photo accepted.",
+  );
+  expect(attempts).toBe(2);
+});
+
 test("four accepted captures produce ten shareable results and a targeted correction", async ({
   context,
   page,
@@ -187,6 +243,12 @@ test("four accepted captures produce ten shareable results and a targeted correc
   await expect(
     page.locator(".measurement-row:visible").filter({ hasText: "thumb" }),
   ).toHaveCount(mobile ? 1 : 2);
+  await page
+    .getByRole("button", { name: "Start over and erase session" })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto("/results");
+  await expect(page).toHaveURL(/\/recover\/session$/);
 });
 
 test("unsupported uploads show a typed replacement path", async ({ page }) => {

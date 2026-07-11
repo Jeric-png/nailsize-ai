@@ -83,6 +83,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - `docs/deployment.md` now defines environment isolation, manifest rendering, load-balancer/Cloud Armor requirements, smoke checks, immutable evidence, and frontend/API/model/chart rollback.
 - No staging or production resources were changed. Maximum instance count, Cloud Armor enforcement thresholds, billing alerts, public endpoints, and deployment smoke evidence remain pending load-test results and deployment credentials.
 - GitHub CI run [29160837235](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160837235) passed all five jobs for deployment-hardening commit `1ce8997`, including Linux runtime initialization, 103 Python/ML tests, strict responsive snapshots, contract drift, build, dependency audit, and Trivy scanning.
+- GitHub CI run [29161046835](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161046835) passed all five jobs after moving Playwright artifact handling to the current Node 24 action; successful runs no longer emit missing-artifact or deprecated-runtime annotations.
 
 ## 2026-07-12 adversarial-upload verification
 
@@ -93,6 +94,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - HTTP tests prove encoded overflow returns 413 with `no-store`; unexpected decoder failure returns a sanitized 500 and neither client filenames nor internal decoder details enter responses or captured application logs.
 - Repository-wide verification passed 119 Python/ML tests at 93.64% coverage, contract drift, Ruff, TypeScript, ESLint, 17 web unit tests, the production build, 10 Playwright scenarios, and the high-severity npm audit.
 - GitHub CI run [29160985679](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160985679) passed all five jobs for adversarial-upload commit `2402751`, including the Linux decoder/HEIF environment, 119 Python/ML tests, strict visual snapshots, contract drift, build, dependency audit, and Trivy scanning.
+
+## 2026-07-12 frontend-interruption verification
+
+- Quality-screen unmount now aborts the active `fetch` through a screen-scoped `AbortController`; the completion handlers cannot update the discarded screen. A component test proves unmount changes the exact request signal to `aborted`.
+- API unit tests prove concurrent same-file submissions share one request, cancellation preserves `AbortError`, cancelled requests leave the deduplication map, offline failures receive a typed recovery code, and the same in-memory file can be retried.
+- Playwright simulates unavailable camera capability, cancels the browser picker, then proves the same control still accepts a saved file. A separate scenario aborts the first network request, displays offline recovery, retries, and accepts the unchanged capture.
+- The end-to-end completion scenario now erases all object URLs/results and proves `/results` immediately enters privacy recovery. The added assertion exposed a reset/navigation race; an explicit erasing transition now wins before the missing-results guard.
+- TypeScript, ESLint, 19 web unit/component tests, and 14 mobile/desktop Playwright scenarios passed after the fix.
 
 ## Evidence rules
 
