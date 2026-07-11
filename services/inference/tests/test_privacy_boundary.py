@@ -11,7 +11,10 @@ FORBIDDEN_RUNTIME_IMPORTS = {
     "google.cloud.storage",
     "nailsize_ml",
     "sentry_sdk",
+    "shelve",
+    "sqlite3",
     "sqlalchemy",
+    "tempfile",
     "torch",
     "torchvision",
 }
@@ -22,6 +25,24 @@ FORBIDDEN_DEPENDENCY_FRAGMENTS = {
     "sqlalchemy",
     "torch",
     "torchvision",
+}
+FORBIDDEN_FILESYSTEM_METHODS = {
+    "hardlink_to",
+    "mkdir",
+    "rename",
+    "replace",
+    "symlink_to",
+    "touch",
+    "write_bytes",
+    "write_text",
+}
+FORBIDDEN_BROWSER_PERSISTENCE = {
+    "caches.open",
+    "indexedDB",
+    "localStorage",
+    "navigator.sendBeacon",
+    "navigator.storage",
+    "sessionStorage",
 }
 
 
@@ -34,6 +55,28 @@ def _imported_modules(path: Path) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.module:
             modules.add(node.module)
     return modules
+
+
+def _filesystem_write_lines(path: Path) -> list[int]:
+    writes: list[int] = []
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Attribute) and node.func.attr in FORBIDDEN_FILESYSTEM_METHODS:
+            writes.append(node.lineno)
+            continue
+        if not isinstance(node.func, ast.Name) or node.func.id != "open":
+            continue
+        mode_node = next(
+            (keyword.value for keyword in node.keywords if keyword.arg == "mode"),
+            node.args[1] if len(node.args) > 1 else ast.Constant("r"),
+        )
+        if not isinstance(mode_node, ast.Constant) or not isinstance(mode_node.value, str):
+            writes.append(node.lineno)
+        elif any(flag in mode_node.value for flag in "wax+"):
+            writes.append(node.lineno)
+    return writes
 
 
 def test_production_runtime_cannot_import_training_or_persistence_clients() -> None:
@@ -59,6 +102,27 @@ def test_production_package_has_no_training_or_persistence_dependencies() -> Non
     }
 
     assert dependencies.isdisjoint(FORBIDDEN_DEPENDENCY_FRAGMENTS)
+
+
+def test_production_runtime_has_no_filesystem_write_path() -> None:
+    violations: dict[str, list[int]] = {}
+    for source in (INFERENCE_ROOT / "app").glob("*.py"):
+        lines = _filesystem_write_lines(source)
+        if lines:
+            violations[str(source.relative_to(REPOSITORY_ROOT))] = lines
+
+    assert not violations, f"Production filesystem writes: {violations}"
+
+
+def test_browser_has_no_persistent_storage_or_payload_export_path() -> None:
+    sources = "\n".join(
+        source.read_text(encoding="utf-8")
+        for source in (REPOSITORY_ROOT / "apps" / "web" / "src").rglob("*")
+        if source.suffix in {".ts", ".tsx"}
+    )
+
+    violations = {token for token in FORBIDDEN_BROWSER_PERSISTENCE if token in sources}
+    assert not violations, f"Forbidden browser persistence APIs: {sorted(violations)}"
 
 
 def test_runtime_image_copies_only_the_production_package() -> None:

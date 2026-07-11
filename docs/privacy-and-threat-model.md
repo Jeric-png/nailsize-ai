@@ -32,7 +32,7 @@ The production path has no database, object storage, queue, image cache, request
 
 ## Enforced production/research boundary
 
-The production Python package has no training-framework, object-storage, database, or telemetry-export dependencies. Its container build copies only `pyproject.toml` and `app/`; neither `ml/` nor the repository root enters the image. Production modules are forbidden from importing the research package or common persistence/training clients. The model-tooling workflow is manual and has no artifact-download or cloud-auth step. `test_privacy_boundary.py` enforces these constraints in standard CI.
+The production Python package has no training-framework, object-storage, database, temporary-file, or telemetry-export dependencies. Its application modules have no filesystem-write calls. The container build copies only `pyproject.toml` and `app/`; neither `ml/` nor the repository root enters the image. Production modules are forbidden from importing the research package or common persistence/training clients. Browser source is forbidden from using persistent web storage, Cache Storage, storage management, or beacon export APIs. The model-tooling workflow is manual and has no artifact-download or cloud-auth step. `test_privacy_boundary.py` enforces these constraints in standard CI.
 
 This repository boundary prevents the application from exporting uploads into the available training path. Deployment review must still verify that the Cloud Run identity has no write access to research storage and that no platform integration captures request bodies.
 

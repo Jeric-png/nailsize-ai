@@ -120,6 +120,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Test camera denial, file fallback, upload cancellation, offline interruption, retry, duplicate submission, and reset.
 - [x] Test malformed images, MIME spoofing, decompression bombs, animated images, huge dimensions, corrupted HEIC, and unsupported files.
 - [ ] Verify zero persistent image and measurement-result writes under success, failure, cancellation, timeout, and process termination.
+  - CI forbids filesystem-write paths in the production application and persistent storage/payload beacon APIs in the browser. Deployed cancellation, timeout, process-termination, and platform-telemetry observation remain pending.
 - [ ] Test current and previous two major browser versions required by `plan.md`.
 - [ ] Complete automated accessibility scans and manual keyboard, VoiceOver, and TalkBack tests.
   - Axe scans cover landing, preparation, capture, accepted quality, processing, results, typed upload error, and expired-session recovery at both approved viewports. Manual keyboard and assistive-technology device passes remain pending.
