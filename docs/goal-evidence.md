@@ -84,6 +84,15 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - No staging or production resources were changed. Maximum instance count, Cloud Armor enforcement thresholds, billing alerts, public endpoints, and deployment smoke evidence remain pending load-test results and deployment credentials.
 - GitHub CI run [29160837235](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160837235) passed all five jobs for deployment-hardening commit `1ce8997`, including Linux runtime initialization, 103 Python/ML tests, strict responsive snapshots, contract drift, build, dependency audit, and Trivy scanning.
 
+## 2026-07-12 adversarial-upload verification
+
+- The decoder now requires the decoded image signature, submitted MIME type, and filename extension to agree. JPEG, PNG, WebP, and HEIF-family rules are explicit; a valid PNG disguised as JPEG fails with 415.
+- Tests exercise malformed bytes, mismatched MIME/extension combinations, encoded-size overflow, decoded-pixel overflow, a 10-gigapixel decompression-bomb PNG header, animated WebP, corrupted HEIC, unsupported metadata, and static JPEG/PNG/WebP success.
+- Early metadata rejection, size rejection, decoder rejection, and success all close the upload handle. The encoded request is held in a mutable buffer and overwritten on every exit; decoded RGB is overwritten when processing completes.
+- EXIF orientation is applied before inference and downstream code receives only a copied RGB pixel array, not source metadata. The unused JPEG re-encoding path was removed.
+- HTTP tests prove encoded overflow returns 413 with `no-store`; unexpected decoder failure returns a sanitized 500 and neither client filenames nor internal decoder details enter responses or captured application logs.
+- Repository-wide verification passed 119 Python/ML tests at 93.64% coverage, contract drift, Ruff, TypeScript, ESLint, 17 web unit tests, the production build, 10 Playwright scenarios, and the high-severity npm audit.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

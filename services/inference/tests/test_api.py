@@ -1,3 +1,4 @@
+import logging
 from io import BytesIO
 
 import cv2
@@ -6,7 +7,7 @@ from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
 from test_calibration import card_scene
 
-from app.main import app
+from app.main import app, settings
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -81,6 +82,33 @@ def test_mime_spoofing_is_rejected() -> None:
     response = post_image(b"not an image")
     assert response.status_code == 415
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_encoded_limit_returns_413_without_filename_leak(monkeypatch, caplog) -> None:
+    monkeypatch.setattr(settings, "max_encoded_bytes", 64)
+
+    with caplog.at_level(logging.INFO, logger="nailsize.inference"):
+        response = post_image(b"x" * 65, filename="private-client-name.jpg")
+
+    assert response.status_code == 413
+    assert response.headers["cache-control"] == "no-store"
+    assert "private-client-name" not in caplog.text
+
+
+def test_unexpected_decoder_error_is_sanitized(monkeypatch, caplog) -> None:
+    async def fail_decode(*_args, **_kwargs):
+        raise RuntimeError("decoder internals must not reach the client")
+
+    monkeypatch.setattr("app.main.decode_upload", fail_decode)
+
+    with caplog.at_level(logging.ERROR, logger="nailsize.inference"):
+        response = post_image(jpeg_fixture(), filename="private-client-name.jpg")
+
+    assert response.status_code == 500
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["error"] == "INTERNAL_ERROR"
+    assert "decoder internals" not in response.text
+    assert "private-client-name" not in caplog.text
 
 
 def test_unrecognized_extension_is_rejected() -> None:

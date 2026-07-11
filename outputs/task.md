@@ -116,7 +116,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] E2E-test the happy path for all four captures and ten results.
 - [x] E2E-test every targeted retake without losing previously accepted measurements.
 - [ ] Test camera denial, file fallback, upload cancellation, offline interruption, retry, duplicate submission, and reset.
-- [ ] Test malformed images, MIME spoofing, decompression bombs, animated images, huge dimensions, corrupted HEIC, and unsupported files.
+- [x] Test malformed images, MIME spoofing, decompression bombs, animated images, huge dimensions, corrupted HEIC, and unsupported files.
 - [ ] Verify zero persistent image and measurement-result writes under success, failure, cancellation, timeout, and process termination.
 - [ ] Test current and previous two major browser versions required by `plan.md`.
 - [ ] Complete automated accessibility scans and manual keyboard, VoiceOver, and TalkBack tests.
