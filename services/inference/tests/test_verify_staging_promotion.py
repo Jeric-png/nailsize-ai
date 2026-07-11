@@ -25,13 +25,17 @@ def _evidence():
             "conclusion": "success",
         },
         "deployment_manifest": {
-            "schema_version": "nailsize-deployment@2",
+            "schema_version": "nailsize-deployment@3",
             "environment": "staging",
+            "promoted_from_image_uri": None,
             "git_commit_sha": COMMIT_SHA,
             "model_release_tag": MODEL_RELEASE_TAG,
             "api_url": API,
             "frontend_url": FRONTEND,
-            "image_uri": "us-docker.pkg.dev/project/repo/inference@sha256:" + "c" * 64,
+            "image_uri": (
+                "us-central1-docker.pkg.dev/nailsize-staging/"
+                "nailsize-staging-inference/inference@sha256:" + "c" * 64
+            ),
             "model_version": MODEL_VERSION,
             "model_sha256": MODEL_SHA256,
         },
@@ -86,6 +90,7 @@ def test_accepts_exact_successful_staging_candidate() -> None:
         ("run_metadata", "conclusion", "failure"),
         ("run_metadata", "headSha", "d" * 40),
         ("deployment_manifest", "environment", "production"),
+        ("deployment_manifest", "promoted_from_image_uri", "staging-image"),
         ("deployment_manifest", "model_sha256", "e" * 64),
         ("vercel_deployment", "ready_substate", "STAGED"),
         ("smoke_report", "passed", False),

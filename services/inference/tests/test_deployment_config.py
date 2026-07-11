@@ -109,6 +109,7 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "deployment-evidence-staging" in workflow
     assert "deployment-smoke-staging" in workflow
     assert "verify_staging_promotion.py" in workflow
+    assert "verify_image_promotion.py" in workflow
     assert 'gh run list --repo "$GITHUB_REPOSITORY" --workflow CI' in workflow
     assert "google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093" in workflow
     assert "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db" in workflow
@@ -122,17 +123,32 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     runtime_gate = workflow.index("verify_runtime_model.py")
     vercel_gate = workflow.index("verify_vercel_deployment.py")
     cloud_auth = workflow.index("google-github-actions/auth@")
-    image_build = workflow.index("docker build --tag")
+    image_promotion = workflow.index('docker pull "$source_image"')
+    image_build = workflow.index('docker build --tag "$image_tag"')
     observability_apply = workflow.index("terraform -chdir=infra/observability apply")
     assert (
         staging_gate
         < release_gate
         < runtime_gate
         < cloud_auth
-        < image_build
+        < image_promotion
         < observability_apply
         < vercel_gate
     )
+    assert image_promotion < image_build
+    image_step = workflow.split("- name: Build or promote immutable inference image", 1)[1].split(
+        "- name: Apply API platform", 1
+    )[0]
+    production_branch = image_step.split('if [[ "$DEPLOY_ENVIRONMENT" == "production" ]]; then', 1)[
+        1
+    ].split("          else", 1)[0]
+    staging_branch = image_step.split("          else", 1)[1].split("          fi", 1)[0]
+    assert "docker build" not in production_branch
+    assert 'docker build --tag "$image_tag" services/inference' in staging_branch
+    assert 'docker tag "$source_image" "$image_tag"' in workflow
+    assert '--source-image-uri "$source_image"' in workflow
+    assert "work/image-promotion.json" in workflow
+    assert '--arg schema_version "nailsize-deployment@3"' in workflow
 
 
 def test_every_terraform_root_declares_remote_gcs_state() -> None:

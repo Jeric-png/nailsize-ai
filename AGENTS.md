@@ -9,14 +9,14 @@ This repository implements the NailSize AI web application as a monorepo:
 - `ml/`: dataset tooling, PyTorch training, evaluation, export, and model cards.
 - `packages/contracts/`: generated TypeScript API types and shared enums.
 - `tests/e2e/`: Playwright cross-service tests.
-- `infra/`: Firebase Hosting, Cloud Run, and monitoring configuration.
+- `infra/`: Google Cloud bootstrap, Cloud Run platform, and observability Terraform.
 - `docs/`: decisions, validation reports, privacy documentation, and goal evidence.
 
 Keep production photos out of the repository. Test images must be consented, anonymized fixtures under a clearly labelled test-data directory.
 
 ## Build, Test, and Development Commands
 
-The repository is still being scaffolded; preserve these command contracts when adding tooling:
+Preserve these command contracts when adding tooling:
 
 - `npm install`: install JavaScript workspace dependencies.
 - `npm --workspace apps/web run dev`: start the frontend locally.

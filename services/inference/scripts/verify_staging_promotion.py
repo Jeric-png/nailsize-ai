@@ -49,8 +49,9 @@ def verify_staging_promotion(
         raise ValueError("Staging workflow run is not the exact successful release candidate")
 
     if (
-        deployment_manifest.get("schema_version") != "nailsize-deployment@2"
+        deployment_manifest.get("schema_version") != "nailsize-deployment@3"
         or deployment_manifest.get("environment") != "staging"
+        or deployment_manifest.get("promoted_from_image_uri") is not None
         or deployment_manifest.get("git_commit_sha") != expected_commit_sha
         or deployment_manifest.get("model_release_tag") != expected_model_release_tag
         or deployment_manifest.get("model_version") != expected_model_version
@@ -61,7 +62,9 @@ def verify_staging_promotion(
     api_url = _exact_https_origin(deployment_manifest.get("api_url"), "API URL")
     image_uri = deployment_manifest.get("image_uri")
     if not isinstance(image_uri, str) or not re.fullmatch(
-        r"[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}", image_uri
+        r"[a-z0-9-]+-docker\.pkg\.dev/[a-z][a-z0-9-]{4,28}[a-z0-9]/"
+        r"nailsize-staging-inference/inference@sha256:[0-9a-f]{64}",
+        image_uri,
     ):
         raise ValueError("Staging image must be identified by an immutable digest")
 

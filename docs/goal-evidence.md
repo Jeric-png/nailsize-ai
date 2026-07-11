@@ -291,6 +291,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Fresh local verification passed Ruff formatting/lint, 258 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, workflow lint, Prettier, and a Vercel-compatible production build with the exact configured staging API origin embedded in the same JavaScript asset as `/v1/measure` and no localhost fallback.
 - GitHub CI run [29166150898](https://github.com/Jeric-png/nailsize-ai/actions/runs/29166150898) passed all ten jobs for commit `bb50104`, including the schema-v2 smoke/promotion tests, 258 Python/ML tests, 24 web tests, 18 visual/E2E scenarios, 45 current-engine scenarios, contract drift, security scanning, live container readiness, and all three Terraform roots.
 
+## 2026-07-12 byte-identical container promotion contract
+
+- The deployment audit found that production independently rebuilt the inference container after staging had passed. Even at the same commit and model checksum, mutable build inputs could make that a different artifact, so the workflow did not prove it was deploying what staging tested.
+- Staging remains the only environment that runs `docker build`. Production now reads the exact digest from verified staging evidence, authenticates to both environment registries, pulls by digest, retags and pushes into the isolated production repository, and fails unless the resolved destination digest is identical.
+- The fail-closed `nailsize-image-promotion@1` report records only the source URI, destination URI, common SHA-256 digest, schema, and pass result. Deployment schema `nailsize-deployment@3` records a null promotion source for staging and the verified staging source URI for production.
+- Focused tests cover exact cross-environment promotion and reject digest mismatches, mutable tags, reversed/same repositories, wrong image names, wrong repositories, and non-Artifact-Registry hosts. Configuration tests also require the pull/tag/verify path and the versioned evidence artifact. These are source-level contract checks; no live container copy or cloud deployment is claimed.
+- Fresh local verification passed Ruff formatting/lint; 269 Python/ML tests at 93.34% measured coverage; 24 web tests; contract drift; ESLint; TypeScript; the Vercel-compatible production build; 18 Chromium visual/E2E scenarios; 45 current browser-engine scenarios; all 16 Terraform tests and provider validation; workflow lint; Prettier; and the high-severity npm audit with zero reported vulnerabilities. The required Linux CI container build and live cloud promotion remain pending remote execution.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

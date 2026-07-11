@@ -227,7 +227,7 @@ jobs:
           terraform -chdir=infra/bootstrap apply -input=false \
             "$RUNNER_TEMP/bootstrap.tfplan"
 
-      - name: Build and push immutable inference image
+      - name: Build or promote immutable inference image
         id: image
         shell: bash
         run: |
@@ -235,13 +235,31 @@ jobs:
           registry="$GCP_REGION-docker.pkg.dev"
           repository="nailsize-$DEPLOY_ENVIRONMENT-inference"
           image_tag="$registry/$GCP_PROJECT_ID/$repository/inference:github-$GITHUB_SHA"
-          gcloud auth configure-docker "$registry" --quiet
-          docker build --tag "$image_tag" services/inference
-          docker push "$image_tag"
+          source_image=""
+          if [[ "$DEPLOY_ENVIRONMENT" == "production" ]]; then
+            source_image="$(jq -r '.staging_image_uri' work/staging-promotion.json)"
+            source_registry="${source_image%%/*}"
+            [[ "$source_registry" =~ ^[a-z0-9-]+-docker\.pkg\.dev$ ]]
+            gcloud auth configure-docker "$source_registry,$registry" --quiet
+            docker pull "$source_image"
+            docker tag "$source_image" "$image_tag"
+            docker push "$image_tag"
+          else
+            gcloud auth configure-docker "$registry" --quiet
+            docker build --tag "$image_tag" services/inference
+            docker push "$image_tag"
+          fi
           digest="$(gcloud artifacts docker images describe "$image_tag" --format='value(image_summary.digest)')"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           image_uri="${image_tag%:*}@$digest"
+          if [[ "$DEPLOY_ENVIRONMENT" == "production" ]]; then
+            python services/inference/scripts/verify_image_promotion.py \
+              --source-image-uri "$source_image" \
+              --destination-image-uri "$image_uri" \
+              --output work/image-promotion.json
+          fi
           echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
+          echo "promoted_from_image_uri=$source_image" >> "$GITHUB_OUTPUT"
 
       - name: Apply API platform
         id: platform
@@ -314,18 +332,21 @@ jobs:
           set -euo pipefail
           api_url="${{ steps.platform.outputs.api_url }}"
           jq -n \
-            --arg schema_version "nailsize-deployment@2" \
+            --arg schema_version "nailsize-deployment@3" \
             --arg environment "$DEPLOY_ENVIRONMENT" \
             --arg git_commit_sha "$GITHUB_SHA" \
             --arg api_url "$api_url" \
             --arg frontend_url "$FRONTEND_ORIGIN" \
             --arg image_uri "${{ steps.image.outputs.image_uri }}" \
+            --arg promoted_from_image_uri "${{ steps.image.outputs.promoted_from_image_uri }}" \
             --arg model_release_tag "$MODEL_RELEASE_TAG" \
             --arg model_version "$EXPECTED_MODEL_VERSION" \
             --arg model_sha256 "$EXPECTED_MODEL_SHA256" \
             '{schema_version: $schema_version, environment: $environment,
               git_commit_sha: $git_commit_sha, api_url: $api_url,
               frontend_url: $frontend_url, image_uri: $image_uri,
+              promoted_from_image_uri:
+                (if $promoted_from_image_uri == "" then null else $promoted_from_image_uri end),
               model_release_tag: $model_release_tag,
               model_version: $model_version, model_sha256: $model_sha256}' \
             > work/deployment-manifest.json
@@ -341,6 +362,7 @@ jobs:
             work/deployment-manifest.json
             work/model-release-manifest.json
             work/runtime-model-verification.json
+            work/image-promotion.json
             work/staging-promotion.json
             work/vercel-deployment.json
           if-no-files-found: error
