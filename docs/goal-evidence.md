@@ -223,6 +223,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The `nailsize-operational-report` CLI consumes a versioned, image-free private study bundle and reports first-pass and one-retake completion, invalid false acceptance, valid false rejection, repeated-capture differences, and reviewer-declared adequately sampled cohort rejection gaps.
 - It enforces the plan's 200-participant minimum and numeric completion/rejection gates, requires participant coverage across all inputs, requires all four planned cohort dimensions, and publishes deterministic participant-clustered 95% bootstrap intervals.
 - The plan does not define universal numeric repeatability or subgroup rejection-parity thresholds. The report therefore exposes the measurements and requires named study-review references instead of inventing cutoffs. Synthetic tests validate calculations and fail-closed behavior only; the related study checkboxes remain open pending consented real-world evidence.
+- GitHub CI run [29163415282](https://github.com/Jeric-png/nailsize-ai/actions/runs/29163415282) passed all six jobs for commit `9805d1a`, including Linux lint and dependency-light ML coverage, contracts, web, E2E, security, and live container readiness.
 
 ## Evidence rules
 
