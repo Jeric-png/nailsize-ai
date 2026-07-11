@@ -82,6 +82,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - `vercel.json` parsed successfully with seven source-controlled security headers. `infra/cloud-run/service.template.yaml` parsed successfully as YAML and encodes load-balancer-only ingress, concurrency `1`, minimum instances `1`, 2 vCPU, 4 GiB, a 15-second timeout, probes, and immutable runtime metadata.
 - `docs/deployment.md` now defines environment isolation, manifest rendering, load-balancer/Cloud Armor requirements, smoke checks, immutable evidence, and frontend/API/model/chart rollback.
 - No staging or production resources were changed. Maximum instance count, Cloud Armor enforcement thresholds, billing alerts, public endpoints, and deployment smoke evidence remain pending load-test results and deployment credentials.
+- GitHub CI run [29160837235](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160837235) passed all five jobs for deployment-hardening commit `1ce8997`, including Linux runtime initialization, 103 Python/ML tests, strict responsive snapshots, contract drift, build, dependency audit, and Trivy scanning.
 
 ## Evidence rules
 
