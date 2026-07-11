@@ -101,3 +101,38 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install 'onnx>=1.19,<2'
+      - run: python services/inference/scripts/fetch_hand_landmarker.py
+      - name: Generate non-release model contract fixture
+        run: >-
+          PYTHONPATH=services/inference
+          python services/inference/tests/generate_container_contract_model.py
+          services/inference/models/nail-segmentation.onnx
+      - name: Build and readiness-smoke the runtime image
+        working-directory: services/inference
+        run: |
+          docker build -t nailsize-inference:contract .
+          MODEL_SHA256="$(sha256sum models/nail-segmentation.onnx | cut -d ' ' -f 1)"
+          docker run --detach --name nailsize-contract --publish 8080:8080 \
+            --env MODEL_VERSION=container-contract-only \
+            --env MODEL_SHA256="$MODEL_SHA256" \
+            --env SEGMENTATION_BOUNDARY_ERROR_PX=0.5 \
+            nailsize-inference:contract
+          trap 'docker logs nailsize-contract; docker rm --force nailsize-contract' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8080/ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1

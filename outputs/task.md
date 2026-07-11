@@ -101,7 +101,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 ## 7. Integration, Deployment, and Observability
 
 - [ ] Containerize the API and bundle the verified ONNX model.
-  - The non-root runtime image now installs MediaPipe/native dependencies and requires both checksum-verified runtime artifacts at build time. The checkbox remains open until the selected validated ONNX file is supplied and the resulting image passes readiness/smoke validation.
+  - The non-root runtime image installs MediaPipe/native dependencies and requires both checksum-verified runtime artifacts at build time. CI builds it with a clearly non-release synthetic graph and requires checksum/version/warmup readiness. The checkbox remains open until the selected validated ONNX file is supplied and that immutable image passes the same smoke.
 - [ ] Provision Artifact Registry, Cloud Run, Firebase Hosting, TLS, and environment configuration.
 - [ ] Configure Cloud Run with one worker, concurrency `1`, one warm minimum instance, 2 vCPU, 4 GiB RAM, and a 15-second timeout.
 - [ ] Deploy the frontend so photos post directly to the inference service rather than through a frontend server function.

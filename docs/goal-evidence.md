@@ -197,7 +197,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 ## 2026-07-12 fail-closed runtime image contract
 
 - The non-root Python 3.12 image installs MediaPipe's native EGL/GLES requirements and the pinned landmarks extra, then copies only the hand-landmarker task and selected nail-segmentation ONNX runtime artifacts.
-- Docker build fails when either artifact is absent or empty. Repository tests lock the narrow copy allowlist so research data/tooling cannot enter the image. A real production image still cannot be approved until validated ONNX weights exist and its configured checksum/readiness smoke test passes.
+- Docker build fails when either artifact is absent or empty. Repository tests lock the narrow copy allowlist so research data/tooling cannot enter the image. CI generates a clearly named synthetic graph, builds the container, starts it with matching version/checksum/boundary configuration, and requires `/ready`; the fixture is never uploaded or used as accuracy evidence. A production image still cannot be approved until validated ONNX weights pass the same smoke.
 
 ## Evidence rules
 
