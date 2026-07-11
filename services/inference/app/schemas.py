@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class CaptureType(StrEnum):
@@ -54,6 +54,25 @@ class MeasureResponse(BaseModel):
     chart_id: Literal["platform-default"] = "platform-default"
     chart_version: Literal["1"] = "1"
     processing_ms: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_status_payload(self) -> "MeasureResponse":
+        if self.status == "retake":
+            if self.measurements or not self.quality_issues:
+                raise ValueError("Retake responses require issues and cannot contain measurements")
+            return self
+        expected_digits = {
+            CaptureType.LEFT_FINGERS: ("index", "middle", "ring", "pinky"),
+            CaptureType.LEFT_THUMB: ("thumb",),
+            CaptureType.RIGHT_FINGERS: ("index", "middle", "ring", "pinky"),
+            CaptureType.RIGHT_THUMB: ("thumb",),
+        }[self.capture_type]
+        measured_digits = tuple(item.digit for item in self.measurements)
+        if self.quality_issues or measured_digits != expected_digits:
+            raise ValueError(
+                "Successful responses require every expected measurement and no issues"
+            )
+        return self
 
 
 class HealthResponse(BaseModel):

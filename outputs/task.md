@@ -115,7 +115,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 - [x] Unit-test state transitions, chart mapping, quality rules, geometry, schemas, and sanitization.
 - [ ] Contract-test all success, retake, 413, 415, 429, timeout, and 5xx responses.
-  - Browser/API boundaries cover typed success and retake payloads plus 413, 415, 408/504, 429, offline, cancellation, and generic 5xx recovery. Real backend success and deployed edge-generated 429/timeout responses remain pending.
+  - Browser/API boundaries cover typed success and retake payloads plus 413, 415, 408/504, 429, offline, cancellation, and generic 5xx recovery. The API success branch now requires a complete calibrated semantic measurement set from the integrated pipeline. Selected validated weights and deployed edge-generated 429/timeout responses remain pending.
 - [x] E2E-test the happy path for all four captures and ten results.
 - [x] E2E-test every targeted retake without losing previously accepted measurements.
 - [x] Test camera denial, file fallback, upload cancellation, offline interruption, retry, duplicate submission, and reset.

@@ -8,6 +8,9 @@ from PIL import Image, ImageDraw
 from test_calibration import card_scene
 
 from app.main import app, settings
+from app.pipeline import PipelineResult
+from app.runtime import RuntimeModels
+from app.schemas import NailMeasurement
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -128,6 +131,42 @@ def test_valid_reference_fails_closed_at_segmentation_gate() -> None:
     assert body["status"] == "retake"
     assert body["measurements"] == []
     assert body["quality_issues"][0]["code"] == "LOW_CONFIDENCE"
+
+
+def test_ready_pipeline_can_return_only_complete_calibrated_capture(monkeypatch) -> None:
+    measurement = NailMeasurement(
+        digit="thumb",
+        projected_width_mm=14.2,
+        uncertainty_mm=0.3,
+        recommended_size="4",
+        alternate_size=None,
+        confidence="high",
+        contour=[(0.1, 0.2), (0.2, 0.2), (0.2, 0.4)],
+    )
+    monkeypatch.setattr(
+        app.state,
+        "runtime",
+        RuntimeModels(hand_detector=object(), segmentation=object(), error_code=None),
+    )
+    monkeypatch.setattr(settings, "segmentation_boundary_error_px", 0.5)
+    monkeypatch.setattr(
+        "app.main.run_measurement_pipeline",
+        lambda *_args, **_kwargs: PipelineResult(
+            (measurement,), None, {"segmentation": 1, "calibrated_measurement": 1}
+        ),
+    )
+
+    response = client.post(
+        "/v1/measure",
+        files={"image": ("capture.jpg", jpeg_from_array(card_scene()), "image/jpeg")},
+        data={"capture_type": "left_thumb", "reference_type": "iso_id1"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["quality_issues"] == []
+    assert body["measurements"] == [measurement.model_dump(mode="json")]
 
 
 def test_glare_returns_specific_retake_code() -> None:

@@ -7,6 +7,7 @@ def test_runtime_is_not_ready_from_version_string_alone(tmp_path) -> None:
         Settings(
             model_version="candidate-1",
             model_sha256="0" * 64,
+            segmentation_boundary_error_px=0.5,
             model_path=str(tmp_path / "missing.onnx"),
             hand_landmarker_path=str(tmp_path / "missing.task"),
         )

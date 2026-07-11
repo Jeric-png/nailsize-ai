@@ -59,3 +59,13 @@ def test_origins_cannot_be_empty_or_duplicated() -> None:
         Settings(allowed_origins=" , ")
     with pytest.raises(ValidationError):
         Settings(allowed_origins="https://example.com,https://example.com")
+
+
+def test_configured_model_requires_validated_boundary_error() -> None:
+    with pytest.raises(ValidationError, match="SEGMENTATION_BOUNDARY_ERROR_PX"):
+        Settings(model_sha256="0" * 64)
+    with pytest.raises(ValidationError, match="must be positive"):
+        Settings(segmentation_boundary_error_px=0)
+
+    settings = Settings(model_sha256="0" * 64, segmentation_boundary_error_px=0.5)
+    assert settings.segmentation_boundary_error_px == 0.5

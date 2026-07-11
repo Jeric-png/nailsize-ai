@@ -10,6 +10,12 @@ V1 requires a fully visible ISO ID-1 reference card (`85.60 × 53.98 mm`) in the
 4. Maps the card to a rectified plane at approximately 10 pixels per millimetre.
 5. Applies the same homography to the complete hand/card plane so nail content outside the card is retained.
 
+## Crop-to-plane measurement
+
+The segmentation model operates on normalized fingertip crops, whose pixels do not have the card's physical scale. The service therefore maps each predicted contour through the inverse crop transform into source-photo coordinates, then through the validated card homography into the calibrated plane. It rasterizes that calibrated contour for transverse-chord measurement and returns the source-normalized contour for browser overlay.
+
+The model's validated p95 boundary error is transformed through the same local perspective mapping before it is combined with reference scale uncertainty. A configured model without this positive validation value is rejected at startup configuration, and low-confidence or outside-chart results return a retake response without millimetres.
+
 The system distinguishes missing, invalid/cropped/uncertain, and excessively steep references so the UI can give a specific correction.
 
 ## Projected width

@@ -185,6 +185,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 
 - The staging load tool sends bounded-concurrency multipart captures, records only status and elapsed time, and reports aggregate throughput plus nearest-rank p50/p95/p99 latency. HTTPS is mandatory except for explicitly enabled localhost runs.
 - It exits non-zero on any non-200/transport failure or when the plan's 2s/5s/10s latency gates fail. Mock-transport tests prove the concurrency ceiling, multipart contract, percentile calculation, error accounting, and release decision without claiming deployed performance.
+- GitHub CI run [29162388591](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162388591) passed all five jobs for load-harness commit `9424cdb`.
+
+## 2026-07-12 integrated calibrated measurement pipeline
+
+- The production endpoint now connects validated capture calibration to hand detection, semantic fingertip crops, ONNX segmentation, mask quality, crop-to-source-to-card-plane contour projection, transverse-chord measurement, transformed boundary uncertainty, confidence gating, and immutable chart mapping.
+- Crop pixels are never treated as physical pixels. Synthetic tests verify the projection scale and source-normalized overlay contour; pipeline tests verify complete semantic measurement sets and typed rejection for missing hands, low confidence, unsafe projection, and missing boundary-error evidence.
+- Response validation makes partial success structurally invalid: retakes require an issue and zero measurements, while success requires exactly the expected digit order and no issues. An HTTP integration test proves the ready success branch. This is implementation evidence only; no accuracy claim is made until representative consented data produces approved weights and boundary metrics.
 
 ## Evidence rules
 

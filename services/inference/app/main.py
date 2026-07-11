@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from .config import get_settings
 from .image_io import decode_upload
 from .logging_config import safe_log
+from .pipeline import run_measurement_pipeline
 from .quality import assess_capture
 from .runtime import RuntimeModels, load_runtime_models
 from .schemas import CaptureType, HealthResponse, MeasureResponse, QualityIssue, QualityIssueCode
@@ -132,7 +133,8 @@ async def measure(
         chart_version="1",
     )
     try:
-        issue: QualityIssue
+        issue: QualityIssue | None = None
+        measurements = []
         if reference_type != "iso_id1":
             issue = QualityIssue(
                 code=QualityIssueCode.REFERENCE_INVALID,
@@ -155,18 +157,43 @@ async def measure(
             if capture_quality.issues:
                 issue = capture_quality.issues[0]
             else:
-                issue = QualityIssue(
-                    code=QualityIssueCode.LOW_CONFIDENCE,
-                    message="Nail segmentation is not yet confident enough.",
-                    correction=(
-                        "Keep the nails separated, flat, and evenly lit, then retake the photo."
-                    ),
-                )
+                runtime = app.state.runtime
+                if (
+                    not runtime.ready
+                    or runtime.hand_detector is None
+                    or runtime.segmentation is None
+                    or settings.segmentation_boundary_error_px is None
+                ):
+                    issue = QualityIssue(
+                        code=QualityIssueCode.LOW_CONFIDENCE,
+                        message="The validated sizing model is not available.",
+                        correction="Retry later; no measurement was returned from this photo.",
+                    )
+                else:
+                    pipeline = run_measurement_pipeline(
+                        decoded.rgb,
+                        capture_type,
+                        capture_quality.calibration,
+                        runtime.hand_detector,
+                        runtime.segmentation,
+                        segmentation_boundary_error_px=settings.segmentation_boundary_error_px,
+                    )
+                    for stage, duration_ms in pipeline.stage_timings_ms.items():
+                        safe_log(
+                            logger,
+                            logging.INFO,
+                            event="stage_completed",
+                            request_id=request_id,
+                            stage=stage,
+                            duration_ms=duration_ms,
+                            model_version=settings.model_version,
+                            chart_version="1",
+                        )
+                    issue = pipeline.issue
+                    measurements = list(pipeline.measurements)
         elapsed = int((time.perf_counter() - started) * 1000)
-        safe_log(
-            logger,
-            logging.INFO,
-            event="measurement_retake",
+        log_fields = dict(
+            event="measurement_retake" if issue else "measurement_completed",
             request_id=request_id,
             encoded_bytes=decoded.encoded_bytes,
             width_px=decoded.width,
@@ -175,14 +202,25 @@ async def measure(
             model_version=settings.model_version,
             chart_version="1",
             status_code=200,
-            error_code=issue.code.value,
+        )
+        if issue is not None:
+            log_fields["error_code"] = issue.code.value
+        elif measurements:
+            confidence_order = {"low": 0, "medium": 1, "high": 2}
+            log_fields["confidence_bucket"] = min(
+                (item.confidence for item in measurements), key=confidence_order.get
+            )
+        safe_log(
+            logger,
+            logging.INFO,
+            **log_fields,
         )
         return MeasureResponse(
-            status="retake",
+            status="retake" if issue else "ok",
             request_id=request_id,
             capture_type=capture_type,
-            measurements=[],
-            quality_issues=[issue],
+            measurements=measurements,
+            quality_issues=[issue] if issue else [],
             model_version=settings.model_version,
             processing_ms=elapsed,
         )

@@ -33,6 +33,8 @@ spec:
               value: ${MODEL_SHA256}
             - name: MODEL_VERSION
               value: ${MODEL_VERSION}
+            - name: SEGMENTATION_BOUNDARY_ERROR_PX
+              value: ${SEGMENTATION_BOUNDARY_ERROR_PX}
             - name: HAND_LANDMARKER_PATH
               value: models/hand_landmarker.task
             - name: HAND_LANDMARKER_SHA256

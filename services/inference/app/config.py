@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     model_path: str = "models/nail-segmentation.onnx"
     model_sha256: str = ""
     model_version: str = "unavailable"
+    segmentation_boundary_error_px: float | None = None
     max_encoded_bytes: int = 12 * 1024 * 1024
     max_decoded_pixels: int = 25_000_000
 
@@ -22,6 +23,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_origins(self) -> "Settings":
+        if self.segmentation_boundary_error_px is not None and (
+            self.segmentation_boundary_error_px <= 0
+        ):
+            raise ValueError("SEGMENTATION_BOUNDARY_ERROR_PX must be positive")
+        if self.model_sha256 and self.segmentation_boundary_error_px is None:
+            raise ValueError("SEGMENTATION_BOUNDARY_ERROR_PX is required with a configured model")
         origins = self.origins
         if not origins:
             raise ValueError("ALLOWED_ORIGINS must contain at least one exact origin")

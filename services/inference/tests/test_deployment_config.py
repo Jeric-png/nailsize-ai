@@ -35,6 +35,7 @@ def test_cloud_run_template_preserves_fail_closed_runtime_contract() -> None:
         "path: /health",
         "value: ${MODEL_SHA256}",
         "value: ${MODEL_VERSION}",
+        "value: ${SEGMENTATION_BOUNDARY_ERROR_PX}",
     ]
 
     for setting in required_settings:
