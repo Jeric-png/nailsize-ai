@@ -47,7 +47,7 @@ def test_container_requires_both_runtime_models_and_native_landmark_dependencies
     dockerfile = (inference_root / "Dockerfile").read_text()
     dockerignore = (inference_root / ".dockerignore").read_text()
 
-    assert "libegl1 libgles2" in dockerfile
+    assert "libegl1 libgl1 libgles2" in dockerfile
     assert "pip install '.[landmarks]'" in dockerfile
     assert "COPY models/hand_landmarker.task" in dockerfile
     assert "COPY models/nail-segmentation.onnx" in dockerfile
