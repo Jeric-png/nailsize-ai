@@ -104,6 +104,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - TypeScript, ESLint, 19 web unit/component tests, and 14 mobile/desktop Playwright scenarios passed after the fix.
 - GitHub CI run [29161165178](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161165178) passed all five jobs for frontend-interruption commit `980b13a`, including 119 Python/ML tests, contracts, security scanning, the production build, and all 14 browser scenarios.
 
+## 2026-07-12 deterministic quality-gate verification
+
+- Capture-level gates reject blur, localized glare, missing/invalid reference geometry, and excessive perspective before any measurement. Mask-level gates reject insufficient nail pixels, image/crop clipping, enclosed holes, and material convex-boundary deficits.
+- Occlusion is a conservative deterministic geometry signal: the larger of enclosed-hole fraction and convex-hull deficit must remain at or below `0.12`. This threshold fails closed but is not evidence of real-world sensitivity or specificity.
+- Eight committed PNG fixtures have SHA-256 values in `services/inference/tests/fixtures/golden_quality/manifest.json`; a coverage assertion locks the fixture set to every code emitted by the deterministic capture/mask quality layer.
+- Repository-wide inference/ML verification passed 135 tests at 93.94% coverage. `WRONG_NAIL_COUNT` and `UNSUPPORTED_NAIL_CONDITION` are intentionally excluded from this milestone because honest detection requires the representative labeled dataset and validated model path.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

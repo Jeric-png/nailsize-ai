@@ -66,11 +66,12 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Reject missing, cropped, distorted, or uncertain reference cards.
 - [x] Implement homography/perspective rectification using the known ID-1 dimensions.
 - [x] Quantify reference corner error and propagate it into measurement uncertainty.
-- [ ] Implement blur, glare, clipping, angle, nail-pixel-count, and occlusion quality checks.
+- [x] Implement blur, glare, clipping, angle, nail-pixel-count, and occlusion quality checks.
 - [x] Implement hand landmark inference and deterministic finger crop ordering for every capture type.
 - [x] Implement nail longitudinal-axis estimation and maximum valid transverse-chord measurement.
 - [x] Add synthetic geometry tests with known dimensions, perspective, rotation, blur, and compression.
 - [ ] Add golden-image tests for every quality rejection code.
+  - Deterministic capture/mask codes are covered by checksum-locked PNGs; `WRONG_NAIL_COUNT` and `UNSUPPORTED_NAIL_CONDITION` remain pending the validated model/data path.
 
 ## 5. Dataset and Model
 

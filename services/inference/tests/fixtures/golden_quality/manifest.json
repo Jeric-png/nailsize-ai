@@ -1,0 +1,50 @@
+[
+  {
+    "file": "blur.png",
+    "evaluator": "capture",
+    "expected_code": "BLUR",
+    "sha256": "d67758095f37be76fcadf8d0f77889dd6d44ccc65a69bee33af553ec84fcce53"
+  },
+  {
+    "file": "glare.png",
+    "evaluator": "capture",
+    "expected_code": "GLARE",
+    "sha256": "69a014f80edc57d82c264208559914d36241fa553d6ba0d2e6239c4930a5e867"
+  },
+  {
+    "file": "angle-too-steep.png",
+    "evaluator": "capture",
+    "expected_code": "ANGLE_TOO_STEEP",
+    "sha256": "bbfd0d5581ee6ed8da07d0687679eef6e4e3242f513f0fe223ba0faf52fd48c7"
+  },
+  {
+    "file": "reference-invalid.png",
+    "evaluator": "capture",
+    "expected_code": "REFERENCE_INVALID",
+    "sha256": "94e682f21b96b0b3eefcfeb70ad62501b02e0d7bbb6dd794f960018c3739811e"
+  },
+  {
+    "file": "reference-missing.png",
+    "evaluator": "capture",
+    "expected_code": "REFERENCE_MISSING",
+    "sha256": "aae29873236eefdacd4822958fe5930650d302374c5544c415af196dabc438a1"
+  },
+  {
+    "file": "nail-low-pixels.png",
+    "evaluator": "mask",
+    "expected_code": "LOW_CONFIDENCE",
+    "sha256": "c8124b627c82cd47764ea8db9d340b9f64588c952627e55b969accb9c42a2de7"
+  },
+  {
+    "file": "nail-cropped.png",
+    "evaluator": "mask",
+    "expected_code": "NAIL_CROPPED",
+    "sha256": "a88b96a4f8b1ae04bdbeb0c5074ea60320da8e4a5fcfa2eefb1eba8bb78ad608"
+  },
+  {
+    "file": "nail-occluded.png",
+    "evaluator": "mask",
+    "expected_code": "NAIL_OCCLUDED",
+    "sha256": "8682031965a992d2d31e65a1b4e7c29c1dc70a93e50d386ff0f333c8c51fe64f"
+  }
+]

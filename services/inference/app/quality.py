@@ -88,7 +88,13 @@ def assess_nail_mask(
     mask: NDArray[np.uint8],
     *,
     minimum_pixels: int = 500,
+    crop_clipped: bool = False,
+    maximum_occlusion_fraction: float = 0.12,
 ) -> tuple[QualityIssue, ...]:
+    if mask.ndim != 2 or mask.size == 0:
+        raise ValueError("Nail mask must be a non-empty two-dimensional array")
+    if minimum_pixels <= 0 or not 0 < maximum_occlusion_fraction < 1:
+        raise ValueError("Quality thresholds are out of range")
     binary = (mask > 0).astype(np.uint8)
     pixel_count = int(binary.sum())
     if pixel_count < minimum_pixels:
@@ -100,7 +106,7 @@ def assess_nail_mask(
             ),
         )
     border_pixels = np.concatenate([binary[0, :], binary[-1, :], binary[:, 0], binary[:, -1]])
-    if border_pixels.any():
+    if crop_clipped or border_pixels.any():
         return (
             _issue(
                 QualityIssueCode.NAIL_CROPPED,
@@ -108,4 +114,45 @@ def assess_nail_mask(
                 "Retake with clear space around every nail edge.",
             ),
         )
+    if nail_mask_occlusion_fraction(binary) > maximum_occlusion_fraction:
+        return (
+            _issue(
+                QualityIssueCode.NAIL_OCCLUDED,
+                "Part of the nail boundary or surface is obscured.",
+                "Separate the nails and remove anything covering a nail before retaking.",
+            ),
+        )
     return ()
+
+
+def nail_mask_occlusion_fraction(mask: NDArray[np.uint8]) -> float:
+    """Return a conservative geometric occlusion signal for one nail mask.
+
+    Nail masks should be approximately convex and contain no holes. The larger of
+    the convex-hull deficit and enclosed-hole fraction is used so either a boundary
+    obstruction or a surface obstruction can reject the crop.
+    """
+    binary = (mask > 0).astype(np.uint8)
+    contours, hierarchy = cv2.findContours(binary, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours or hierarchy is None:
+        return 1.0
+
+    external_indices = [
+        index for index, relation in enumerate(hierarchy[0]) if int(relation[3]) == -1
+    ]
+    largest_index = max(external_indices, key=lambda index: cv2.contourArea(contours[index]))
+    contour = contours[largest_index]
+    contour_area = float(cv2.contourArea(contour))
+    hull_area = float(cv2.contourArea(cv2.convexHull(contour)))
+    if contour_area <= 0 or hull_area <= 0:
+        return 1.0
+
+    hole_area = 0.0
+    child_index = int(hierarchy[0][largest_index][2])
+    while child_index != -1:
+        hole_area += float(cv2.contourArea(contours[child_index]))
+        child_index = int(hierarchy[0][child_index][0])
+
+    convexity_deficit = max(0.0, (hull_area - contour_area) / hull_area)
+    hole_fraction = min(1.0, hole_area / contour_area)
+    return max(convexity_deficit, hole_fraction)
