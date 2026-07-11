@@ -24,7 +24,12 @@ def observation(
         ground_truth_width_mm=13.0,
         predicted_size=predicted_size,
         ground_truth_size=ground_truth_size,
-        cohorts={"skin_tone": tone, "device": "phone-a"},
+        cohorts={
+            "skin_tone": tone,
+            "curvature": "medium",
+            "width": "medium",
+            "device": "phone-a",
+        },
     )
 
 
@@ -33,7 +38,12 @@ def test_report_applies_dataset_overall_and_declared_cohort_gates() -> None:
 
     report = build_accuracy_report(
         records,
-        [("skin_tone", "monk-5"), ("device", "phone-a")],
+        [
+            ("skin_tone", "monk-5"),
+            ("curvature", "medium"),
+            ("width", "medium"),
+            ("device", "phone-a"),
+        ],
         bootstrap_iterations=100,
     )
 
@@ -60,6 +70,7 @@ def test_report_fails_closed_for_small_dataset_and_underperforming_cohort() -> N
     assert report["dataset_checks"] == {
         "minimum_participants": False,
         "minimum_nails": False,
+        "required_cohort_dimensions": False,
     }
     cohort = report["adequately_sampled_cohorts"][0]
     assert cohort["checks"] == {"width_mae_mm": False, "exact_size_rate_gap": False}

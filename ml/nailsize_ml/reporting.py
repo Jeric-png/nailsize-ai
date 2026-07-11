@@ -29,6 +29,7 @@ METRIC_NAMES = (
     "exact_or_adjacent_rate",
     "more_than_one_size_miss_rate",
 )
+REQUIRED_COHORT_DIMENSIONS = frozenset({"skin_tone", "curvature", "width", "device"})
 
 
 def build_accuracy_report(
@@ -82,6 +83,9 @@ def build_accuracy_report(
     dataset_checks = {
         "minimum_participants": participant_count >= minimum_participants,
         "minimum_nails": len(records) >= minimum_nails,
+        "required_cohort_dimensions": REQUIRED_COHORT_DIMENSIONS.issubset(
+            {dimension for dimension, _ in requested_cohorts}
+        ),
     }
     return {
         "schema_version": "nailsize-accuracy-report@1",
