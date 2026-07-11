@@ -1,38 +1,6 @@
 locals {
-  prefix = "nailsize-${var.environment}"
-  enabled_services = toset([
-    "artifactregistry.googleapis.com",
-    "compute.googleapis.com",
-    "iam.googleapis.com",
-    "run.googleapis.com",
-  ])
-}
-
-resource "google_project_service" "required" {
-  for_each = local.enabled_services
-
-  project            = var.project_id
-  service            = each.value
-  disable_on_destroy = false
-}
-
-resource "google_artifact_registry_repository" "inference" {
-  project       = var.project_id
-  location      = var.region
-  repository_id = "${local.prefix}-inference"
-  description   = "Immutable NailSize inference images for ${var.environment}"
-  format        = "DOCKER"
-
-  depends_on = [google_project_service.required]
-}
-
-resource "google_service_account" "runtime" {
-  project      = var.project_id
-  account_id   = "${local.prefix}-runtime"
-  display_name = "NailSize ${var.environment} inference runtime"
-  description  = "Runtime identity intentionally granted no project roles; model assets are bundled in the image."
-
-  depends_on = [google_project_service.required]
+  prefix                        = "nailsize-${var.environment}"
+  runtime_service_account_email = "${local.prefix}-runtime@${var.project_id}.iam.gserviceaccount.com"
 }
 
 resource "google_cloud_run_v2_service" "inference" {
@@ -45,7 +13,7 @@ resource "google_cloud_run_v2_service" "inference" {
   deletion_protection  = var.deletion_protection
 
   template {
-    service_account                  = google_service_account.runtime.email
+    service_account                  = local.runtime_service_account_email
     timeout                          = "15s"
     max_instance_request_concurrency = 1
 
@@ -138,10 +106,12 @@ resource "google_cloud_run_v2_service" "inference" {
     percent = 100
   }
 
-  depends_on = [
-    google_artifact_registry_repository.inference,
-    google_project_service.required,
-  ]
+  lifecycle {
+    precondition {
+      condition     = startswith(var.image_uri, "${var.region}-docker.pkg.dev/${var.project_id}/${local.prefix}-inference/")
+      error_message = "image_uri must use the environment-specific repository created by infra/bootstrap."
+    }
+  }
 }
 
 # The load balancer cannot authenticate to a serverless NEG. Public invocation is
@@ -164,8 +134,6 @@ resource "google_compute_region_network_endpoint_group" "inference" {
   cloud_run {
     service = google_cloud_run_v2_service.inference.name
   }
-
-  depends_on = [google_project_service.required]
 }
 
 resource "google_compute_security_policy" "edge" {
@@ -213,8 +181,6 @@ resource "google_compute_security_policy" "edge" {
       }
     }
   }
-
-  depends_on = [google_project_service.required]
 }
 
 resource "google_compute_backend_service" "inference" {
@@ -242,15 +208,11 @@ resource "google_compute_managed_ssl_certificate" "api" {
   managed {
     domains = [var.api_domain]
   }
-
-  depends_on = [google_project_service.required]
 }
 
 resource "google_compute_global_address" "api" {
   project = var.project_id
   name    = "${local.prefix}-api"
-
-  depends_on = [google_project_service.required]
 }
 
 resource "google_compute_url_map" "api" {

@@ -9,7 +9,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 | Privacy     | Current application has no persistent image/result path and log fields fail closed | `docs/privacy-and-threat-model.md`; `test_logging.py`; `session.test.ts`        | Foundation complete; staging verification pending |
 | Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                     |
 | Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                             |
-| Deployment  | Versioned frontend, API, edge-security, and identity contracts pass local checks     | `vercel.json`; `infra/platform`; `infra/cloud-run/service.template.yaml`         | Configuration ready; deployment/load tuning pending |
+| Deployment  | Versioned frontend, API, edge-security, and identity contracts pass local checks     | `vercel.json`; `infra/bootstrap`; `infra/platform`; Cloud Run recovery manifest  | Configuration ready; deployment/load tuning pending |
 | Operations  | Observability resources and required inputs fail closed before cloud provisioning   | `infra/observability`; `docs/observability.md`; Terraform test output            | Configuration ready; cloud evidence pending         |
 
 ## 2026-07-11 foundation verification
@@ -250,10 +250,10 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 
 ## 2026-07-12 platform and edge-security infrastructure contract
 
-- `infra/platform` provisions the environment-specific Artifact Registry repository, a dedicated runtime service account with no project-role grants, Cloud Run, a serverless NEG, a global external HTTPS load balancer, managed TLS, HTTP redirection, and Cloud Armor.
+- `infra/bootstrap` first enables required APIs and provisions the environment-specific Artifact Registry repository plus a dedicated runtime service account with no project-role grants. This permits the validated image to be pushed before the image-dependent `infra/platform` stack creates Cloud Run, a serverless NEG, a global external HTTPS load balancer, managed TLS, HTTP redirection, and Cloud Armor.
 - Cloud Run is locked to one request per instance, one warm instance, the load-tested maximum, 2 vCPU, 4 GiB, a 15-second timeout, exact CORS origin, immutable image/model identifiers, load-balancer-only ingress, and a disabled default `run.app` URL. Public IAM grants only `roles/run.invoker`; the network boundary forces internet traffic through Cloud Armor.
-- Cloud Armor requires an explicit per-IP threshold and supported interval, emits full backend request logs, begins in caller-selected preview mode, and returns `429` only after reviewed enforcement. Six provider-backed Terraform tests prove the secure boundary and reject a mutable image, wildcard origin, unapproved environment, and invalid rate interval.
-- Local verification passed formatting, Google provider 7.39.0 validation, and all six platform tests. No Google Cloud resource was created or changed, no domain was pointed, and no rate threshold was inferred. Provisioning, certificate activation, preview-log review, enforcement, IAM inspection, and deployment smoke evidence remain open.
+- Cloud Armor requires an explicit per-IP threshold and supported interval, emits full backend request logs, begins in caller-selected preview mode, and returns `429` only after reviewed enforcement. Provider-backed tests prove the bootstrap prerequisites and secure boundary, rejecting mutable or cross-environment images, wildcard origins, unapproved environments, and invalid rate intervals.
+- Local verification passed formatting, Google provider 7.39.0 validation, two bootstrap tests, and seven platform tests. No Google Cloud resource was created or changed, no domain was pointed, and no rate threshold was inferred. Provisioning, certificate activation, preview-log review, enforcement, IAM inspection, and deployment smoke evidence remain open.
 - GitHub CI run [29164498124](https://github.com/Jeric-png/nailsize-ai/actions/runs/29164498124) passed all eight jobs for commit `63139ac`, including separate Linux validation/test jobs for the platform and observability roots, 214 Python/ML tests, contract drift, web checks, security scans, Playwright, and live container readiness.
 
 ## Evidence rules

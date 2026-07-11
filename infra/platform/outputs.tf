@@ -8,11 +8,6 @@ output "api_url" {
   value       = "https://${var.api_domain}"
 }
 
-output "artifact_repository" {
-  description = "Artifact Registry repository that accepts immutable inference images."
-  value       = google_artifact_registry_repository.inference.name
-}
-
 output "cloud_run_service" {
   description = "Cloud Run service name behind the load balancer."
   value       = google_cloud_run_v2_service.inference.name
@@ -20,7 +15,7 @@ output "cloud_run_service" {
 
 output "runtime_service_account" {
   description = "Role-less service identity used by the inference container."
-  value       = google_service_account.runtime.email
+  value       = local.runtime_service_account_email
 }
 
 output "cloud_armor_policy" {

@@ -6,7 +6,7 @@ variables {
   region                         = "asia-southeast1"
   api_domain                     = "api-staging.nailsize.example"
   frontend_origin                = "https://staging.nailsize.example"
-  image_uri                      = "asia-southeast1-docker.pkg.dev/nailsize-staging-123/nailsize/inference@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  image_uri                      = "asia-southeast1-docker.pkg.dev/nailsize-staging-123/nailsize-staging-inference/inference@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   model_version                  = "candidate-2026-07-12"
   model_sha256                   = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   segmentation_boundary_error_px = 0.5
@@ -46,8 +46,8 @@ run "valid_secure_boundary" {
   }
 
   assert {
-    condition     = google_service_account.runtime.account_id == "nailsize-staging-runtime"
-    error_message = "Cloud Run must use the environment-specific runtime identity."
+    condition     = google_cloud_run_v2_service.inference.template[0].service_account == "nailsize-staging-runtime@nailsize-staging-123.iam.gserviceaccount.com"
+    error_message = "Cloud Run must use the bootstrapped environment-specific runtime identity."
   }
 }
 
@@ -55,10 +55,20 @@ run "rejects_mutable_image_tag" {
   command = plan
 
   variables {
-    image_uri = "asia-southeast1-docker.pkg.dev/nailsize-staging-123/nailsize/inference:latest"
+    image_uri = "asia-southeast1-docker.pkg.dev/nailsize-staging-123/nailsize-staging-inference/inference:latest"
   }
 
   expect_failures = [var.image_uri]
+}
+
+run "rejects_cross_environment_repository" {
+  command = plan
+
+  variables {
+    image_uri = "asia-southeast1-docker.pkg.dev/nailsize-staging-123/nailsize-production-inference/inference@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+
+  expect_failures = [google_cloud_run_v2_service.inference]
 }
 
 run "rejects_wildcard_frontend" {

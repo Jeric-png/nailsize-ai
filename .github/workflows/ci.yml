@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        root: [observability, platform]
+        root: [bootstrap, observability, platform]
     steps:
       - uses: actions/checkout@v5
       # v4.0.1, pinned so infrastructure validation cannot silently change upstream.

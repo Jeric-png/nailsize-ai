@@ -37,16 +37,23 @@ Build `services/inference/Dockerfile` only after a verified ONNX model is availa
 - request-body and response-body logging disabled
 - maximum instances and billing alerts set from the validated traffic model
 
-`infra/platform` is the deployable source-controlled contract. It provisions an environment-specific Artifact Registry repository and role-less runtime identity, Cloud Run, a serverless NEG, a global external HTTPS load balancer, a Google-managed certificate, HTTP-to-HTTPS redirection, full backend request logging, and a Cloud Armor per-IP throttle. Cloud Run uses load-balancer-only ingress, disables its default URL, and locks concurrency, timeout, CPU, memory, warm capacity, probes, and immutable model metadata. Every environment, domain, digest, capacity, and rate-limit value is required; the stack does not invent deployable defaults.
+Cloud provisioning is deliberately ordered to avoid a fresh-project dependency cycle:
+
+1. Apply `infra/bootstrap` to enable required APIs and create the environment-specific Artifact Registry repository plus role-less runtime identity.
+2. Build the validated container, push it to that repository, and resolve its immutable repository digest.
+3. Apply `infra/platform` with that exact digest-pinned URI. The stack rejects images from another environment or repository.
+4. Apply `infra/observability` after the service and verified notification channels exist.
+
+`infra/platform` provisions Cloud Run, a serverless NEG, a global external HTTPS load balancer, a Google-managed certificate, HTTP-to-HTTPS redirection, full backend request logging, and a Cloud Armor per-IP throttle. Cloud Run uses load-balancer-only ingress, disables its default URL, and locks concurrency, timeout, CPU, memory, warm capacity, probes, and immutable model metadata. Every environment, domain, digest, capacity, and rate-limit value is required; the stack does not invent deployable defaults.
 
 `infra/cloud-run/service.template.yaml` remains a reviewable equivalent for manual recovery. It now carries the same disabled-default-URL boundary as Terraform.
 
 Render and inspect the manifest only after every value is known:
 
 ```sh
-export SERVICE_NAME=nailsize-inference-staging
-export SERVICE_ACCOUNT_EMAIL=nailsize-staging@PROJECT_ID.iam.gserviceaccount.com
-export IMAGE_URI=REGION-docker.pkg.dev/PROJECT_ID/nailsize/inference@sha256:IMAGE_DIGEST
+export SERVICE_NAME=nailsize-staging-inference
+export SERVICE_ACCOUNT_EMAIL=nailsize-staging-runtime@PROJECT_ID.iam.gserviceaccount.com
+export IMAGE_URI=REGION-docker.pkg.dev/PROJECT_ID/nailsize-staging-inference/inference@sha256:IMAGE_DIGEST
 export DEPLOYMENT_ENVIRONMENT=staging
 export ALLOWED_ORIGINS=https://STAGING_FRONTEND_HOST
 export MODEL_VERSION=MODEL_VERSION
@@ -57,7 +64,7 @@ gcloud run services replace work/cloud-run-service.yaml --region REGION --projec
 gcloud run services update "$SERVICE_NAME" --no-default-url --region REGION --project PROJECT_ID
 ```
 
-For normal provisioning, follow `infra/platform/README.md` and review a saved Terraform plan before an authorized apply. Point the API domain's DNS A record to the resulting global address and wait for the managed certificate to become active before smoke testing. The public `allUsers` binding grants only `roles/run.invoker`; load-balancer-only ingress plus the disabled `run.app` URL prevents internet traffic from bypassing Cloud Armor. The runtime service account deliberately receives no project roles because both model assets are bundled in the immutable image.
+For normal provisioning, follow both infrastructure READMEs, use separate remote state for each environment and Terraform root, and review every saved plan before an authorized apply. Point the API domain's DNS A record to the resulting global address and wait for the managed certificate to become active before smoke testing. The public `allUsers` binding grants only `roles/run.invoker`; load-balancer-only ingress plus the disabled `run.app` URL prevents internet traffic from bypassing Cloud Armor. The runtime service account deliberately receives no project roles because both model assets are bundled in the immutable image.
 
 Begin Cloud Armor rate rules in preview mode, derive per-client thresholds from at least one day of representative staging and abuse-test logs, then submit a separate reviewed plan that changes only the evidence-backed threshold or enforcement switch. The exceed action is `deny(429)`. Do not copy example traffic thresholds into production.
 
