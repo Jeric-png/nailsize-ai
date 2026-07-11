@@ -42,6 +42,19 @@ def test_cloud_run_template_preserves_fail_closed_runtime_contract() -> None:
         assert setting in manifest
 
 
+def test_container_requires_both_runtime_models_and_native_landmark_dependencies() -> None:
+    inference_root = REPOSITORY_ROOT / "services" / "inference"
+    dockerfile = (inference_root / "Dockerfile").read_text()
+    dockerignore = (inference_root / ".dockerignore").read_text()
+
+    assert "libegl1 libgles2" in dockerfile
+    assert "pip install '.[landmarks]'" in dockerfile
+    assert "COPY models/hand_landmarker.task" in dockerfile
+    assert "COPY models/nail-segmentation.onnx" in dockerfile
+    assert "!models/hand_landmarker.task" in dockerignore
+    assert "!models/nail-segmentation.onnx" in dockerignore
+
+
 def test_environment_profiles_are_explicit_and_non_secret() -> None:
     environment_dir = REPOSITORY_ROOT / "infra/environments"
     expected = {

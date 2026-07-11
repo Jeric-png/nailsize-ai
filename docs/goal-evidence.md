@@ -192,6 +192,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The production endpoint now connects validated capture calibration to hand detection, semantic fingertip crops, ONNX segmentation, mask quality, crop-to-source-to-card-plane contour projection, transverse-chord measurement, transformed boundary uncertainty, confidence gating, and immutable chart mapping.
 - Crop pixels are never treated as physical pixels. Synthetic tests verify the projection scale and source-normalized overlay contour; pipeline tests verify complete semantic measurement sets and typed rejection for missing hands, low confidence, unsafe projection, and missing boundary-error evidence.
 - Response validation makes partial success structurally invalid: retakes require an issue and zero measurements, while success requires exactly the expected digit order and no issues. An HTTP integration test proves the ready success branch. This is implementation evidence only; no accuracy claim is made until representative consented data produces approved weights and boundary metrics.
+- GitHub CI run [29162576289](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162576289) passed all five jobs for integrated-pipeline commits `5204417` and `a407d36`, including 16 Playwright scenarios and 93%+ measured Python coverage.
+
+## 2026-07-12 fail-closed runtime image contract
+
+- The non-root Python 3.12 image installs MediaPipe's native EGL/GLES requirements and the pinned landmarks extra, then copies only the hand-landmarker task and selected nail-segmentation ONNX runtime artifacts.
+- Docker build fails when either artifact is absent or empty. Repository tests lock the narrow copy allowlist so research data/tooling cannot enter the image. A real production image still cannot be approved until validated ONNX weights exist and its configured checksum/readiness smoke test passes.
 
 ## Evidence rules
 

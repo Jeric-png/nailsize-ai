@@ -133,8 +133,14 @@ def test_runtime_image_copies_only_the_production_package() -> None:
         if line.lstrip().upper().startswith("COPY ")
     ]
 
-    assert copy_lines == ["COPY pyproject.toml ./", "COPY app ./app"]
+    assert copy_lines == [
+        "COPY pyproject.toml ./",
+        "COPY app ./app",
+        "COPY models/hand_landmarker.task ./models/hand_landmarker.task",
+        "COPY models/nail-segmentation.onnx ./models/nail-segmentation.onnx",
+    ]
     assert "COPY ." not in dockerfile
+    assert "pip install '.[landmarks]'" in dockerfile
 
 
 def test_training_tooling_is_manual_and_has_no_production_data_ingress() -> None:
