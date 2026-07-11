@@ -176,6 +176,8 @@ def _require_subset(label: str, actual: set[str], allowed: set[str]) -> None:
 
 def _verify_container_logging(path: Path) -> None:
     dockerfile = path.read_text(encoding="utf-8")
+    if "MPLCONFIGDIR=/tmp/matplotlib" not in dockerfile:
+        raise ValueError("Third-party runtime caches must be confined to ephemeral /tmp")
     command_lines = [
         line.removeprefix("CMD ") for line in dockerfile.splitlines() if line.startswith("CMD ")
     ]

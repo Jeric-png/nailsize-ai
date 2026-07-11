@@ -59,17 +59,20 @@ def test_container_requires_both_runtime_models_and_native_landmark_dependencies
 
 def test_container_ci_runs_read_only_and_checks_termination_diff() -> None:
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    dockerfile = (REPOSITORY_ROOT / "services" / "inference" / "Dockerfile").read_text()
     container_step = workflow.split("- name: Build and privacy-smoke the runtime image", 1)[1]
 
     for contract in (
         "--read-only",
         "--cap-drop ALL",
         "--security-opt no-new-privileges",
+        "--tmpfs /tmp:rw,noexec,nosuid,size=16m",
         'test "$status" = 415',
         "docker stop --time 1 nailsize-contract",
         'test -z "$(docker diff nailsize-contract)"',
     ):
         assert contract in container_step
+    assert "MPLCONFIGDIR=/tmp/matplotlib" in dockerfile
 
 
 def test_environment_profiles_are_explicit_and_non_secret() -> None:

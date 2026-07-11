@@ -106,6 +106,20 @@ def test_rejects_runtime_access_logs(tmp_path: Path) -> None:
         verify_privacy_release_boundary(root)
 
 
+def test_rejects_runtime_cache_outside_ephemeral_tmp(tmp_path: Path) -> None:
+    root = _copy_audit_surface(tmp_path)
+    dockerfile = root / "services/inference/Dockerfile"
+    dockerfile.write_text(
+        dockerfile.read_text(encoding="utf-8").replace(
+            "MPLCONFIGDIR=/tmp/matplotlib", "MPLCONFIGDIR=/home/appuser/.config"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="confined to ephemeral /tmp"):
+        verify_privacy_release_boundary(root)
+
+
 @pytest.mark.parametrize(
     ("old", "new", "message"),
     [

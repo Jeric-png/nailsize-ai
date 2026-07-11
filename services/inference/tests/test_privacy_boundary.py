@@ -148,6 +148,7 @@ def test_runtime_image_copies_only_the_production_package() -> None:
     ]
     assert "COPY ." not in dockerfile
     assert "pip install '.[landmarks]'" in dockerfile
+    assert "MPLCONFIGDIR=/tmp/matplotlib" in dockerfile
 
 
 def test_training_tooling_is_manual_and_has_no_production_data_ingress() -> None:

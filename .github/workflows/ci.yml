@@ -170,6 +170,7 @@ jobs:
           MODEL_SHA256="$(sha256sum models/nail-segmentation.onnx | cut -d ' ' -f 1)"
           docker run --detach --name nailsize-contract --publish 8080:8080 \
             --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
             --env MODEL_VERSION=container-contract-only \
             --env MODEL_SHA256="$MODEL_SHA256" \
             --env SEGMENTATION_BOUNDARY_ERROR_PX=0.5 \
