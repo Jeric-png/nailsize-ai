@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:5173"
     log_level: str = "INFO"
+    hand_landmarker_path: str = "models/hand_landmarker.task"
     model_path: str = "models/nail-segmentation.onnx"
     model_version: str = "unavailable"
     max_encoded_bytes: int = 12 * 1024 * 1024

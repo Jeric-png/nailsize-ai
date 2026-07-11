@@ -31,11 +31,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -e 'services/inference[dev]' -e ml
+      - run: pip install -e 'services/inference[dev,landmarks]' -e ml
       - run: ruff format --check services/inference
       - run: ruff check services/inference
       - run: ruff format --check ml
       - run: ruff check ml
+      - run: python services/inference/scripts/fetch_hand_landmarker.py
+      - run: python services/inference/scripts/smoke_hand_landmarker.py
       - run: pytest services/inference/tests ml/tests --cov=services/inference/app --cov=nailsize_ml --cov-fail-under=85
 
   contracts:

@@ -16,6 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+landmarks = ["mediapipe==0.10.35"]
 dev = [
   "pytest>=8.4,<9",
   "pytest-cov>=6.2,<7",

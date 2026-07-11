@@ -67,7 +67,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Implement homography/perspective rectification using the known ID-1 dimensions.
 - [x] Quantify reference corner error and propagate it into measurement uncertainty.
 - [ ] Implement blur, glare, clipping, angle, nail-pixel-count, and occlusion quality checks.
-- [ ] Implement hand landmark inference and deterministic finger crop ordering for every capture type.
+- [x] Implement hand landmark inference and deterministic finger crop ordering for every capture type.
 - [x] Implement nail longitudinal-axis estimation and maximum valid transverse-chord measurement.
 - [x] Add synthetic geometry tests with known dimensions, perspective, rotation, blur, and compression.
 - [ ] Add golden-image tests for every quality rejection code.
