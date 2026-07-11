@@ -230,6 +230,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The audit found that framework multipart handling could roll uploads above Starlette's default spool threshold to a temporary file before application decoding. The service now sets the spool threshold one byte above a bounded multipart envelope and rejects both declared-length and chunked bodies before that envelope is crossed.
 - API regressions exercise an upload above the former 1 MiB threshold and a request beyond the full-body ceiling while tracking every framework spool; neither rolls to disk. Lower-level tests prove excess chunked data is rejected before the chunk reaches multipart parsing.
 - This closes the known application-level temporary-file path. The release checkbox remains open until cancellation, timeout, forced termination, Cloud Run telemetry, and platform storage behavior are observed in staging.
+- GitHub CI run [29163653051](https://github.com/Jeric-png/nailsize-ai/actions/runs/29163653051) passed all six jobs for commit `b9601d8`, including Linux inference/privacy tests and the live container readiness smoke.
 
 ## Evidence rules
 
