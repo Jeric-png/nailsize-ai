@@ -21,3 +21,19 @@ pytest ml/tests/test_modeling.py
 ```
 
 `build_deeplab_mobilenet()` creates the one-channel baseline without altering the production runtime. `export_verified_onnx()` exports the fixed `1x3x224x160` input and `1x1x224x160` logits output, writes required model-version metadata, validates the ONNX graph, executes it with ONNX Runtime, and fails if native/exported outputs differ beyond the configured tolerance. Synthetic export tests validate this machinery but do not constitute a trained model.
+
+Training consumes a JSON Lines manifest outside Git. Each record must contain `image_id`, `participant_id`, `split`, `image_path`, and `mask_path`; paths are relative to the approved dataset root. The loader rejects duplicate images, participant leakage between splits, absolute paths, root escapes, and missing files. Example:
+
+```json
+{"image_id":"crop-001","participant_id":"study-001","split":"train","image_path":"images/crop-001.png","mask_path":"masks/crop-001.png"}
+```
+
+```bash
+nailsize-train \
+  --manifest /approved-data/manifest.jsonl \
+  --dataset-root /approved-data \
+  --checkpoint /research-artifacts/baseline.pt \
+  --model-version baseline-YYYYMMDD
+```
+
+The command fixes preprocessing to the production tensor contract, enables deterministic algorithms, records configuration/loss history/PyTorch version in the checkpoint, and never writes source images into the repository. A checkpoint is a research artifact, not a releasable model; evaluation, ONNX export, model-card review, and release gates still follow training.

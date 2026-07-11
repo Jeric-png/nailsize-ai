@@ -15,6 +15,9 @@ training = [
   "torchvision==0.28.0",
 ]
 
+[project.scripts]
+nailsize-train = "nailsize_ml.training:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

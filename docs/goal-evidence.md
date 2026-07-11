@@ -125,6 +125,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - A real TorchVision DeepLabV3-MobileNetV3 model emitted the required single-channel logits tensor in a local smoke test. Combined BCE/Dice loss tests prove correct logits score below inverted logits and malformed targets fail.
 - The current `dynamo=True` exporter produced a fixed-shape ONNX graph from a synthetic convolutional model, added `nailsize.model_version`, passed ONNX validation, and matched ONNX Runtime output within `1e-4`. Four optional-toolchain tests passed locally with the pinned versions.
 - No trained weights were created or approved. Export parity is tooling evidence only; the baseline training, participant-disjoint evaluation, and release model card remain open.
+- GitHub CI run [29161496442](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161496442) passed all five default jobs for model-tooling commit `a272813`; heavy optional dependencies remained excluded while their source and documentation passed Linux lint/security checks.
+
+## 2026-07-12 reproducible training runner
+
+- The external JSONL manifest loader requires participant, split, image, and mask provenance; it rejects duplicate image IDs, participant leakage, missing files, absolute paths, and traversal outside the approved research root.
+- Image/mask loading produces the exact production `3x224x160` normalized image and `1x224x160` binary mask contracts. Seeds cover Python, NumPy, PyTorch, DataLoader shuffling, and deterministic PyTorch algorithms.
+- Three synthetic tests prove preprocessing, split/root enforcement, and repeatable loss/weight updates. A real DeepLabV3-MobileNetV3 CPU dry run trained one batch of two temporary synthetic crops, returned finite loss `1.3563`, and wrote a 44,323,825-byte checkpoint that was deleted with the temporary directory.
+- The runner records model configuration, loss history, example count, and PyTorch version. No dataset, checkpoint, or weights were committed, and the baseline-training checklist remains open until approved consented data is supplied.
 
 ## Evidence rules
 
