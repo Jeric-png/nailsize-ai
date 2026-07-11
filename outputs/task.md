@@ -87,6 +87,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Benchmark ONNX Runtime on the Cloud Run CPU configuration.
 - [x] Add model versioning, checksum validation, startup warmup, and readiness failure when the model cannot load.
 - [ ] Publish a model card with dataset, metrics, subgroup results, limitations, and intended-use restrictions.
+  - A fail-closed publisher now requires a passing locked-holdout report, immutable model/dataset identity, segmentation boundary metrics, ONNX parity, exclusions, limitations, and named model-owner, nail-tech, and privacy/security reviews. Publication remains pending real approved evidence.
 
 ## 6. Size Mapping and Results
 

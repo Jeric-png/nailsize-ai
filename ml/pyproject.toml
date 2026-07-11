@@ -18,6 +18,7 @@ training = [
 [project.scripts]
 nailsize-accuracy-report = "nailsize_ml.reporting:main"
 nailsize-benchmark = "nailsize_ml.benchmark:main"
+nailsize-model-card = "nailsize_ml.model_card:main"
 nailsize-train = "nailsize_ml.training:main"
 
 [build-system]

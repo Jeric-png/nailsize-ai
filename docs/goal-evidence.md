@@ -205,6 +205,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The dependency-light `nailsize-accuracy-report` CLI accepts participant-disjoint JSONL observations and produces versioned, deterministic JSON containing overall metrics, 95% participant-clustered bootstrap intervals, dataset-size checks, and explicitly declared adequately sampled cohort results.
 - It enforces the plan's 200-participant/2,000-nail holdout minimum, all six overall width/size gates, subgroup MAE at most 0.85 mm, and subgroup exact-size accuracy no more than five percentage points below overall. Missing declared cohorts, duplicate declarations, invalid observations, insufficient bootstrap iterations, and any failed gate prevent a passing report.
 - Cohort adequacy is deliberately supplied by the approved study review rather than inferred from an invented count threshold. Fifteen focused evaluation/reporting tests pass on synthetic records; this verifies calculations and fail-closed behavior only, not real-world accuracy or fairness.
+- A release report must declare at least one adequately sampled cohort for every planned dimension: skin tone, curvature, nail width, and device. Empty or partial fairness declarations cannot pass.
+
+## 2026-07-12 model-card publication contract
+
+- The `nailsize-model-card` CLI refuses publication unless the versioned accuracy report passes its dataset, overall, subgroup, and required-dimension checks.
+- Required model evidence includes a lowercase SHA-256 digest, model and dataset versions, intended use, out-of-scope cases, limitations, IoU/Dice plus mean/p95 boundary error, ONNX maximum absolute parity error at or below `1e-4`, and named model-owner, nail-tech, and privacy/security reviews.
+- Generated Markdown embeds participant/nail counts, participant-clustered confidence intervals, every adequately sampled cohort result, limitations, and review references. Synthetic tests verify the publication contract only; the model-card checklist remains open until real locked-holdout evidence and reviews are supplied.
 
 ## Evidence rules
 
