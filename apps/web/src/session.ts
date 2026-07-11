@@ -21,8 +21,9 @@ export interface CaptureRecord {
 export interface SessionState {
   captures: Partial<Record<CaptureType, CaptureRecord>>;
   activeCapture: CaptureType;
+  correctionCapture?: CaptureType;
   status: "idle" | "submitting" | "retake" | "complete" | "error";
-  error?: string;
+  error?: { code: string; message: string };
 }
 
 export type SessionAction =
@@ -30,7 +31,9 @@ export type SessionAction =
   | { type: "submitting" }
   | { type: "accepted"; captureType: CaptureType; result: MeasureOkResponse }
   | { type: "retake"; captureType: CaptureType; issues: QualityIssue[] }
-  | { type: "error"; message: string }
+  | { type: "error"; code: string; message: string }
+  | { type: "reopen"; captureType: CaptureType }
+  | { type: "finishCorrection" }
   | { type: "reset" };
 
 export const initialSession: SessionState = {
@@ -65,6 +68,7 @@ export function sessionReducer(
       return {
         ...state,
         status: isComplete ? "complete" : "idle",
+        error: undefined,
         activeCapture: isComplete
           ? action.captureType
           : captureOrder[currentIndex + 1],
@@ -82,6 +86,7 @@ export function sessionReducer(
       return {
         ...state,
         status: "retake",
+        error: undefined,
         activeCapture: action.captureType,
         captures: {
           ...state.captures,
@@ -92,8 +97,30 @@ export function sessionReducer(
           },
         },
       };
+    case "finishCorrection":
+      return { ...state, correctionCapture: undefined };
     case "error":
-      return { ...state, status: "error", error: action.message };
+      return {
+        ...state,
+        status: "error",
+        error: { code: action.code, message: action.message },
+      };
+    case "reopen":
+      return {
+        ...state,
+        status: "idle",
+        error: undefined,
+        activeCapture: action.captureType,
+        correctionCapture: action.captureType,
+        captures: {
+          ...state.captures,
+          [action.captureType]: {
+            ...state.captures[action.captureType]!,
+            result: undefined,
+            issues: undefined,
+          },
+        },
+      };
     case "reset":
       Object.values(state.captures).forEach(releaseCapture);
       return initialSession;

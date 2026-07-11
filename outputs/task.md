@@ -23,13 +23,13 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Implement the landing page from Stitch screen `0fe481c4ae524371a965bdbacd64846c`.
 - [x] Implement preparation from `eedc165261574b8fa64bfbb0b109dd5c`.
 - [x] Implement the reusable four-step capture flow from `a2e72e4483724093b18c67260e5350a0`.
-- [ ] Implement quality-check behavior from `b230e530ded64687b7d0179404a3de69`.
-- [ ] Implement processing behavior from `7f9fa8f92b3b43fabf43a358bfac8199`.
-- [ ] Implement mobile results from `7c2120dc69554f7fbcab9510ef84455c`.
-- [ ] Implement desktop results from `032c6ffdff5244f3a841db78c11d1861`.
-- [ ] Implement all typed error and recovery states represented by `440f911247a34c8989c7cf22abc057f7`.
-- [ ] Add responsive visual regression screenshots for 390px mobile and 1280px desktop.
-- [ ] Document every intentional deviation from Stitch and its accessibility or implementation reason.
+- [x] Implement quality-check behavior from `b230e530ded64687b7d0179404a3de69`.
+- [x] Implement processing behavior from `7f9fa8f92b3b43fabf43a358bfac8199`.
+- [x] Implement mobile results from `7c2120dc69554f7fbcab9510ef84455c`.
+- [x] Implement desktop results from `032c6ffdff5244f3a841db78c11d1861`.
+- [x] Implement all typed error and recovery states represented by `440f911247a34c8989c7cf22abc057f7`.
+- [x] Add responsive visual regression screenshots for 390px mobile and 1280px desktop.
+- [x] Document every intentional deviation from Stitch and its accessibility or implementation reason.
 
 ## 2. Frontend Workflow
 
@@ -41,9 +41,9 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Add placement guidance for a fully visible ISO ID-1 card and required nails.
 - [x] Warn users not to photograph payment or government-ID cards.
 - [x] Submit captures independently and support a targeted retake without losing accepted captures.
-- [ ] Overlay normalized returned contours on the local preview.
+- [x] Overlay normalized returned contours on the local preview.
 - [x] Assemble all ten measurements in browser memory.
-- [ ] Implement copy and native-share result summaries without including photos.
+- [x] Implement copy and native-share result summaries without including photos.
 - [x] Prevent accidental duplicate requests and make technical retries idempotent from the user’s perspective.
 
 ## 3. API Foundation and Security
@@ -113,14 +113,14 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 - [ ] Unit-test state transitions, chart mapping, quality rules, geometry, schemas, and sanitization.
 - [ ] Contract-test all success, retake, 413, 415, 429, timeout, and 5xx responses.
-- [ ] E2E-test the happy path for all four captures and ten results.
-- [ ] E2E-test every targeted retake without losing previously accepted measurements.
+- [x] E2E-test the happy path for all four captures and ten results.
+- [x] E2E-test every targeted retake without losing previously accepted measurements.
 - [ ] Test camera denial, file fallback, upload cancellation, offline interruption, retry, duplicate submission, and reset.
 - [ ] Test malformed images, MIME spoofing, decompression bombs, animated images, huge dimensions, corrupted HEIC, and unsupported files.
 - [ ] Verify zero persistent image and measurement-result writes under success, failure, cancellation, timeout, and process termination.
 - [ ] Test current and previous two major browser versions required by `plan.md`.
 - [ ] Complete automated accessibility scans and manual keyboard, VoiceOver, and TalkBack tests.
-- [ ] Complete visual regression review against every referenced Stitch screen.
+- [x] Complete visual regression review against every referenced Stitch screen.
 
 ## 9. Accuracy and Performance Validation
 

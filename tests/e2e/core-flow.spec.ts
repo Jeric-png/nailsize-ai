@@ -1,9 +1,74 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+const captureDigits = {
+  left_fingers: ["index", "middle", "ring", "pinky"],
+  left_thumb: ["thumb"],
+  right_fingers: ["index", "middle", "ring", "pinky"],
+  right_thumb: ["thumb"],
+} as const;
+
+const onePixelPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3Zk9WQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+function captureTypeFromMultipart(body: Buffer | null) {
+  const value = body?.toString("utf8") ?? "";
+  return Object.keys(captureDigits).find((type) => value.includes(type)) as
+    keyof typeof captureDigits | undefined;
+}
+
+function successfulMeasurement(captureType: keyof typeof captureDigits) {
+  return {
+    status: "ok",
+    request_id: `request-${captureType}`,
+    capture_type: captureType,
+    measurements: captureDigits[captureType].map((digit, index, digits) => {
+      const left = digits.length === 1 ? 0.38 : 0.08 + index * 0.22;
+      return {
+        digit,
+        projected_width_mm: 10.4 + index,
+        uncertainty_mm: 0.3,
+        recommended_size: String(8 - index),
+        alternate_size: null,
+        confidence: "high",
+        contour: [
+          [left, 0.25],
+          [left + 0.14, 0.25],
+          [left + 0.14, 0.72],
+          [left, 0.72],
+        ],
+      };
+    }),
+    quality_issues: [],
+    model_version: "e2e-fixture",
+    chart_id: "platform-default",
+    chart_version: "1",
+    processing_ms: 12,
+  };
+}
+
+async function selectTestPhoto(page: Page) {
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "nails.png",
+    mimeType: "image/png",
+    buffer: onePixelPng,
+  });
+}
+
+async function expectNoSeriousAccessibilityViolations(page: Page) {
+  const scan = await new AxeBuilder({ page }).analyze();
+  expect(
+    scan.violations.filter((item) =>
+      ["critical", "serious"].includes(item.impact ?? ""),
+    ),
+  ).toEqual([]);
+}
 
 test("landing and preparation are usable without serious accessibility violations", async ({
   page,
-}, testInfo) => {
+}) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "Size every nail",
@@ -11,31 +76,138 @@ test("landing and preparation are usable without serious accessibility violation
   await expect(
     page.getByText("Photos are processed transiently"),
   ).toBeVisible();
+  await expect(page).toHaveScreenshot("landing.png", { fullPage: true });
 
-  const landingA11y = await new AxeBuilder({ page }).analyze();
-  expect(
-    landingA11y.violations.filter((item) =>
-      ["critical", "serious"].includes(item.impact ?? ""),
-    ),
-  ).toEqual([]);
+  await expectNoSeriousAccessibilityViolations(page);
 
   await page.getByRole("link", { name: "Start sizing" }).click();
   await expect(page).toHaveURL(/\/prepare$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "Prepare",
   );
+  await expect(page).toHaveScreenshot("preparation.png", { fullPage: true });
   await page.getByRole("link", { name: "I’m ready" }).click();
   await expect(page).toHaveURL(/\/capture\/left_fingers$/);
   await expect(page.getByText("Capture 1 of 4")).toBeVisible();
-
-  await page.screenshot({
-    path: `test-results/${testInfo.project.name}-capture.png`,
-    fullPage: true,
-  });
+  await expect(page).toHaveScreenshot("capture.png", { fullPage: true });
 });
 
 test("unknown routes recover to the landing page", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Start sizing" })).toBeVisible();
+});
+
+test("an expired in-memory session explains the privacy-safe reset", async ({
+  page,
+}) => {
+  await page.goto("/results");
+  await expect(page).toHaveURL(/\/recover\/session$/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "no longer available",
+  );
+  await expect(page).toHaveScreenshot("session-recovery.png", {
+    fullPage: true,
+  });
+  await expectNoSeriousAccessibilityViolations(page);
+  await page
+    .getByRole("button", { name: "Start a new sizing session" })
+    .click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("four accepted captures produce ten shareable results and a targeted correction", async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await page.route("http://localhost:8000/v1/measure", async (route) => {
+    const captureType = captureTypeFromMultipart(
+      route.request().postDataBuffer(),
+    );
+    expect(captureType).toBeTruthy();
+    await route.fulfill({ json: successfulMeasurement(captureType!) });
+  });
+
+  await page.goto("/capture/left_fingers");
+  for (const [index, captureType] of Object.keys(captureDigits).entries()) {
+    await expect(page).toHaveURL(new RegExp(`/capture/${captureType}$`));
+    await selectTestPhoto(page);
+    await page.getByRole("button", { name: "Check this photo" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Photo accepted.",
+    );
+    if (index === 0) {
+      await expect(page).toHaveScreenshot("quality-accepted.png", {
+        fullPage: true,
+      });
+      await expectNoSeriousAccessibilityViolations(page);
+    }
+    await page
+      .getByRole("button", {
+        name: index === 3 ? "Finish measurements" : "Continue",
+      })
+      .click();
+  }
+
+  await expect(page).toHaveURL(/\/processing$/);
+  await expect(page).toHaveScreenshot("processing.png", { fullPage: true });
+  await expectNoSeriousAccessibilityViolations(page);
+  await page.getByRole("button", { name: "Review results" }).click();
+  await expect(page).toHaveURL(/\/results$/);
+  const mobile = (page.viewportSize()?.width ?? 1280) < 800;
+  await expect(page.locator(".measurement-row:visible")).toHaveCount(
+    mobile ? 5 : 10,
+  );
+  await expect(page).toHaveScreenshot("results.png", { fullPage: true });
+  await expectNoSeriousAccessibilityViolations(page);
+  await page.getByRole("button", { name: "Copy results" }).click();
+  await expect(
+    page.getByText("Results copied. No photos were included."),
+  ).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Retake", exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/capture\/left_fingers$/);
+  await selectTestPhoto(page);
+  await page.getByRole("button", { name: "Check this photo" }).click();
+  await expect(
+    page.getByRole("button", { name: "Return to results" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Return to results" }).click();
+  await expect(page.locator(".measurement-row:visible")).toHaveCount(
+    mobile ? 5 : 10,
+  );
+  if (mobile) await page.getByRole("tab", { name: "Right hand" }).click();
+  await expect(
+    page.locator(".measurement-row:visible").filter({ hasText: "thumb" }),
+  ).toHaveCount(mobile ? 1 : 2);
+});
+
+test("unsupported uploads show a typed replacement path", async ({ page }) => {
+  await page.route("http://localhost:8000/v1/measure", async (route) => {
+    await route.fulfill({ status: 415, body: "unsupported" });
+  });
+  await page.goto("/capture/left_thumb");
+  await selectTestPhoto(page);
+  await page.getByRole("button", { name: "Check this photo" }).click();
+
+  await expect(
+    page.getByText(
+      "This file is not a supported JPEG, PNG, WebP, HEIC, or HEIF image.",
+    ),
+  ).toBeVisible();
+  await expect(page).toHaveScreenshot("unsupported-error.png", {
+    fullPage: true,
+  });
+  await expectNoSeriousAccessibilityViolations(page);
+  await page.getByRole("button", { name: "Choose another photo" }).click();
+  await expect(page).toHaveURL(/\/capture\/left_thumb$/);
+  await expect(
+    page.getByRole("button", { name: "Choose another photo" }),
+  ).toBeVisible();
 });

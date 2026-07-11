@@ -24,3 +24,21 @@
 - Status: Accepted
 - Decision: Software tests can prove geometry and workflow behavior, but public accuracy claims require the participant-disjoint studies in `outputs/plan.md`.
 - Reason: Synthetic fixtures cannot establish performance on real people, devices, nail shapes, or skin tones.
+
+## ADR-005 — Do not show a fake second inference delay
+
+- Status: Accepted
+- Decision: Each capture displays the Stitch quality-analysis state while its real API request runs. After the fourth accepted response, the processing screen reports the completed stages and lets the user review results; it does not replay a decorative progress delay.
+- Reason: The API already performs quality, calibration, segmentation, measurement, and mapping synchronously for each capture. A later animated wait would misrepresent system activity and harm assistive-technology users.
+
+## ADR-006 — Make recovery contextual and account-free
+
+- Status: Accepted
+- Decision: Network, file-type, payload-size, rate-limit, and service errors appear beside the affected capture. A missing browser-memory session has a dedicated privacy-safe reset screen.
+- Reason: The Stitch recovery concepts are retained, but “sign in again” is inapplicable because the product has no accounts or persistence.
+
+## ADR-007 — Preserve Stitch result hierarchy with measurement evidence
+
+- Status: Accepted
+- Decision: Mobile results use left/right hand tabs; desktop results use two five-nail panels beside actions. Projected millimetres, uncertainty, confidence, alternate sizes, and capture-level retakes remain visible even where the wireframe is more compact.
+- Reason: The calibrated measurement evidence and honest correction controls are product safety requirements and take precedence over literal wireframe density.

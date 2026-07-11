@@ -5,7 +5,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 | Area        | Claim                                                                              | Evidence                                                                        | Status                                            |
 | ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------- |
 | Repository  | Source repository and monorepo foundation exist                                    | Git history; root workspace configuration                                       | Complete                                          |
-| Design      | Stitch IDs and design contract are recorded                                        | `DESIGN.md`; `outputs/plan.md`                                                  | Complete                                          |
+| Design      | Stitch workflow is implemented at the two required responsive widths                | `DESIGN.md`; Playwright screenshot baselines; `core-flow.spec.ts`               | Frontend workflow complete                        |
 | Privacy     | Current application has no persistent image/result path and log fields fail closed | `docs/privacy-and-threat-model.md`; `test_logging.py`; `session.test.ts`        | Foundation complete; staging verification pending |
 | Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                     |
 | Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                             |
@@ -60,6 +60,17 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Application readiness now requires initialized hand-landmark and nail-segmentation runtimes; a configured version string alone cannot report ready.
 - This verifies the runtime contract only. It is not evidence that a trained nail model is accurate or approved.
 - GitHub CI: [run 29159828508](https://github.com/Jeric-png/nailsize-ai/actions/runs/29159828508) passed all five jobs with ONNX Runtime, real MediaPipe Linux initialization, 86 Python tests, contract drift, web, E2E, and security checks.
+
+## 2026-07-12 Stitch-aligned frontend workflow
+
+- Live Stitch MCP retrieval re-verified quality screen `b230e530ded64687b7d0179404a3de69`, processing screen `7f9fa8f92b3b43fabf43a358bfac8199`, mobile results `7c2120dc69554f7fbcab9510ef84455c`, and desktop results `032c6ffdff5244f3a841db78c11d1861` before visual review.
+- `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` passed; the web suite contains 10 unit tests covering session corrections, typed infrastructure errors, response mapping, and duplicate-request suppression.
+- `npm run test:e2e` passed 10 scenarios across 390px mobile and 1280px desktop. The suite proves four accepted captures produce ten results, text-only copy works, a targeted correction preserves other accepted captures, unsupported files recover, and expired in-memory sessions reset safely.
+- Sixteen responsive image baselines cover landing, preparation, capture, accepted quality, processing, results, unsupported-file recovery, and session recovery at both widths. The second Playwright run passed against those baselines without updates.
+- Axe scans found no critical or serious violations on landing, quality, processing, results, unsupported-file recovery, or session recovery at either width.
+- `npm audit --audit-level=high` reported zero vulnerabilities.
+- Normalized API contours render only over the browser-local preview. Copy and native sharing contain text measurements only, never photos.
+- ADR-005 through ADR-007 record intentional Stitch adaptations for honest processing state, account-free recovery, and calibrated result evidence.
 
 ## Evidence rules
 

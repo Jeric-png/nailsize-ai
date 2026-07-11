@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   Link,
   Navigate,
@@ -8,7 +8,7 @@ import {
   useParams,
 } from "react-router-dom";
 import type { CaptureType, MeasureOkResponse } from "@nailsize/contracts";
-import { measureCapture } from "./api";
+import { measureCapture, MeasureRequestError } from "./api";
 import {
   Button,
   Card,
@@ -162,27 +162,10 @@ function CapturePage({
   const record = state.captures[captureType];
   const step = captureOrder.indexOf(captureType) + 1;
 
-  async function submit() {
+  function submit() {
     if (!record || state.status === "submitting") return;
     dispatch({ type: "submitting" });
-    try {
-      const response = await measureCapture(captureType, record.file);
-      if (response.status === "retake")
-        dispatch({
-          type: "retake",
-          captureType,
-          issues: response.quality_issues,
-        });
-      else {
-        dispatch({ type: "accepted", captureType, result: response });
-        navigate(step === 4 ? "/results" : `/capture/${captureOrder[step]}`);
-      }
-    } catch (error) {
-      dispatch({
-        type: "error",
-        message: error instanceof Error ? error.message : "Upload failed.",
-      });
-    }
+    navigate(`/quality/${captureType}`);
   }
 
   return (
@@ -231,7 +214,9 @@ function CapturePage({
           {issue.correction}
         </StatusMessage>
       ))}
-      {state.error && <StatusMessage tone="error">{state.error}</StatusMessage>}
+      {state.error && (
+        <StatusMessage tone="error">{state.error.message}</StatusMessage>
+      )}
       <div className="action-stack">
         <Button
           onClick={() => inputRef.current?.click()}
@@ -255,24 +240,321 @@ function CapturePage({
   );
 }
 
+function QualityPage({
+  state,
+  dispatch,
+}: {
+  state: ReturnType<typeof useSession>[0];
+  dispatch: ReturnType<typeof useSession>[1];
+}) {
+  const params = useParams();
+  const navigate = useNavigate();
+  const captureType = captureOrder.includes(params.captureType as CaptureType)
+    ? (params.captureType as CaptureType)
+    : "left_fingers";
+  const record = state.captures[captureType];
+  const step = captureOrder.indexOf(captureType) + 1;
+  const returnToResults = state.correctionCapture === captureType;
+
+  useEffect(() => {
+    if (!record || state.status !== "submitting") return;
+    let current = true;
+    void measureCapture(captureType, record.file)
+      .then((response) => {
+        if (!current) return;
+        if (response.status === "retake")
+          dispatch({
+            type: "retake",
+            captureType,
+            issues: response.quality_issues,
+          });
+        else dispatch({ type: "accepted", captureType, result: response });
+      })
+      .catch((error: unknown) => {
+        if (!current) return;
+        dispatch({
+          type: "error",
+          code: error instanceof MeasureRequestError ? error.code : "service",
+          message:
+            error instanceof Error
+              ? error.message
+              : "The sizing service could not check this photo.",
+        });
+      });
+    return () => {
+      current = false;
+    };
+  }, [captureType, dispatch, record, state.status]);
+
+  if (!record) return <Navigate to={`/capture/${captureType}`} replace />;
+
+  const analyzing = state.status === "submitting";
+  const accepted = Boolean(record.result);
+  const needsReplacement = ["too_large", "unsupported"].includes(
+    state.error?.code ?? "",
+  );
+
+  return (
+    <div className="page quality-page">
+      <ProgressStepper current={step} />
+      <Eyebrow>Photo quality check</Eyebrow>
+      <h1>
+        {analyzing
+          ? "Analyzing photo…"
+          : accepted
+            ? "Photo accepted."
+            : record.issues
+              ? "Retake required."
+              : "Photo check interrupted."}
+      </h1>
+      <p className="lede" aria-live="polite">
+        {analyzing
+          ? "Detecting the reference plane, hand landmarks, and nail boundaries."
+          : accepted
+            ? "The reference and required nails passed this capture check."
+            : "Your other accepted captures remain in this browser session."}
+      </p>
+      <div
+        className={`quality-preview${analyzing ? " quality-preview--scanning" : ""}`}
+      >
+        <div className="quality-canvas">
+          <img
+            src={record.previewUrl}
+            alt={`Quality preview for ${captureCopy[captureType].title}`}
+          />
+          {accepted && (
+            <svg
+              className="contour-overlay"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              {record.result?.measurements.map((measurement) => (
+                <polygon
+                  key={measurement.digit}
+                  points={measurement.contour
+                    .map(([x, y]) => `${x * 100},${y * 100}`)
+                    .join(" ")}
+                />
+              ))}
+            </svg>
+          )}
+          {analyzing && <span className="scan-line" aria-hidden="true" />}
+        </div>
+      </div>
+      {record.issues?.map((issue) => (
+        <StatusMessage key={issue.code} tone="error">
+          <strong>{issue.message}</strong>
+          <br />
+          {issue.correction}
+        </StatusMessage>
+      ))}
+      {state.error && (
+        <StatusMessage tone="error">
+          <strong>{state.error.message}</strong>
+          <br />
+          {needsReplacement
+            ? "Choose a different image for this capture."
+            : "Retry when your connection or the sizing service is available."}
+        </StatusMessage>
+      )}
+      {accepted && (
+        <StatusMessage tone="success">
+          <strong>Capture {step} accepted</strong>
+          <br />
+          It remains only in browser memory for this sizing session.
+        </StatusMessage>
+      )}
+      <div className="action-stack">
+        {accepted && (
+          <>
+            <Button
+              onClick={() => {
+                if (returnToResults) dispatch({ type: "finishCorrection" });
+                navigate(
+                  returnToResults
+                    ? "/results"
+                    : step === 4
+                      ? "/processing"
+                      : `/capture/${captureOrder[step]}`,
+                );
+              }}
+            >
+              {returnToResults
+                ? "Return to results"
+                : step === 4
+                  ? "Finish measurements"
+                  : "Continue"}
+            </Button>
+            <Button
+              className="button--secondary"
+              onClick={() => navigate(`/capture/${captureType}`)}
+            >
+              Retake photo
+            </Button>
+          </>
+        )}
+        {(record.issues || needsReplacement) && (
+          <Button
+            onClick={() => navigate(`/capture/${captureType}`)}
+            className="button--secondary"
+          >
+            Choose another photo
+          </Button>
+        )}
+        {state.error && !needsReplacement && (
+          <Button onClick={() => dispatch({ type: "submitting" })}>
+            Retry check
+          </Button>
+        )}
+        {!analyzing && !accepted && !record.issues && !state.error && (
+          <Button onClick={() => dispatch({ type: "submitting" })}>
+            Check photo
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Processing({ results }: { results: MeasureOkResponse[] }) {
+  const navigate = useNavigate();
+  const missing = captureOrder.find(
+    (type) => !results.some((result) => result.capture_type === type),
+  );
+  if (results.length === 0) return <Navigate to="/recover/session" replace />;
+  if (missing) return <Navigate to={`/capture/${missing}`} replace />;
+
+  const stages = [
+    "Photo quality checked",
+    "Reference planes calibrated",
+    "Nail edges measured",
+    "Press-on sizes matched",
+  ];
+
+  return (
+    <div className="page processing-page">
+      <Eyebrow>Processing complete</Eyebrow>
+      <h1>Your measurements are ready.</h1>
+      <p className="lede">
+        All four captures passed calibration and measurement. Review the
+        projected widths before sharing them with your nail artist.
+      </p>
+      <ol className="processing-list" aria-label="Completed measurement stages">
+        {stages.map((stage) => (
+          <li key={stage}>
+            <span aria-hidden="true">✓</span>
+            {stage}
+          </li>
+        ))}
+      </ol>
+      <StatusMessage tone="success">
+        <strong>Photos processed transiently</strong>
+        <br />
+        The service returned measurements without adding your photos to a
+        gallery, account, or training dataset.
+      </StatusMessage>
+      <Button onClick={() => navigate("/results")}>Review results</Button>
+    </div>
+  );
+}
+
+function SessionRecovery({ reset }: { reset: () => void }) {
+  const navigate = useNavigate();
+  return (
+    <div className="page recovery-page">
+      <Eyebrow>Session ended</Eyebrow>
+      <h1>Your previous sizing session is no longer available.</h1>
+      <p className="lede">
+        Photos and measurements live only in browser memory. They are erased
+        when the page session ends, so you will need to take the four photos
+        again.
+      </p>
+      <StatusMessage>
+        <strong>Nothing was saved</strong>
+        <br />
+        This recovery behavior is part of the application’s privacy design.
+      </StatusMessage>
+      <Button
+        onClick={() => {
+          reset();
+          navigate("/");
+        }}
+      >
+        Start a new sizing session
+      </Button>
+    </div>
+  );
+}
+
+type ResultMeasurement = MeasureOkResponse["measurements"][number] & {
+  side: "Left" | "Right";
+  captureType: CaptureType;
+};
+
+function NailResult({
+  measurement,
+  compact = false,
+  onRetake,
+}: {
+  measurement: ResultMeasurement;
+  compact?: boolean;
+  onRetake: () => void;
+}) {
+  return (
+    <div
+      className={`measurement-row${compact ? " measurement-row--compact" : ""}`}
+    >
+      <div>
+        <strong>{measurement.digit}</strong>
+        <span>
+          {measurement.confidence} confidence · ±
+          {measurement.uncertainty_mm.toFixed(1)} mm
+        </span>
+        <button type="button" className="text-button" onClick={onRetake}>
+          Retake
+        </button>
+      </div>
+      <div className="measurement-value">
+        <strong>{measurement.projected_width_mm.toFixed(1)} mm</strong>
+        <span>
+          Size {measurement.recommended_size}
+          {measurement.alternate_size ? ` / ${measurement.alternate_size}` : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function Results({
   results,
   reset,
+  reopen,
 }: {
   results: MeasureOkResponse[];
   reset: () => void;
+  reopen: (captureType: CaptureType) => void;
 }) {
   const navigate = useNavigate();
-  const measurements = results.flatMap((result) =>
+  const [shareStatus, setShareStatus] = useState("");
+  const [activeSide, setActiveSide] = useState<"Left" | "Right">("Left");
+  const measurements: ResultMeasurement[] = results.flatMap((result) =>
     result.measurements.map((item) => ({
       ...item,
-      side: result.capture_type.startsWith("left") ? "Left" : "Right",
+      side: result.capture_type.startsWith("left")
+        ? ("Left" as const)
+        : ("Right" as const),
+      captureType: result.capture_type,
     })),
   );
   if (measurements.length !== 10)
     return (
       <Navigate
-        to={`/capture/${captureOrder.find((type) => !results.some((r) => r.capture_type === type)) ?? "left_fingers"}`}
+        to={
+          results.length === 0
+            ? "/recover/session"
+            : `/capture/${captureOrder.find((type) => !results.some((r) => r.capture_type === type)) ?? "left_fingers"}`
+        }
         replace
       />
     );
@@ -282,9 +564,44 @@ function Results({
         `${m.side} ${m.digit}: ${m.projected_width_mm.toFixed(1)} mm — size ${m.recommended_size}`,
     )
     .join("\n");
+
   async function copy() {
-    await navigator.clipboard.writeText(`NailSize AI results\n${summary}`);
+    if (!navigator.clipboard?.writeText) {
+      setShareStatus("Copy is not supported in this browser.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(`NailSize AI results\n${summary}`);
+      setShareStatus("Results copied. No photos were included.");
+    } catch {
+      setShareStatus("Results could not be copied. Select the text manually.");
+    }
   }
+
+  async function share() {
+    if (!navigator.share) {
+      await copy();
+      return;
+    }
+    try {
+      await navigator.share({
+        title: "NailSize AI results",
+        text: `NailSize AI results\n${summary}`,
+      });
+      setShareStatus("Text-only results shared.");
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError"))
+        setShareStatus(
+          "Sharing was not completed. You can copy the results instead.",
+        );
+    }
+  }
+
+  function retake(measurement: ResultMeasurement) {
+    reopen(measurement.captureType);
+    navigate(`/capture/${measurement.captureType}`);
+  }
+
   return (
     <div className="page results-page">
       <Eyebrow>Measurement complete</Eyebrow>
@@ -294,28 +611,56 @@ function Results({
         tip brand and curvature.
       </p>
       <div className="results-layout">
-        <Card className="result-summary">
-          <h2>All ten nails</h2>
-          {measurements.map((m) => (
-            <div className="measurement-row" key={`${m.side}-${m.digit}`}>
-              <div>
-                <strong>
-                  {m.side} {m.digit}
-                </strong>
-                <span>
-                  {m.confidence} confidence · ±{m.uncertainty_mm.toFixed(1)} mm
-                </span>
-              </div>
-              <div className="measurement-value">
-                <strong>{m.projected_width_mm.toFixed(1)} mm</strong>
-                <span>
-                  Size {m.recommended_size}
-                  {m.alternate_size ? ` / ${m.alternate_size}` : ""}
-                </span>
-              </div>
-            </div>
-          ))}
-        </Card>
+        <div className="result-summary">
+          <div
+            className="result-tabs"
+            role="tablist"
+            aria-label="Choose a hand"
+          >
+            {(["Left", "Right"] as const).map((side) => (
+              <button
+                key={side}
+                type="button"
+                role="tab"
+                aria-selected={activeSide === side}
+                onClick={() => setActiveSide(side)}
+              >
+                {side} hand
+              </button>
+            ))}
+          </div>
+          <Card className="results-mobile-hand">
+            <h2>{activeSide} hand</h2>
+            {measurements
+              .filter((measurement) => measurement.side === activeSide)
+              .map((measurement) => (
+                <NailResult
+                  key={`${measurement.side}-${measurement.digit}`}
+                  measurement={measurement}
+                  onRetake={() => retake(measurement)}
+                />
+              ))}
+          </Card>
+          <div className="results-desktop-hands">
+            {(["Left", "Right"] as const).map((side) => (
+              <Card className="hand-panel" key={side}>
+                <h2>{side} hand</h2>
+                <div className="hand-grid">
+                  {measurements
+                    .filter((measurement) => measurement.side === side)
+                    .map((measurement) => (
+                      <NailResult
+                        compact
+                        key={`${measurement.side}-${measurement.digit}`}
+                        measurement={measurement}
+                        onRetake={() => retake(measurement)}
+                      />
+                    ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
         <aside>
           <StatusMessage tone="success">
             <strong>Calibrated result</strong>
@@ -323,7 +668,10 @@ function Results({
             All measurements used a detected reference plane.
           </StatusMessage>
           <div className="action-stack">
-            <Button onClick={copy}>Copy results</Button>
+            <Button onClick={() => void copy()}>Copy results</Button>
+            <Button className="button--secondary" onClick={() => void share()}>
+              Share results
+            </Button>
             <Button
               className="button--secondary"
               onClick={() => {
@@ -334,6 +682,9 @@ function Results({
               Start over and erase session
             </Button>
           </div>
+          <p className="share-status" aria-live="polite">
+            {shareStatus}
+          </p>
         </aside>
       </div>
     </div>
@@ -373,11 +724,25 @@ export function App() {
           element={<CapturePage state={state} dispatch={dispatch} />}
         />
         <Route
+          path="/quality/:captureType"
+          element={<QualityPage state={state} dispatch={dispatch} />}
+        />
+        <Route path="/processing" element={<Processing results={results} />} />
+        <Route
+          path="/recover/session"
+          element={
+            <SessionRecovery reset={() => dispatch({ type: "reset" })} />
+          }
+        />
+        <Route
           path="/results"
           element={
             <Results
               results={results}
               reset={() => dispatch({ type: "reset" })}
+              reopen={(captureType) =>
+                dispatch({ type: "reopen", captureType })
+              }
             />
           }
         />
