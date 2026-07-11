@@ -92,6 +92,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - EXIF orientation is applied before inference and downstream code receives only a copied RGB pixel array, not source metadata. The unused JPEG re-encoding path was removed.
 - HTTP tests prove encoded overflow returns 413 with `no-store`; unexpected decoder failure returns a sanitized 500 and neither client filenames nor internal decoder details enter responses or captured application logs.
 - Repository-wide verification passed 119 Python/ML tests at 93.64% coverage, contract drift, Ruff, TypeScript, ESLint, 17 web unit tests, the production build, 10 Playwright scenarios, and the high-severity npm audit.
+- GitHub CI run [29160985679](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160985679) passed all five jobs for adversarial-upload commit `2402751`, including the Linux decoder/HEIF environment, 119 Python/ML tests, strict visual snapshots, contract drift, build, dependency audit, and Trivy scanning.
 
 ## Evidence rules
 
