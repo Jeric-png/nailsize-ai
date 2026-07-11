@@ -37,7 +37,9 @@ Build `services/inference/Dockerfile` only after a verified ONNX model is availa
 - request-body and response-body logging disabled
 - maximum instances and billing alerts set from the validated traffic model
 
-`infra/cloud-run/service.template.yaml` is the source-controlled service contract. It includes load-balancer-only ingress, concurrency, timeout, CPU, memory, warm capacity, a dedicated service account, startup/liveness probes, and immutable model metadata. It deliberately leaves `MAX_INSTANCES` as a required substitution because an invented value would not prove safety or cost control.
+`infra/platform` is the deployable source-controlled contract. It provisions an environment-specific Artifact Registry repository and role-less runtime identity, Cloud Run, a serverless NEG, a global external HTTPS load balancer, a Google-managed certificate, HTTP-to-HTTPS redirection, full backend request logging, and a Cloud Armor per-IP throttle. Cloud Run uses load-balancer-only ingress, disables its default URL, and locks concurrency, timeout, CPU, memory, warm capacity, probes, and immutable model metadata. Every environment, domain, digest, capacity, and rate-limit value is required; the stack does not invent deployable defaults.
+
+`infra/cloud-run/service.template.yaml` remains a reviewable equivalent for manual recovery. It now carries the same disabled-default-URL boundary as Terraform.
 
 Render and inspect the manifest only after every value is known:
 
@@ -55,9 +57,11 @@ gcloud run services replace work/cloud-run-service.yaml --region REGION --projec
 gcloud run services update "$SERVICE_NAME" --no-default-url --region REGION --project PROJECT_ID
 ```
 
-Use an external Application Load Balancer in front of the service and attach Cloud Armor. The `internal-and-cloud-load-balancing` ingress annotation plus `--no-default-url` prevents public traffic from bypassing the load balancer. Begin Cloud Armor rate rules in preview mode, derive per-client thresholds from staging load and abuse tests, then enforce with a `deny-429` exceed action. Do not copy example traffic thresholds into production.
+For normal provisioning, follow `infra/platform/README.md` and review a saved Terraform plan before an authorized apply. Point the API domain's DNS A record to the resulting global address and wait for the managed certificate to become active before smoke testing. The public `allUsers` binding grants only `roles/run.invoker`; load-balancer-only ingress plus the disabled `run.app` URL prevents internet traffic from bypassing Cloud Armor. The runtime service account deliberately receives no project roles because both model assets are bundled in the immutable image.
 
-Official references: [Cloud Run ingress](https://docs.cloud.google.com/run/docs/securing/ingress), [Cloud Run YAML](https://docs.cloud.google.com/run/docs/reference/yaml/v1), [Cloud Armor rate limiting](https://docs.cloud.google.com/armor/docs/configure-rate-limiting), and [Vercel project configuration](https://vercel.com/docs/project-configuration/vercel-json).
+Begin Cloud Armor rate rules in preview mode, derive per-client thresholds from at least one day of representative staging and abuse-test logs, then submit a separate reviewed plan that changes only the evidence-backed threshold or enforcement switch. The exceed action is `deny(429)`. Do not copy example traffic thresholds into production.
+
+Official references: [Cloud Run ingress](https://docs.cloud.google.com/run/docs/securing/ingress), [Cloud Run YAML](https://docs.cloud.google.com/run/docs/reference/yaml/v1), [Cloud Armor rate limiting](https://docs.cloud.google.com/armor/docs/rate-limiting-overview), [Cloud Run load balancing](https://docs.cloud.google.com/load-balancing/docs/https/setting-up-https-serverless), and [Vercel project configuration](https://vercel.com/docs/project-configuration/vercel-json).
 
 ## Load validation
 

@@ -9,7 +9,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 | Privacy     | Current application has no persistent image/result path and log fields fail closed | `docs/privacy-and-threat-model.md`; `test_logging.py`; `session.test.ts`        | Foundation complete; staging verification pending |
 | Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                     |
 | Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                             |
-| Deployment  | Versioned frontend and API deployment contracts pass local checks                   | `vercel.json`; `infra/cloud-run/service.template.yaml`; `docs/deployment.md`     | Configuration ready; deployment/load tuning pending |
+| Deployment  | Versioned frontend, API, edge-security, and identity contracts pass local checks     | `vercel.json`; `infra/platform`; `infra/cloud-run/service.template.yaml`         | Configuration ready; deployment/load tuning pending |
 | Operations  | Observability resources and required inputs fail closed before cloud provisioning   | `infra/observability`; `docs/observability.md`; Terraform test output            | Configuration ready; cloud evidence pending         |
 
 ## 2026-07-11 foundation verification
@@ -247,6 +247,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Error rate, p95 latency, malformed-upload rate, maximum instances, budget/currency, budget thresholds, and verified notification channels are mandatory inputs. Seven Terraform tests prove valid planning and rejection of unsafe environment, notification, error-rate, instance-cap, budget, and threshold inputs without cloud credentials.
 - Local verification passed Terraform formatting, provider-backed validation, and 7 Terraform tests; Ruff formatting/lint; 214 Python/ML tests at 93.34% measured coverage; 24 web tests; TypeScript; ESLint; the Vercel production build; 18 Playwright mobile/desktop flows; and the high-severity dependency audit.
 - No Google Cloud resource was created or changed. The related release checkboxes remain open until authorized staging and production plans are reviewed/applied, notification delivery is tested, dashboard time series are inspected, and immutable evidence is recorded.
+
+## 2026-07-12 platform and edge-security infrastructure contract
+
+- `infra/platform` provisions the environment-specific Artifact Registry repository, a dedicated runtime service account with no project-role grants, Cloud Run, a serverless NEG, a global external HTTPS load balancer, managed TLS, HTTP redirection, and Cloud Armor.
+- Cloud Run is locked to one request per instance, one warm instance, the load-tested maximum, 2 vCPU, 4 GiB, a 15-second timeout, exact CORS origin, immutable image/model identifiers, load-balancer-only ingress, and a disabled default `run.app` URL. Public IAM grants only `roles/run.invoker`; the network boundary forces internet traffic through Cloud Armor.
+- Cloud Armor requires an explicit per-IP threshold and supported interval, emits full backend request logs, begins in caller-selected preview mode, and returns `429` only after reviewed enforcement. Six provider-backed Terraform tests prove the secure boundary and reject a mutable image, wildcard origin, unapproved environment, and invalid rate interval.
+- Local verification passed formatting, Google provider 7.39.0 validation, and all six platform tests. No Google Cloud resource was created or changed, no domain was pointed, and no rate threshold was inferred. Provisioning, certificate activation, preview-log review, enforcement, IAM inspection, and deployment smoke evidence remain open.
 
 ## Evidence rules
 

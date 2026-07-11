@@ -57,6 +57,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Return `Cache-Control: no-store` on all measurement responses.
 - [x] Close transient files and buffers in all success and failure paths.
 - [ ] Add CORS origin restrictions, bot/rate controls, Cloud Run maximum instances, and billing alerts.
+  - Exact CORS validation is active in the API. Provider-validated Terraform now defines an explicit maximum-instance cap, Cloud Armor per-IP throttle with preview/enforcement control, and fail-closed billing inputs. The checkbox remains open until staging traffic establishes the threshold, production plans are approved/applied, and live `429` plus budget notification behavior is observed.
 - [x] Add dependency, container, and static security scanning.
 - [x] Add tests proving request bodies, filenames, photos, contours, widths, and results never enter logs or traces.
 
@@ -104,8 +105,10 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 - [ ] Containerize the API and bundle the verified ONNX model.
   - The non-root runtime image installs MediaPipe/native dependencies and requires both checksum-verified runtime artifacts at build time. CI builds it with a clearly non-release synthetic graph and requires checksum/version/warmup readiness. The checkbox remains open until the selected validated ONNX file is supplied and that immutable image passes the same smoke.
-- [ ] Provision Artifact Registry, Cloud Run, Firebase Hosting, TLS, and environment configuration.
+- [ ] Provision Artifact Registry, Cloud Run, Vercel, TLS, and environment configuration.
+  - `infra/platform` now defines Artifact Registry, a role-less runtime identity, Cloud Run, serverless NEG, global HTTPS load balancing, managed TLS, HTTP redirect, and Cloud Armor without deployable defaults. Vercel configuration is versioned separately. The checkbox remains open until authorized staging and production applies, DNS/certificate activation, and immutable deployment evidence are complete.
 - [ ] Configure Cloud Run with one worker, concurrency `1`, one warm minimum instance, 2 vCPU, 4 GiB RAM, and a 15-second timeout.
+  - Both the provider-validated Terraform stack and manual recovery manifest lock these settings, load-balancer-only ingress, and a disabled default URL. The checkbox remains open until the deployed revisions are inspected and benchmarked with the validated model.
 - [ ] Deploy the frontend so photos post directly to the inference service rather than through a frontend server function.
 - [ ] Add stage-level latency metrics, request/error counts, retake reasons, saturation, cold starts, and model/chart version dashboards.
   - Privacy-safe structured events now emit JSON-only Cloud Logging payloads. Validated Terraform defines the log metrics and a dashboard covering request/stage latency, outcomes, retakes, saturation, concurrency, CPU/memory, startup, billable time, and model/chart versions. Provisioning and live-data verification remain pending.
@@ -153,7 +156,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 - [x] Complete a data-flow and threat-model review.
 - [ ] Verify that production photos are excluded from model-training workflows by technical controls, not policy alone.
-  - CI now forbids training/persistence imports and dependencies in the production service, constrains the container to the production package, and keeps model tooling manual without cloud auth or artifact ingress. Cloud IAM and deployed telemetry isolation remain pending.
+  - CI forbids training/persistence imports and dependencies in the production service, constrains the container to the production package, and keeps model tooling manual without cloud auth or artifact ingress. Terraform creates a dedicated runtime identity with no project-role grants and bundles model assets inside the immutable image. Applied IAM inspection and deployed telemetry isolation remain pending.
 - [ ] Publish privacy copy that accurately says images are never persistently stored and explains transient processing.
   - The product now includes a dedicated, accessibility-tested privacy notice covering browser memory, transient server buffers, sanitized operational metadata, prohibited training reuse, and safe reference-card guidance. Public publication remains pending deployment.
 - [ ] Verify monitoring, backups, crash reporting, and analytics cannot capture image or result payloads.
