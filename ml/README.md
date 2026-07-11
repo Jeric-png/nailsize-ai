@@ -54,7 +54,7 @@ nailsize-export-checkpoint /approved/checkpoints/candidate.pt \
   --report /approved/evidence/onnx-export-report.json
 ```
 
-The exporter safely loads only the checksum-approved checkpoint, reconstructs the fixed DeepLabV3-MobileNetV3 architecture without downloading weights, requires strict state-dictionary compatibility, and verifies native/ONNX parity on CPU. It refuses pre-existing or overlapping output paths and emits neither artifact unless both the ONNX model and machine-readable evidence can be published. The report locks checkpoint/model checksums, versions, tensor shapes, training counts/loss, provider, and measured parity. Copy its measured parity and ONNX checksum into the independently reviewed `model-metadata.json`; keep the export report with research evidence rather than inside the five-file release bundle.
+The exporter safely loads only the checksum-approved checkpoint, reconstructs the fixed DeepLabV3-MobileNetV3 architecture without downloading weights, requires strict state-dictionary compatibility, and verifies native/ONNX parity on CPU. It refuses pre-existing or overlapping output paths and emits neither artifact unless both the ONNX model and machine-readable evidence can be published. The report locks checkpoint/model checksums, versions, tensor shapes, training counts/loss, provider, and measured parity. Copy its measured parity and ONNX checksum into the independently reviewed `model-metadata.json`, then preserve the original `onnx-export-report.json` unchanged in the release bundle so the final gate can verify that linkage.
 
 ## Accuracy release report
 
@@ -64,7 +64,7 @@ Run `nailsize-model-card model-metadata.json accuracy-report.json model-card.md`
 
 Run `nailsize-operational-report study-bundle.json --output operational-report.json` on the locked study export. The bundle must declare `"schema_version": "nailsize-operational-study@1"` and contain one completion outcome per participant, ground-truth validity decisions, two complete ten-nail capture sets per repeatability participant, adequately sampled cohort declarations with parity-review references, and a repeatability-review reference. The report enforces first-pass and one-retake completion plus false-acceptance/false-rejection gates, publishes participant-clustered 95% intervals, and reports repeated-capture differences and subgroup rejection-rate gaps. Because the plan defines no universal numeric repeatability or subgroup rejection-parity threshold, those two conclusions require named study reviews instead of an invented cutoff. No images belong in this bundle.
 
-Before publishing a GitHub model release, place only `nail-segmentation.onnx`, `model-metadata.json`, `accuracy-report.json`, `operational-report.json`, and the generated `model-card.md` in one directory, then run:
+Before publishing a GitHub model release, place only `nail-segmentation.onnx`, the original `onnx-export-report.json`, `model-metadata.json`, `accuracy-report.json`, `operational-report.json`, and the generated `model-card.md` in one directory, then run:
 
 ```bash
 nailsize-release-bundle /approved-release \
@@ -73,9 +73,9 @@ nailsize-release-bundle /approved-release \
   --output /reports/model-release-manifest.json
 ```
 
-This final gate independently checks exact contents, checksum/version identity, every numeric accuracy and operational threshold, finite clustered intervals, study/cohort counts and reviews, model-card reproducibility, ONNX parity metadata, and positive boundary uncertainty. It emits metadata only. Passing it proves the bundle is internally consistent; it does not prove that the submitted study data was representative or honestly collected, so protected human review remains mandatory.
+This final gate independently checks exact contents, selected-checkpoint and ONNX checksum/version identity, fixed architecture/provider/tensor contracts, exporter-to-metadata parity linkage, every numeric accuracy and operational threshold, finite clustered intervals, study/cohort counts and reviews, model-card reproducibility, and positive boundary uncertainty. It emits metadata only. Passing it proves the bundle is internally consistent; it does not prove that the submitted study data was representative or honestly collected, so protected human review remains mandatory.
 
-The default CI suite measures coverage for production and dependency-light ML modules; the heavy PyTorch modules are excluded because their optional dependencies are not installed there. Run the `Model Tooling` GitHub Actions workflow after changes to `modeling.py`, `training.py`, or their pinned dependencies. It installs the research extra on Linux and executes the real factory/export/training tests.
+The default CI suite measures coverage for production and dependency-light ML modules; the heavy PyTorch modules are excluded because their optional dependencies are not installed there. Run the `Model Tooling` GitHub Actions workflow after changes to `modeling.py`, `training.py`, the release chain, or their pinned dependencies. It installs the research extra on Linux and executes the real factory/export/release/training tests.
 
 Benchmark the exported candidate inside the exact Cloud Run container/revision before approval:
 

@@ -75,6 +75,25 @@ def _accuracy_report() -> dict:
     }
 
 
+def _export_report(checksum: str) -> dict:
+    return {
+        "schema_version": "nailsize-selected-checkpoint-export@1",
+        "architecture": "deeplabv3_mobilenet_v3_large",
+        "checkpoint_sha256": "a" * 64,
+        "model_sha256": checksum,
+        "model_version": "release-1",
+        "training_examples": 2400,
+        "training_epochs": 12,
+        "final_training_loss": 0.08,
+        "parity_max_abs_error": 0.00001,
+        "parity_tolerance": 0.0001,
+        "input_shape": [1, 3, 224, 160],
+        "output_shape": [1, 1, 224, 160],
+        "provider": "CPUExecutionProvider",
+        "checkpoint_torch_version": "2.8.0",
+    }
+
+
 def _operational_report() -> dict:
     return {
         "schema_version": "nailsize-operational-report@1",
@@ -142,9 +161,11 @@ def _write_bundle(directory):
     model.write_bytes(b"release-model-bytes")
     checksum = hashlib.sha256(model.read_bytes()).hexdigest()
     metadata = _metadata(checksum)
+    export = _export_report(checksum)
     accuracy = _accuracy_report()
     operational = _operational_report()
     (directory / "model-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    (directory / "onnx-export-report.json").write_text(json.dumps(export), encoding="utf-8")
     (directory / "accuracy-report.json").write_text(json.dumps(accuracy), encoding="utf-8")
     (directory / "operational-report.json").write_text(json.dumps(operational), encoding="utf-8")
     (directory / "model-card.md").write_text(
@@ -163,9 +184,11 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
     )
 
     assert manifest == {
-        "schema_version": "nailsize-model-release@1",
+        "schema_version": "nailsize-model-release@2",
+        "checkpoint_sha256": "a" * 64,
         "model_version": "release-1",
         "model_sha256": checksum,
+        "onnx_parity_max_abs_error": 0.00001,
         "dataset_version": "holdout-1",
         "segmentation_boundary_error_px": 0.8,
         "accuracy_participant_count": 200,
@@ -183,6 +206,13 @@ def test_rejects_missing_unexpected_and_synthetic_release_inputs(tmp_path) -> No
             tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
         )
     (tmp_path / "unexpected.txt").unlink()
+    export_report = tmp_path / "onnx-export-report.json"
+    export_report.unlink()
+    with pytest.raises(ValueError, match="files do not match"):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+    export_report.write_text(json.dumps(_export_report(checksum)), encoding="utf-8")
     with pytest.raises(ValueError, match="non-synthetic"):
         verify_release_bundle(
             tmp_path,
@@ -192,6 +222,87 @@ def test_rejects_missing_unexpected_and_synthetic_release_inputs(tmp_path) -> No
     with pytest.raises(ValueError, match="approved checksum"):
         verify_release_bundle(
             tmp_path, expected_model_version="release-1", expected_model_sha256="0" * 64
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("schema_version", "unknown@1", "schema"),
+        ("architecture", "other", "architecture"),
+        ("checkpoint_sha256", "0", "checkpoint SHA-256"),
+        ("model_version", "release-2", "version"),
+        ("model_sha256", "b" * 64, "checksum"),
+        ("provider", "CUDAExecutionProvider", "CPUExecutionProvider"),
+        ("input_shape", [1, 3, 160, 224], "input shape"),
+        ("output_shape", [1, 1, 160, 224], "output shape"),
+        ("parity_max_abs_error", -0.1, "must not be negative"),
+        ("parity_tolerance", 0.001, "release ceiling"),
+        ("training_examples", 0, "positive integer"),
+        ("training_epochs", True, "positive integer"),
+        ("final_training_loss", -0.1, "must not be negative"),
+        ("checkpoint_torch_version", "", "PyTorch version"),
+    ],
+)
+def test_rejects_tampered_selected_checkpoint_export_evidence(
+    tmp_path, field: str, value, message: str
+) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    report_path = tmp_path / "onnx-export-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report[field] = value
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
+def test_rejects_parity_not_linked_to_export_or_outside_export_tolerance(tmp_path) -> None:
+    checksum, metadata, accuracy, _ = _write_bundle(tmp_path)
+    metadata["onnx_parity_max_abs_error"] = 0.00002
+    (tmp_path / "model-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    (tmp_path / "model-card.md").write_text(render_model_card(metadata, accuracy), encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match selected-checkpoint"):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+    metadata["onnx_parity_max_abs_error"] = 0.00001
+    (tmp_path / "model-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    (tmp_path / "model-card.md").write_text(render_model_card(metadata, accuracy), encoding="utf-8")
+    report_path = tmp_path / "onnx-export-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["parity_tolerance"] = 0.000001
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(ValueError, match="exceeds its verified tolerance"):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
+def test_rejects_added_export_report_fields(tmp_path) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    report_path = tmp_path / "onnx-export-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["unreviewed"] = True
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(ValueError, match="fields do not match"):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
+def test_rejects_removed_export_report_fields(tmp_path) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    report_path = tmp_path / "onnx-export-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    del report["training_epochs"]
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(ValueError, match="fields do not match"):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
         )
 
 

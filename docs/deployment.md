@@ -95,12 +95,13 @@ The command exits non-zero unless every request returns HTTP 200 and p50 is at m
 A deployable model is a published, non-prerelease GitHub release whose tag resolves to an ancestor of the deployed `main` commit. The release must contain exactly these assets:
 
 - `nail-segmentation.onnx`
+- `onnx-export-report.json`
 - `model-metadata.json`
 - `accuracy-report.json`
 - `operational-report.json`
 - `model-card.md`
 
-`nailsize-release-bundle` rejects missing or extra assets, placeholder/synthetic version names, checksum mismatches, a regenerated model-card difference, incomplete cohort evidence, fewer than 200 participants, failed accuracy/operational gates, and a nonpositive segmentation boundary error. The runtime verifier then loads the exact ONNX bytes with `CPUExecutionProvider`, checks embedded model identity and tensor contracts, and performs warm-up inference. These gates validate supplied evidence integrity; they do not make synthetic evidence representative or replace independent study review.
+`nailsize-release-bundle` rejects missing or extra assets, placeholder/synthetic version names, checksum mismatches, a regenerated model-card difference, incomplete cohort evidence, fewer than 200 participants, failed accuracy/operational gates, and a nonpositive segmentation boundary error. It also requires the original selected-checkpoint export report and cross-checks its checkpoint/model checksums, model version, architecture, CPU provider, fixed tensors, training provenance, parity tolerance, and measured parity against the ONNX bytes and reviewed metadata. The runtime verifier then loads the exact ONNX bytes with `CPUExecutionProvider`, checks embedded model identity and tensor contracts, and performs warm-up inference. These gates validate supplied evidence integrity; they do not make synthetic evidence representative or replace independent study review.
 
 ## Credentialed deployment workflow
 

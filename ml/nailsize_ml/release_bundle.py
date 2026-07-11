@@ -15,7 +15,26 @@ REQUIRED_FILENAMES = frozenset(
         "model-card.md",
         "model-metadata.json",
         "nail-segmentation.onnx",
+        "onnx-export-report.json",
         "operational-report.json",
+    }
+)
+EXPORT_REPORT_FIELDS = frozenset(
+    {
+        "architecture",
+        "checkpoint_sha256",
+        "checkpoint_torch_version",
+        "final_training_loss",
+        "input_shape",
+        "model_sha256",
+        "model_version",
+        "output_shape",
+        "parity_max_abs_error",
+        "parity_tolerance",
+        "provider",
+        "schema_version",
+        "training_epochs",
+        "training_examples",
     }
 )
 REJECTED_VERSION_MARKERS = (
@@ -56,6 +75,7 @@ def verify_release_bundle(
 
     metadata = _read_json(directory / "model-metadata.json")
     accuracy = _read_json(directory / "accuracy-report.json")
+    export_report = _read_json(directory / "onnx-export-report.json")
     operational = _read_json(directory / "operational-report.json")
     model_path = directory / "nail-segmentation.onnx"
     actual_sha256 = _sha256(model_path)
@@ -66,6 +86,13 @@ def verify_release_bundle(
         raise ValueError("Model metadata checksum does not match the approved checksum")
     if actual_sha256 != expected_model_sha256:
         raise ValueError("ONNX file checksum does not match the approved checksum")
+
+    checkpoint_sha256, parity_error = _validate_export_report(
+        export_report,
+        metadata=metadata,
+        expected_model_version=expected_model_version,
+        expected_model_sha256=expected_model_sha256,
+    )
 
     rendered_card = render_model_card(metadata, accuracy)
     committed_card = (directory / "model-card.md").read_text(encoding="utf-8")
@@ -79,9 +106,11 @@ def verify_release_bundle(
         segmentation.get("p95_boundary_error_px"), "p95_boundary_error_px"
     )
     return {
-        "schema_version": "nailsize-model-release@1",
+        "schema_version": "nailsize-model-release@2",
+        "checkpoint_sha256": checkpoint_sha256,
         "model_version": expected_model_version,
         "model_sha256": expected_model_sha256,
+        "onnx_parity_max_abs_error": parity_error,
         "dataset_version": metadata["dataset_version"],
         "segmentation_boundary_error_px": boundary_error,
         "accuracy_participant_count": accuracy["participant_count"],
@@ -89,6 +118,59 @@ def verify_release_bundle(
         "operational_participant_count": operational["participant_count"],
         "approved": True,
     }
+
+
+def _validate_export_report(
+    report: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+    expected_model_version: str,
+    expected_model_sha256: str,
+) -> tuple[str, float]:
+    if frozenset(report) != EXPORT_REPORT_FIELDS:
+        raise ValueError("Selected-checkpoint export report fields do not match contract")
+    if report.get("schema_version") != "nailsize-selected-checkpoint-export@1":
+        raise ValueError("Unsupported selected-checkpoint export report schema")
+    if report.get("architecture") != "deeplabv3_mobilenet_v3_large":
+        raise ValueError("Selected-checkpoint architecture does not match production")
+
+    checkpoint_sha256 = report.get("checkpoint_sha256")
+    if not isinstance(checkpoint_sha256, str) or not _valid_sha256(checkpoint_sha256):
+        raise ValueError("Selected-checkpoint SHA-256 must be lowercase hexadecimal")
+    if report.get("model_version") != expected_model_version:
+        raise ValueError("Export report version does not match the approved version")
+    if report.get("model_sha256") != expected_model_sha256:
+        raise ValueError("Export report checksum does not match the approved checksum")
+    if report.get("provider") != "CPUExecutionProvider":
+        raise ValueError("Selected-checkpoint export must use CPUExecutionProvider")
+    if report.get("input_shape") != [1, 3, 224, 160]:
+        raise ValueError("Selected-checkpoint export input shape does not match production")
+    if report.get("output_shape") != [1, 1, 224, 160]:
+        raise ValueError("Selected-checkpoint export output shape does not match production")
+
+    parity_error = _finite(report.get("parity_max_abs_error"), "parity_max_abs_error")
+    parity_tolerance = _positive_finite(report.get("parity_tolerance"), "parity_tolerance")
+    if parity_error < 0:
+        raise ValueError("parity_max_abs_error must not be negative")
+    if parity_tolerance > 1e-4:
+        raise ValueError("Selected-checkpoint parity tolerance exceeds the release ceiling")
+    if parity_error > parity_tolerance:
+        raise ValueError("Selected-checkpoint parity error exceeds its verified tolerance")
+    metadata_parity = _finite(
+        metadata.get("onnx_parity_max_abs_error"), "metadata onnx_parity_max_abs_error"
+    )
+    if metadata_parity != parity_error:
+        raise ValueError("Model metadata parity does not match selected-checkpoint export evidence")
+
+    _positive_integer(report.get("training_examples"), "training_examples")
+    _positive_integer(report.get("training_epochs"), "training_epochs")
+    final_loss = _finite(report.get("final_training_loss"), "final_training_loss")
+    if final_loss < 0:
+        raise ValueError("final_training_loss must not be negative")
+    torch_version = report.get("checkpoint_torch_version")
+    if not isinstance(torch_version, str) or not torch_version.strip():
+        raise ValueError("Selected-checkpoint PyTorch version is required")
+    return checkpoint_sha256, parity_error
 
 
 def _validate_accuracy_report(report: dict[str, Any]) -> None:
@@ -237,6 +319,16 @@ def _positive_finite(value: Any, field: str) -> float:
     if numeric <= 0:
         raise ValueError(f"{field} must be greater than zero")
     return numeric
+
+
+def _positive_integer(value: Any, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{field} must be a positive integer")
+    return value
+
+
+def _valid_sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
 def main() -> None:

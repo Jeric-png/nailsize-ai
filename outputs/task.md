@@ -86,7 +86,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Train the DeepLabV3-MobileNetV3 baseline on fingertip crops.
 - [ ] Evaluate mask boundary error as well as IoU; do not approve based on IoU alone.
 - [ ] Export the selected model to ONNX and verify output parity with PyTorch.
-  - A fail-closed CLI now requires the selected checkpoint's approved SHA-256 and model version, safely loads its fixed training schema, reconstructs DeepLabV3-MobileNetV3 with strict state compatibility, publishes ONNX only after CPU parity passes, and atomically records checkpoint/model identities, tensor contracts, provider, and measured error. The checkbox remains open until a real selected checkpoint produces reviewed export evidence at or below `1e-4`.
+  - A fail-closed CLI now requires the selected checkpoint's approved SHA-256 and model version, safely loads its fixed training schema, reconstructs DeepLabV3-MobileNetV3 with strict state compatibility, publishes ONNX only after CPU parity passes, and atomically records checkpoint/model identities, tensor contracts, provider, and measured error. The six-file release gate requires that original report and cross-checks it against the exact ONNX bytes and reviewed parity metadata before deployment. The checkbox remains open until a real selected checkpoint produces reviewed export evidence at or below `1e-4`.
 - [ ] Benchmark ONNX Runtime on the Cloud Run CPU configuration.
 - [x] Add model versioning, checksum validation, startup warmup, and readiness failure when the model cannot load.
 - [ ] Publish a model card with dataset, metrics, subgroup results, limitations, and intended-use restrictions.
