@@ -196,8 +196,9 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 
 ## 2026-07-12 fail-closed runtime image contract
 
-- The non-root Python 3.12 image installs MediaPipe's native EGL/GLES requirements and the pinned landmarks extra, then copies only the hand-landmarker task and selected nail-segmentation ONNX runtime artifacts.
+- The non-root Python 3.12 image installs MediaPipe/OpenCV's native EGL, GL, GLES, and GLib requirements plus the pinned landmarks extra, then copies only the hand-landmarker task and selected nail-segmentation ONNX runtime artifacts.
 - Docker build fails when either artifact is absent or empty. Repository tests lock the narrow copy allowlist so research data/tooling cannot enter the image. CI generates a clearly named synthetic graph, builds the container, starts it with matching version/checksum/boundary configuration, and requires `/ready`; the fixture is never uploaded or used as accuracy evidence. A production image still cannot be approved until validated ONNX weights pass the same smoke.
+- GitHub CI run [29162862065](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162862065) passed all six jobs for commit `b65fe0d`, including the container build and live readiness smoke. Two preceding failed runs exposed and then verified the required native OpenCV dependencies, demonstrating that the smoke checks runtime startup rather than image construction alone.
 
 ## Evidence rules
 
