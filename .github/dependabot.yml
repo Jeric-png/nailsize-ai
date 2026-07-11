@@ -10,6 +10,14 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+      # 0.x minor releases may contain breaking API changes.
+      - dependency-name: eslint-plugin-react-refresh
+        update-types:
+          - version-update:semver-minor
 
   - package-ecosystem: pip
     directories:
@@ -22,6 +30,10 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
@@ -32,11 +44,20 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: docker
     directory: /services/inference
     schedule:
       interval: weekly
+    ignore:
+      # Python runtime upgrades require an explicit application/toolchain migration.
+      - dependency-name: python
+        versions:
+          - ">= 3.13"
 
   - package-ecosystem: terraform
     directories:
@@ -50,3 +71,7 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major

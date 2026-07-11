@@ -36,3 +36,15 @@ def test_dependabot_covers_every_dependency_manifest_family() -> None:
         assert directory in config
 
     assert config.count("interval: weekly") == len(required_ecosystems)
+
+
+def test_dependabot_suppresses_unsupported_major_version_noise() -> None:
+    config = (REPOSITORY_ROOT / ".github" / "dependabot.yml").read_text()
+
+    # GitHub documents these ignores as applying to version updates only;
+    # vulnerability-driven security updates remain enabled independently.
+    assert config.count("- version-update:semver-major") == 4
+    assert "dependency-name: eslint-plugin-react-refresh" in config
+    assert "- version-update:semver-minor" in config
+    assert "dependency-name: python" in config
+    assert '- ">= 3.13"' in config
