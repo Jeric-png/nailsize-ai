@@ -66,7 +66,7 @@ async function expectNoSeriousAccessibilityViolations(page: Page) {
   ).toEqual([]);
 }
 
-test("landing and preparation are usable without serious accessibility violations", async ({
+test("landing, preparation, and capture have no serious accessibility violations", async ({
   page,
 }) => {
   await page.goto("/");
@@ -86,10 +86,12 @@ test("landing and preparation are usable without serious accessibility violation
     "Prepare",
   );
   await expect(page).toHaveScreenshot("preparation.png", { fullPage: true });
+  await expectNoSeriousAccessibilityViolations(page);
   await page.getByRole("link", { name: "I’m ready" }).click();
   await expect(page).toHaveURL(/\/capture\/left_fingers$/);
   await expect(page.getByText("Capture 1 of 4")).toBeVisible();
   await expect(page).toHaveScreenshot("capture.png", { fullPage: true });
+  await expectNoSeriousAccessibilityViolations(page);
 });
 
 test("unknown routes recover to the landing page", async ({ page }) => {

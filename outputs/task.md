@@ -122,6 +122,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Verify zero persistent image and measurement-result writes under success, failure, cancellation, timeout, and process termination.
 - [ ] Test current and previous two major browser versions required by `plan.md`.
 - [ ] Complete automated accessibility scans and manual keyboard, VoiceOver, and TalkBack tests.
+  - Axe scans cover landing, preparation, capture, accepted quality, processing, results, typed upload error, and expired-session recovery at both approved viewports. Manual keyboard and assistive-technology device passes remain pending.
 - [x] Complete visual regression review against every referenced Stitch screen.
 
 ## 9. Accuracy and Performance Validation

@@ -159,6 +159,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - A repository-level privacy test parses every production Python module and fails if it imports the research package, PyTorch/TorchVision, common object-storage/database clients, or Sentry. It separately rejects those packages from production runtime dependencies.
 - The same contract locks the runtime container to copying only the inference `pyproject.toml` and `app/`, and requires model tooling to remain manually dispatched without artifact download or Google Cloud authentication.
 - These controls prove there is no repository path from a production request to training. The checklist remains open until deployed Cloud Run IAM and telemetry are inspected, because source controls cannot prove cloud identity permissions or platform configuration.
+- GitHub CI run [29162050166](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162050166) passed all five jobs for privacy-boundary commit `05d34d1`; the inference job executed the new repository contracts in the measured test suite.
+
+## 2026-07-12 automated accessibility coverage
+
+- Axe now scans every distinct workflow state represented by the approved Stitch screens: landing, preparation, capture, accepted quality, processing, results, typed upload error, and expired-session recovery.
+- Every scan runs at the 390px mobile and 1280px desktop Playwright viewports and fails on critical or serious violations. Expanding coverage exposed an unnamed file input on capture; the control now has a capture-specific accessible name. Manual keyboard, VoiceOver, and TalkBack verification remains open and cannot be replaced by automated scans.
 
 ## Evidence rules
 

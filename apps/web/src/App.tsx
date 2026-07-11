@@ -224,6 +224,7 @@ function CapturePage({
         ref={inputRef}
         className="visually-hidden"
         type="file"
+        aria-label={`Choose photo for ${config.title.toLowerCase()}`}
         accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         capture="environment"
         onChange={(event) => {
