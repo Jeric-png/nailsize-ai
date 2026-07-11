@@ -151,6 +151,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Verify that production photos are excluded from model-training workflows by technical controls, not policy alone.
   - CI now forbids training/persistence imports and dependencies in the production service, constrains the container to the production package, and keeps model tooling manual without cloud auth or artifact ingress. Cloud IAM and deployed telemetry isolation remain pending.
 - [ ] Publish privacy copy that accurately says images are never persistently stored and explains transient processing.
+  - The product now includes a dedicated, accessibility-tested privacy notice covering browser memory, transient server buffers, sanitized operational metadata, prohibited training reuse, and safe reference-card guidance. Public publication remains pending deployment.
 - [ ] Verify monitoring, backups, crash reporting, and analytics cannot capture image or result payloads.
 - [ ] Resolve every critical/high security issue and every severity-1/2 product defect.
 - [ ] Confirm all CI, staging, production smoke, E2E, accessibility, visual, performance, privacy, and model-validation checks are green.

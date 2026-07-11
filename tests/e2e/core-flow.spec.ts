@@ -100,6 +100,21 @@ test("unknown routes recover to the landing page", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Start sizing" })).toBeVisible();
 });
 
+test("privacy notice explains transient processing without hidden persistence", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Privacy notice" }).click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Your photos stay temporary.",
+  );
+  await expect(page.getByText("transient memory")).toBeVisible();
+  await expect(page.getByText("does not write photos")).toBeVisible();
+  await expect(page.getByText("not added to a training dataset")).toBeVisible();
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
 test("primary capture navigation is operable in keyboard focus order", async ({
   page,
 }) => {

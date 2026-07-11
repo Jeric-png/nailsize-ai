@@ -213,6 +213,11 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Required model evidence includes a lowercase SHA-256 digest, model and dataset versions, intended use, out-of-scope cases, limitations, IoU/Dice plus mean/p95 boundary error, ONNX maximum absolute parity error at or below `1e-4`, and named model-owner, nail-tech, and privacy/security reviews.
 - Generated Markdown embeds participant/nail counts, participant-clustered confidence intervals, every adequately sampled cohort result, limitations, and review references. Synthetic tests verify the publication contract only; the model-card checklist remains open until real locked-holdout evidence and reviews are supplied.
 
+## 2026-07-12 product privacy-notice implementation
+
+- The product footer links to a dedicated notice explaining that photos, previews, and measurements live in browser memory; server uploads and decoded buffers are transient; application storage receives no photos or measurement results; logs exclude filenames, pixels, contours, widths, and results; and production uploads cannot enter the separate consented research workflow.
+- The notice repeats the prohibition on payment/government-ID reference cards and names a blank ISO ID-1 card as the safe alternative. An E2E accessibility scenario locks the core claims and scans the rendered page. The publication task remains open until this notice is deployed at the public production origin.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

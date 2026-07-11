@@ -73,7 +73,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       </header>
       <main>{children}</main>
       <footer className="site-footer">
-        Photos are processed transiently and are not saved.
+        <span>Photos are processed transiently and are not saved.</span>
+        <Link to="/privacy">Privacy notice</Link>
       </footer>
     </div>
   );
@@ -158,6 +159,59 @@ function Preparation() {
       </StatusMessage>
       <Link className="button" to="/capture/left_fingers">
         I’m ready
+      </Link>
+    </div>
+  );
+}
+
+function PrivacyNotice() {
+  return (
+    <div className="page policy-page">
+      <Eyebrow>Privacy notice</Eyebrow>
+      <h1>Your photos stay temporary.</h1>
+      <p className="lede">
+        NailSize uses each photo only to perform the sizing check you request.
+        There is no photo gallery, customer account, or image history.
+      </p>
+      <Card>
+        <h2>While this page is open</h2>
+        <p>
+          Selected photos, previews, and measurements remain in browser memory.
+          Replacing a photo, starting over, or ending the page session clears
+          that in-memory session.
+        </p>
+      </Card>
+      <Card>
+        <h2>During the sizing check</h2>
+        <p>
+          The sizing service decodes and analyzes the upload in transient
+          memory. It closes the upload and decoded image buffers after a
+          response or failure and does not write photos or measurement results
+          to application storage.
+        </p>
+      </Card>
+      <Card>
+        <h2>Operational records</h2>
+        <p>
+          Sanitized logs contain request status, timing, retake reason, and
+          model/chart versions. They exclude filenames, image content,
+          contours, nail widths, and sizing results.
+        </p>
+      </Card>
+      <Card>
+        <h2>No training reuse</h2>
+        <p>
+          Production uploads are not added to a training dataset. Model
+          research uses a separate consented-data workflow that the sizing
+          service cannot access.
+        </p>
+      </Card>
+      <p className="fine-print">
+        Avoid payment cards, driving licences, government IDs, or any other
+        sensitive reference card. Use a blank ISO ID-1 size card.
+      </p>
+      <Link className="button button--secondary" to="/">
+        Return home
       </Link>
     </div>
   );
@@ -777,6 +831,7 @@ export function App() {
       <FocusOnNavigation />
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/privacy" element={<PrivacyNotice />} />
         <Route path="/prepare" element={<Preparation />} />
         <Route
           path="/capture/:captureType"
