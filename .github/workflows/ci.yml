@@ -63,6 +63,16 @@ jobs:
           --cov=nailsize_ml.dataset
           --cov=nailsize_ml.evaluation
           --cov-fail-under=85
+      - name: Verify source-managed privacy release boundary
+        run: >-
+          python services/inference/scripts/verify_privacy_release_boundary.py
+          --output work/privacy-release-boundary.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: privacy-release-boundary
+          path: work/privacy-release-boundary.json
+          if-no-files-found: error
+          retention-days: 30
 
   contracts:
     runs-on: ubuntu-latest

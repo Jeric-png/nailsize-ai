@@ -173,6 +173,9 @@ The expected origin must receive its exact `Access-Control-Allow-Origin`; the un
 Use the source-controlled verifier for the reproducible release record:
 
 ```sh
+python services/inference/scripts/verify_privacy_release_boundary.py \
+  --output work/privacy-release-boundary.json
+
 python services/inference/scripts/deployment_smoke.py \
   --environment staging \
   --frontend-url https://STAGING_FRONTEND_HOST \
@@ -182,7 +185,7 @@ python services/inference/scripts/deployment_smoke.py \
   --output work/deployment-smoke.json
 ```
 
-The command requires exact HTTPS origins, refuses the bypassable `run.app` hostname, verifies health/readiness and the immutable model version, checks trusted and untrusted CORS, submits only a fixed invalid byte string to prove typed `415` plus `no-store`, verifies the deployed frontend security headers, and requires a same-origin JavaScript module to contain both the exact load-balanced API origin and measurement path. This proves the deployed Vercel build is bound directly to the matching inference service rather than a stale origin or frontend proxy. Its report contains hostnames, status codes, enumerated outcomes, and the expected model version; it never copies response bodies or bundle contents.
+The privacy verifier fails on an unreviewed runtime dependency, Terraform resource address, or structured-log field; access logging; optional load-balancer log fields; query-bearing browser transport; or third-party browser scripts. It proves the checked-in release boundary only. The deployment-smoke command requires exact HTTPS origins, refuses the bypassable `run.app` hostname, verifies health/readiness and the immutable model version, checks trusted and untrusted CORS, submits only a fixed invalid byte string to prove typed `415` plus `no-store`, verifies the deployed frontend security headers, and requires a same-origin JavaScript module to contain both the exact load-balanced API origin and measurement path. This proves the deployed Vercel build is bound directly to the matching inference service rather than a stale origin or frontend proxy. Its report contains hostnames, status codes, enumerated outcomes, and the expected model version; it never copies response bodies or bundle contents.
 
 `.github/workflows/deployment-smoke.yml` exposes the same verifier through both `workflow_dispatch` and `workflow_call`. The credentialed deployment workflow calls it after each applied release. It may also be triggered manually for investigation. Link the 30-day JSON artifact in the evidence ledger; workflow source validation is not evidence that a live environment passed.
 
@@ -194,6 +197,8 @@ Follow [`infra/observability/README.md`](../infra/observability/README.md) to va
 
 - `_Default` log retention is exactly 30 days;
 - each log metric receives only the expected allow-listed JSON fields;
+- applied load-balancer logs contain request metadata but no request/response bodies or custom headers;
+- Vercel project settings and integrations have analytics, session replay, and crash reporting disabled or independently proven payload-safe;
 - dashboard panels resolve the exact Cloud Run service and model/chart versions;
 - test incidents reach every configured notification channel; and
 - budget thresholds notify both the configured channels and authorized project/billing recipients.

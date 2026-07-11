@@ -22,7 +22,7 @@ The production path has no database, object storage, queue, image cache, request
 | Threat                                   | Control                                                                        | Verification                               |
 | ---------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------ |
 | Sensitive card captured                  | UI prohibits payment/government ID and recommends blank calibration cards      | Content and E2E review                     |
-| Oversized/decompression upload           | Streamed body, encoded, decoded, and in-memory spool limits before inference    | API adversarial tests                      |
+| Oversized/decompression upload           | Streamed body, encoded, decoded, and in-memory spool limits before inference   | API adversarial tests                      |
 | MIME spoofing or malformed decoder input | MIME, signature, format, animation, and decoder validation                     | API tests                                  |
 | Payload leakage to logs/APM              | Allow-listed structured log fields; access logs disabled                       | Logging tests and production config review |
 | Browser persistence                      | In-memory reducer, object URL revocation, no local/session storage             | Unit and E2E tests                         |
@@ -34,11 +34,14 @@ The production path has no database, object storage, queue, image cache, request
 
 The production Python package has no training-framework, object-storage, database, temporary-file, or telemetry-export dependencies. Its application modules have no filesystem-write calls. The multipart parser's memory spool threshold is configured one byte above the total request-body ceiling; both declared-length and chunked requests are stopped before they can cross that ceiling. The container build copies only `pyproject.toml` and `app/`; neither `ml/` nor the repository root enters the image. Production modules are forbidden from importing the research package or common persistence/training clients. Browser source is forbidden from using persistent web storage, Cache Storage, storage management, or beacon export APIs. The model-tooling workflow is manual and has no artifact-download or cloud-auth step. `test_privacy_boundary.py` enforces these constraints in standard CI.
 
+`verify_privacy_release_boundary.py` adds a fail-closed release audit. Runtime dependency sets, Terraform resource addresses/types, and referenced structured-log fields are explicitly reviewed; any new package, infrastructure instance, or payload field fails until the privacy allow-list is consciously updated. The audit also requires disabled Uvicorn access logs, native load-balancer metadata logging without optional fields, query-stripping HTTP redirects, one fixed query-free browser upload path, and a self-only browser script policy without CSP reporting. CI retains only the resulting counts and booleans in a 30-day `nailsize-privacy-release-boundary@1` artifact.
+
 This repository boundary prevents the application from exporting uploads into the available training path. Deployment review must still verify that the Cloud Run identity has no write access to research storage and that no platform integration captures request bodies.
 
 ## Remaining production reviews
 
-- Verify Cloud Run request logging excludes bodies and query payloads.
+- Inspect applied Cloud Run and load-balancer logging to confirm request/response bodies are absent and no out-of-band integration changed the source-managed policy.
 - Verify Vercel analytics, browser error reporting, and session replay are disabled or payload-safe.
+- Verify the deployed Vercel project has no dashboard-enabled analytics, speed-insight, session-replay, or error-reporting integration outside repository source.
 - Run container and dependency scans for every release.
 - Perform deletion/cancellation/process-termination tests against staging telemetry.

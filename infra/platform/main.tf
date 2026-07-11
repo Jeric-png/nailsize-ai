@@ -244,7 +244,7 @@ resource "google_compute_url_map" "http_redirect" {
   default_url_redirect {
     https_redirect         = true
     redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
-    strip_query            = false
+    strip_query            = true
   }
 }
 

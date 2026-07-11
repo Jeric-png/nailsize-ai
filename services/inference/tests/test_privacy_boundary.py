@@ -163,3 +163,11 @@ def test_training_tooling_is_manual_and_has_no_production_data_ingress() -> None
         "google-github-actions/auth",
     ):
         assert forbidden not in workflow
+
+
+def test_ci_emits_the_source_managed_privacy_release_report() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+    assert "verify_privacy_release_boundary.py" in workflow
+    assert "privacy-release-boundary.json" in workflow
+    assert "name: privacy-release-boundary" in workflow

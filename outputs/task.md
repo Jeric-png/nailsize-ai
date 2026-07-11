@@ -163,6 +163,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Publish privacy copy that accurately says images are never persistently stored and explains transient processing.
   - The product now includes a dedicated, accessibility-tested privacy notice covering browser memory, transient server buffers, sanitized operational metadata, prohibited training reuse, and safe reference-card guidance. Public publication remains pending deployment.
 - [ ] Verify monitoring, backups, crash reporting, and analytics cannot capture image or result payloads.
+  - A fail-closed source audit now allow-lists every production runtime dependency, Terraform resource address/type, and structured-log field; rejects persistent service types and telemetry SDKs; and requires disabled container access logs, native load-balancer metadata logging without optional fields, query-free browser uploads, query-stripping redirects, and a self-only script policy. CI retains a bounded 30-day JSON report with counts and booleans only. The checkbox remains open until applied GCP logging/IAM and Vercel project integrations are inspected and staging termination/failure telemetry is verified.
 - [ ] Resolve every critical/high security issue and every severity-1/2 product defect.
 - [ ] Confirm all CI, staging, production smoke, E2E, accessibility, visual, performance, privacy, and model-validation checks are green.
 - [ ] Complete the goal evidence ledger with links to every report and deployment revision.

@@ -41,6 +41,16 @@ run "valid_secure_boundary" {
   }
 
   assert {
+    condition     = google_compute_backend_service.inference.log_config[0].enable && google_compute_backend_service.inference.log_config[0].sample_rate == 1
+    error_message = "The backend must retain complete native request metadata for operational review."
+  }
+
+  assert {
+    condition     = google_compute_url_map.http_redirect.default_url_redirect[0].strip_query
+    error_message = "HTTP redirects must discard query strings before logging or forwarding."
+  }
+
+  assert {
     condition     = one([for rule in google_compute_security_policy.edge.rule : rule.preview if rule.priority == 1000])
     error_message = "The test policy must begin in preview mode."
   }
