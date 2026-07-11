@@ -52,7 +52,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Implement the `/v1/measure` multipart contract from `plan.md`.
 - [x] Generate OpenAPI and TypeScript client types in CI.
 - [x] Enforce the 12 MB encoded and 25 MP decoded limits before expensive processing.
-- [ ] Verify extensions, MIME types, magic bytes, decoder output, and animation status.
+- [x] Verify extensions, MIME types, magic bytes, decoder output, and animation status.
 - [x] Normalize orientation, strip EXIF, and rewrite decoded image data before inference.
 - [x] Return `Cache-Control: no-store` on all measurement responses.
 - [x] Close transient files and buffers in all success and failure paths.
@@ -63,13 +63,13 @@ The goal remains open until implementation **and** validation are complete. A wo
 ## 4. Calibration and Classical Computer Vision
 
 - [x] Implement reference-card candidate detection and four-corner validation.
-- [ ] Reject missing, cropped, distorted, or uncertain reference cards.
-- [ ] Implement homography/perspective rectification using the known ID-1 dimensions.
-- [ ] Quantify reference corner error and propagate it into measurement uncertainty.
+- [x] Reject missing, cropped, distorted, or uncertain reference cards.
+- [x] Implement homography/perspective rectification using the known ID-1 dimensions.
+- [x] Quantify reference corner error and propagate it into measurement uncertainty.
 - [ ] Implement blur, glare, clipping, angle, nail-pixel-count, and occlusion quality checks.
 - [ ] Implement hand landmark inference and deterministic finger crop ordering for every capture type.
-- [ ] Implement nail longitudinal-axis estimation and maximum valid transverse-chord measurement.
-- [ ] Add synthetic geometry tests with known dimensions, perspective, rotation, blur, and compression.
+- [x] Implement nail longitudinal-axis estimation and maximum valid transverse-chord measurement.
+- [x] Add synthetic geometry tests with known dimensions, perspective, rotation, blur, and compression.
 - [ ] Add golden-image tests for every quality rejection code.
 
 ## 5. Dataset and Model

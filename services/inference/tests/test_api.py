@@ -1,7 +1,10 @@
 from io import BytesIO
 
+import cv2
+import numpy as np
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
+from test_calibration import card_scene
 
 from app.main import app
 
@@ -26,6 +29,12 @@ def post_image(payload: bytes, filename: str = "private-customer-name.jpg"):
     )
 
 
+def jpeg_from_array(image: np.ndarray) -> bytes:
+    encoded, payload = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    assert encoded
+    return payload.tobytes()
+
+
 def test_measurement_never_returns_width_without_validated_inference() -> None:
     response = post_image(jpeg_fixture(with_reference=True))
     assert response.status_code == 200
@@ -44,6 +53,35 @@ def test_mime_spoofing_is_rejected() -> None:
     response = post_image(b"not an image")
     assert response.status_code == 415
     assert response.headers["cache-control"] == "no-store"
+
+
+def test_unrecognized_extension_is_rejected() -> None:
+    response = post_image(jpeg_fixture(), filename="capture.txt")
+    assert response.status_code == 415
+
+
+def test_valid_reference_fails_closed_at_segmentation_gate() -> None:
+    response = post_image(jpeg_from_array(card_scene()))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "retake"
+    assert body["measurements"] == []
+    assert body["quality_issues"][0]["code"] == "LOW_CONFIDENCE"
+
+
+def test_glare_returns_specific_retake_code() -> None:
+    image = card_scene()
+    cv2.circle(image, (1050, 110), 80, (255, 255, 255), -1)
+    response = post_image(jpeg_from_array(image))
+    assert response.status_code == 200
+    assert response.json()["quality_issues"][0]["code"] == "GLARE"
+
+
+def test_steep_angle_returns_specific_retake_code() -> None:
+    corners = np.array([[180, 220], [830, 220], [660, 520], [350, 520]])
+    response = post_image(jpeg_from_array(card_scene(corners)))
+    assert response.status_code == 200
+    assert response.json()["quality_issues"][0]["code"] == "ANGLE_TOO_STEEP"
 
 
 def test_unsupported_capture_type_fails_contract() -> None:

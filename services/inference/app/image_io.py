@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -13,6 +14,7 @@ register_heif_opener()
 
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 
 
 @dataclass
@@ -29,6 +31,9 @@ class DecodedImage:
 async def decode_upload(upload: UploadFile, settings: Settings) -> DecodedImage:
     if upload.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Unsupported image format")
+    extension = Path(upload.filename or "").suffix.lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Unsupported image extension")
 
     data = await upload.read(settings.max_encoded_bytes + 1)
     try:

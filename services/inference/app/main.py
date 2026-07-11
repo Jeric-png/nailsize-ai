@@ -6,10 +6,10 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .calibration import blur_score, detect_reference
 from .config import get_settings
 from .image_io import decode_upload
 from .logging_config import safe_log
+from .quality import assess_capture
 from .schemas import CaptureType, HealthResponse, MeasureResponse, QualityIssue, QualityIssueCode
 
 settings = get_settings()
@@ -86,24 +86,18 @@ async def measure(
                 message="This reference type is not supported.",
                 correction="Use a blank ISO ID-1 size card.",
             )
-        elif blur_score(decoded.rgb) < 60:
-            issue = QualityIssue(
-                code=QualityIssueCode.BLUR,
-                message="The photo is too blurry to measure.",
-                correction="Steady the phone, add light, and retake the photo.",
-            )
-        elif detect_reference(decoded.rgb) is None:
-            issue = QualityIssue(
-                code=QualityIssueCode.REFERENCE_MISSING,
-                message="The reference card could not be calibrated.",
-                correction="Show all four card corners and keep the card flat beside your nails.",
-            )
         else:
-            issue = QualityIssue(
-                code=QualityIssueCode.LOW_CONFIDENCE,
-                message="Nail segmentation is not yet confident enough.",
-                correction="Keep the nails separated, flat, and evenly lit, then retake the photo.",
-            )
+            capture_quality = assess_capture(decoded.rgb)
+            if capture_quality.issues:
+                issue = capture_quality.issues[0]
+            else:
+                issue = QualityIssue(
+                    code=QualityIssueCode.LOW_CONFIDENCE,
+                    message="Nail segmentation is not yet confident enough.",
+                    correction=(
+                        "Keep the nails separated, flat, and evenly lit, then retake the photo."
+                    ),
+                )
         elapsed = int((time.perf_counter() - started) * 1000)
         safe_log(
             logger,
