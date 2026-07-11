@@ -133,6 +133,8 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Image/mask loading produces the exact production `3x224x160` normalized image and `1x224x160` binary mask contracts. Seeds cover Python, NumPy, PyTorch, DataLoader shuffling, and deterministic PyTorch algorithms.
 - Three synthetic tests prove preprocessing, split/root enforcement, and repeatable loss/weight updates. A real DeepLabV3-MobileNetV3 CPU dry run trained one batch of two temporary synthetic crops, returned finite loss `1.3563`, and wrote a 44,323,825-byte checkpoint that was deleted with the temporary directory.
 - The runner records model configuration, loss history, example count, and PyTorch version. No dataset, checkpoint, or weights were committed, and the baseline-training checklist remains open until approved consented data is supplied.
+- GitHub CI run [29161629250](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161629250) passed all five standard jobs after separating the dependency-light 94.45% coverage gate from optional PyTorch execution.
+- Dedicated Linux run [29161631910](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161631910) installed the pinned research stack and passed all seven model factory, loss, ONNX export/parity, manifest, preprocessing, and deterministic training-loop tests.
 
 ## Evidence rules
 
