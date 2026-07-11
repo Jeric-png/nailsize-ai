@@ -108,9 +108,11 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Configure Cloud Run with one worker, concurrency `1`, one warm minimum instance, 2 vCPU, 4 GiB RAM, and a 15-second timeout.
 - [ ] Deploy the frontend so photos post directly to the inference service rather than through a frontend server function.
 - [ ] Add stage-level latency metrics, request/error counts, retake reasons, saturation, cold starts, and model/chart version dashboards.
-  - Privacy-safe structured events now expose cold-start/readiness, request status/latency, decode and quality-stage latency, retake codes, and model/chart versions. Cloud Run saturation metrics and provisioned dashboards remain pending.
+  - Privacy-safe structured events now emit JSON-only Cloud Logging payloads. Validated Terraform defines the log metrics and a dashboard covering request/stage latency, outcomes, retakes, saturation, concurrency, CPU/memory, startup, billable time, and model/chart versions. Provisioning and live-data verification remain pending.
 - [ ] Configure sanitized log retention for 30 days.
+  - Validated Terraform configures the project `_Default` bucket for exactly 30 days. Applying and inspecting staging/production remain pending.
 - [ ] Add alerts for error rate, p95 latency, instance saturation, malformed-upload spikes, and budget thresholds.
+  - Validated, fail-closed Terraform defines all four incident policies and a project-scoped budget. Required thresholds, notification channels, account/currency, and amount have no defaults; authorized plan/apply and notification tests remain pending.
 - [ ] Run staging smoke tests after every deployment and production smoke tests after promotion.
   - A reusable/manual GitHub workflow now emits a privacy-safe, versioned JSON report covering health/readiness, immutable model identity, exact CORS allow/deny behavior, malformed-upload `415` plus `no-store`, and deployed Vercel security headers. The checkbox remains open until credentialed deployment automation invokes it and real staging/production revisions pass.
 - [x] Document rollback for frontend, container revision, model version, and chart version.

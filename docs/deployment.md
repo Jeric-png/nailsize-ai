@@ -107,6 +107,20 @@ The command requires exact HTTPS origins, refuses the bypassable `run.app` hostn
 
 `.github/workflows/deployment-smoke.yml` exposes the same verifier through both `workflow_dispatch` and `workflow_call`. Run it after each staging deployment and after production promotion. A future credentialed deployment workflow must call this reusable workflow before promotion can succeed; until that workflow exists, trigger it manually and link its 30-day JSON artifact in the evidence ledger.
 
+## Observability and budget
+
+Apply `infra/observability` separately to staging and production only after the Cloud Run service, verified notification channels, approved thresholds, billing account, budget, and remote Terraform state backend are known. The module has no default alert or budget values, so a local validation pass cannot silently become a production policy.
+
+Follow [`infra/observability/README.md`](../infra/observability/README.md) to validate and plan the change. Review the plan before an authorized operator applies it, then verify:
+
+- `_Default` log retention is exactly 30 days;
+- each log metric receives only the expected allow-listed JSON fields;
+- dashboard panels resolve the exact Cloud Run service and model/chart versions;
+- test incidents reach every configured notification channel; and
+- budget thresholds notify both the configured channels and authorized project/billing recipients.
+
+Record Terraform state revision, plan review, dashboard ID, alert-policy IDs, notification tests, and budget evidence without copying application payloads. Source validation does not complete the deployment checkboxes by itself.
+
 ## Rollback
 
 1. Stop promotion and record the failing revision plus symptom without copying request bodies or results into the incident record.

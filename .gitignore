@@ -23,6 +23,15 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
 
 # Local agent/runtime state
 .omx/

@@ -10,6 +10,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 | Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                     |
 | Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                             |
 | Deployment  | Versioned frontend and API deployment contracts pass local checks                   | `vercel.json`; `infra/cloud-run/service.template.yaml`; `docs/deployment.md`     | Configuration ready; deployment/load tuning pending |
+| Operations  | Observability resources and required inputs fail closed before cloud provisioning   | `infra/observability`; `docs/observability.md`; Terraform test output            | Configuration ready; cloud evidence pending         |
 
 ## 2026-07-11 foundation verification
 
@@ -238,6 +239,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Six checks cover API health, readiness, immutable model identity, exact trusted CORS, untrusted-origin rejection, a fixed non-image `415` response with `no-store`, and Vercel HTML/security headers. Reports allow-list hostnames, status codes, enumerated results, and the expected model version; response bodies and request payloads are never copied.
 - The GitHub workflow supports both manual dispatch and reusable `workflow_call`, preserves read-only repository permissions, and retains the safe JSON artifact for 30 days. Real staging/production execution remains pending deployment credentials and immutable revision URLs.
 - GitHub CI run [29163868302](https://github.com/Jeric-png/nailsize-ai/actions/runs/29163868302) passed all six jobs for commit `10b24c6`; GitHub also registered `Deployment smoke` as an active workflow.
+
+## 2026-07-12 observability infrastructure contract
+
+- The named inference logger now owns a JSON-only stdout handler with propagation disabled, preventing Uvicorn prefixes from turning structured events into unqueryable text payloads. Every line includes Cloud Logging's recognized `severity` field, while the existing allow-list still rejects photos, filenames, contours, widths, recommendations, and result summaries.
+- Terraform pins Google provider `7.39.0` and defines 30-day `_Default` log retention; bounded-cardinality stage, outcome/retake, cold-start, and malformed-upload metrics; Cloud Run request, latency, saturation, concurrency, CPU/memory, startup, billable-time, and version dashboards; four incident policies; and a project-scoped budget.
+- Error rate, p95 latency, malformed-upload rate, maximum instances, budget/currency, budget thresholds, and verified notification channels are mandatory inputs. Seven Terraform tests prove valid planning and rejection of unsafe environment, notification, error-rate, instance-cap, budget, and threshold inputs without cloud credentials.
+- Local verification passed Terraform formatting, provider-backed validation, and 7 Terraform tests; Ruff formatting/lint; 214 Python/ML tests at 93.34% measured coverage; 24 web tests; TypeScript; ESLint; the Vercel production build; 18 Playwright mobile/desktop flows; and the high-severity dependency audit.
+- No Google Cloud resource was created or changed. The related release checkboxes remain open until authorized staging and production plans are reviewed/applied, notification delivery is tested, dashboard time series are inspected, and immutable evidence is recorded.
 
 ## Evidence rules
 

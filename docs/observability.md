@@ -1,6 +1,6 @@
 # Observability Contract
 
-The inference service emits structured JSON through the `nailsize.inference` logger. Fields are fail-closed through `safe_log`; photos, filenames, contours, widths, size recommendations, and result bodies are not accepted.
+The inference service emits one JSON object per line through the `nailsize.inference` logger. Its dedicated handler does not add a Uvicorn prefix, so Cloud Run parses fields into `jsonPayload` and recognizes the automatic `severity` field. Fields are fail-closed through `safe_log`; photos, filenames, contours, widths, size recommendations, and result bodies are not accepted.
 
 ## Events and derived metrics
 
@@ -14,6 +14,16 @@ The inference service emits structured JSON through the `nailsize.inference` log
 
 The service generates each request ID; it never copies an untrusted identifier from a header into telemetry. Uvicorn access logging is disabled in the production container.
 
-## Deployment work
+## Provisioning
 
-Create log-based counters and distributions from these events, then combine them with Cloud Run native instance count, concurrency, CPU, memory, startup, and billable-time metrics. Dashboards must show p50/p95/p99 total and stage latency, 4xx/5xx rate, retake reasons, cold starts, saturation, model/chart versions, and malformed-upload spikes. Alerts, 30-day retention, and dashboard links require the staging/production projects and remain release gates.
+`infra/observability` provides validated Terraform for:
+
+- 30-day retention on the project `_Default` log bucket;
+- stage-latency, measurement-outcome, cold-start, and malformed-upload log metrics;
+- request/error counts, p50/p95/p99 total and stage latency, retake reasons, cold starts, saturation, concurrency, CPU/memory utilization, startup latency, billable time, and model/chart-version dashboard panels;
+- 5xx ratio, p95 latency, maximum-instance saturation, and malformed-upload alerts; and
+- a project-scoped billing budget with explicitly supplied thresholds.
+
+Alert thresholds, budget values, notification channels, and the project are required inputs with no production defaults. CI runs `terraform validate` and fail-closed variable tests without credentials. Provisioning still requires authorized staging/production credentials, an approved remote state backend, and post-apply evidence.
+
+Cloud Run native metrics use the documented `run.googleapis.com/request_count`, `request_latencies`, `container/instance_count`, and `container/max_request_concurrencies` metric types. Log metrics are deliberately few and use bounded labels to control cardinality and cost.

@@ -9,6 +9,19 @@ permissions:
   contents: read
 
 jobs:
+  infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # v3, pinned so infrastructure validation cannot silently change upstream.
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: "1.15.8"
+      - run: terraform -chdir=infra/observability fmt -check -recursive
+      - run: terraform -chdir=infra/observability init -backend=false -input=false
+      - run: terraform -chdir=infra/observability validate
+      - run: terraform -chdir=infra/observability test
+
   web:
     runs-on: ubuntu-latest
     steps:
