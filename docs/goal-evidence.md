@@ -281,6 +281,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The first 45-test compatibility run exposed two WebKit assumptions. WebKit correctly used the supported original-PNG upload fallback when canvas WebP rewriting was unavailable, and its default link-tab behavior depended on the host full-keyboard-access preference. The suite now verifies PNG fallback plus keyboard focus/activation without weakening Chromium tab-order coverage.
 - The corrected local compatibility run passed all 45 scenarios. This is current engine/emulation evidence only; it does not prove the plan's current-and-previous-two branded versions, physical iOS/Android devices, Edge, VoiceOver, or TalkBack, so those release gates remain open.
 - Final local verification used Playwright 1.61.1 and passed 251 Python/ML tests at 93.34% measured coverage, 24 web tests, 18 Chromium visual/E2E scenarios, all 45 current-engine scenarios, contract drift, Ruff, ESLint, TypeScript, the production build, workflow lint, 16 Terraform tests, and the high-severity npm audit with zero reported vulnerabilities.
+- GitHub CI run [29165801302](https://github.com/Jeric-png/nailsize-ai/actions/runs/29165801302) passed all ten jobs for commit `9d3eda5`, including the new 45-scenario Linux browser-engine gate, the 18-scenario visual/E2E gate, 251 Python/ML tests, contracts, web, security, container readiness, and all three Terraform roots.
 
 ## Evidence rules
 
