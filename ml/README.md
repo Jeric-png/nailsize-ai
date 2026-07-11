@@ -12,3 +12,12 @@ The planned baseline remains TorchVision's `deeplabv3_mobilenet_v3_large`. Torch
 
 - [TorchVision DeepLabV3 builders](https://docs.pytorch.org/vision/stable/models/deeplabv3.html)
 - [PyTorch ONNX exporter](https://docs.pytorch.org/docs/stable/onnx.html)
+
+Install the pinned research toolchain separately from the production API:
+
+```bash
+python -m pip install -e 'ml[training]'
+pytest ml/tests/test_modeling.py
+```
+
+`build_deeplab_mobilenet()` creates the one-channel baseline without altering the production runtime. `export_verified_onnx()` exports the fixed `1x3x224x160` input and `1x1x224x160` logits output, writes required model-version metadata, validates the ONNX graph, executes it with ONNX Runtime, and fails if native/exported outputs differ beyond the configured tolerance. Synthetic export tests validate this machinery but do not constitute a trained model.

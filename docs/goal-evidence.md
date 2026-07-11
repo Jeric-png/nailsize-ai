@@ -117,6 +117,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Dependency-light ML tooling now computes segmentation IoU/Dice and symmetric mean/p95 boundary errors, preventing model selection from relying on overlap alone.
 - Physical evaluation computes width MAE, p90 absolute error, signed bias, exact-size rate, exact-or-adjacent rate, and more-than-one-size miss rate. An executable gate applies the exact thresholds in `outputs/plan.md` and passes only when every threshold passes.
 - Tests cover shifted boundaries, paired and one-sided empty masks, passing/failing release cohorts, and malformed/non-finite/unpaired inputs. These synthetic checks validate metric definitions only; no model or accuracy task is marked complete.
+- GitHub CI run [29161404344](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161404344) passed all five jobs for evaluation-contract commit `1adfc37`, including 145 dependency-light inference/ML tests at 94.45% coverage.
+
+## 2026-07-12 model-build and export tooling
+
+- The optional research environment pins PyTorch `2.13.0`, TorchVision `0.28.0`, and ONNXScript `0.7.1`; default API and CI installs do not pull the heavy training stack.
+- A real TorchVision DeepLabV3-MobileNetV3 model emitted the required single-channel logits tensor in a local smoke test. Combined BCE/Dice loss tests prove correct logits score below inverted logits and malformed targets fail.
+- The current `dynamo=True` exporter produced a fixed-shape ONNX graph from a synthetic convolutional model, added `nailsize.model_version`, passed ONNX validation, and matched ONNX Runtime output within `1e-4`. Four optional-toolchain tests passed locally with the pinned versions.
+- No trained weights were created or approved. Export parity is tooling evidence only; the baseline training, participant-disjoint evaluation, and release model card remain open.
 
 ## Evidence rules
 
