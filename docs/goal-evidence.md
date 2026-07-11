@@ -326,6 +326,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Fresh local verification passed 288 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the production build, 18 Chromium visual/E2E scenarios, 45 current browser-engine scenarios, all 16 Terraform tests and provider validation, workflow lint, repository-security lint/tests, formatting, YAML structural parsing, and the high-severity npm audit with zero reported vulnerabilities.
 - GitHub CI run [29167762666](https://github.com/Jeric-png/nailsize-ai/actions/runs/29167762666) passed all ten jobs for implementation commit `f273211`, exercising the immutable action references on Linux and passing 288 Python/ML tests, contracts, web, both browser suites, Trivy and npm security checks, the live read-only runtime-container smoke, and all three Terraform roots.
 
+## 2026-07-12 protected GitHub environment audit contract
+
+- `audit_github_environments.py` reads only environment metadata plus variable, secret, and branch-policy names. It never requests secret values and emits no reviewer identities, credentials, configuration values, URLs, or cloud identifiers.
+- The fail-closed contract requires exactly development, staging, and production; an empty development boundary; exact reviewed staging/production variable and secret name sets; at least one required reviewer; `main` as the only deployment branch; and production self-review prevention. Five focused tests cover passing configuration, missing/shadow environments, configuration drift, branch/reviewer drift, development secret leakage, redaction, and source/document synchronization.
+- The authenticated live audit produced `docs/evidence/github-environment-audit-2026-07-12.json`: all three expected environments are absent, no unexpected environment exists, and `passed` is false. No empty environment, secret, variable, protection rule, or deployment was created. GitHub's current private-repository plan cannot satisfy the complete required reviewer/protection boundary, so the environment task correctly remains open.
+- Fresh local verification passed 293 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the production build, 18 Chromium visual/E2E scenarios, 45 current browser-engine scenarios, all 16 Terraform tests and provider validation, workflow lint, changed-file Ruff/Prettier checks, JSON evidence equivalence, and the high-severity npm audit with zero reported vulnerabilities.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

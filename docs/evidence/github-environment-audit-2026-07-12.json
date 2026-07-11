@@ -1,0 +1,24 @@
+{
+  "environments": [
+    {
+      "exists": false,
+      "name": "development",
+      "passed": false
+    },
+    {
+      "exists": false,
+      "name": "staging",
+      "passed": false
+    },
+    {
+      "exists": false,
+      "name": "production",
+      "passed": false
+    }
+  ],
+  "expected_environment_names": ["development", "staging", "production"],
+  "passed": false,
+  "repository": "Jeric-png/nailsize-ai",
+  "schema_version": "nailsize-github-environment-audit@1",
+  "unexpected_environment_names": []
+}

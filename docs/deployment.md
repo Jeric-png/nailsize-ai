@@ -146,6 +146,17 @@ VERCEL_GITHUB_REPO_ID
 
 JSON list variables use Terraform syntax, for example `["projects/PROJECT/notificationChannels/ID"]` and `[0.5,0.8,1.0]`. Begin staging with `RATE_LIMIT_PREVIEW=true`; use only load-tested capacity and evidence-backed alert, budget, and rate values. Store only `VERCEL_TOKEN` as a GitHub environment secret. Workload identity values and resource identifiers are configuration, not private keys.
 
+Before adding any credentials or dispatching a deployment, audit the live GitHub boundary:
+
+```bash
+GITHUB_TOKEN="$(env -u GITHUB_TOKEN gh auth token)" .venv/bin/python \
+  services/inference/scripts/audit_github_environments.py \
+  --repository Jeric-png/nailsize-ai \
+  --output work/github-environment-audit.json
+```
+
+The audit requires exactly `development`, `staging`, and `production`; exact reviewed variable and secret name sets for staging/production; a required reviewer on each deployment environment; `main` as the only deployment branch; and self-review prevention for production. It records names and counts only—never values, reviewer identities, or credentials—and exits nonzero until every control exists. [GitHub's environment availability rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments) limit private-repository environment features and required reviewers by plan; do not replace those controls with empty, unprotected environments. Upgrade to a plan that supports protected private-repository reviewers, or approve a separately designed external deployment-approval control before credentials are introduced.
+
 Dispatch **Deploy verified release** for staging with the published model tag, exact approved model version, and lowercase ONNX SHA-256. After the staging run and its smoke job succeed, dispatch production for the same Git SHA and model inputs with that staging run ID plus the literal production confirmation. Production verifies the staging evidence and release bundle before requesting a Google OIDC token, applies bootstrap, pulls the staging digest, copies it into the production repository, and proves that the destination digest is identical before applying platform and observability state. Deployment schema `nailsize-deployment@3` records the source digest for production and an explicit null for staging; `nailsize-image-promotion@1` records both repository URIs and their shared digest. Only then does the workflow create and verify the exact Vercel production deployment, upload privacy-safe metadata, and call the reusable deployment smoke workflow. This order leaves the previous frontend serving if backend deployment fails. A failed smoke job means the release is not accepted evidence, even if infrastructure apply succeeded.
 
 CI also runs `npm run test:compat` against current Playwright Chromium, Firefox, and WebKit engines with Android, iOS, and desktop profiles. Treat this as an early compatibility gate, not as evidence for branded Safari, Chrome, Edge, or physical-device certification. Before production promotion, record current and previous two major versions from the real device/browser matrix required by `outputs/plan.md`.
