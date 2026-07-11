@@ -1,0 +1,22 @@
+name: Model Tooling
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  optional-training-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install pinned research toolchain
+        run: pip install -e 'ml[training]' 'pytest>=8.4,<9'
+      - name: Verify model factory, loss, export, manifest, and training loop
+        run: pytest ml/tests/test_modeling.py ml/tests/test_training.py

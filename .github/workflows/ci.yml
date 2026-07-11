@@ -39,7 +39,14 @@ jobs:
       - run: ruff check ml
       - run: python services/inference/scripts/fetch_hand_landmarker.py
       - run: python services/inference/scripts/smoke_hand_landmarker.py
-      - run: pytest services/inference/tests ml/tests --cov=services/inference/app --cov=nailsize_ml --cov-fail-under=85
+      - name: Test production and dependency-light ML code
+        run: >-
+          pytest services/inference/tests ml/tests
+          --cov=services/inference/app
+          --cov=nailsize_ml.annotation_quality
+          --cov=nailsize_ml.dataset
+          --cov=nailsize_ml.evaluation
+          --cov-fail-under=85
 
   contracts:
     runs-on: ubuntu-latest
