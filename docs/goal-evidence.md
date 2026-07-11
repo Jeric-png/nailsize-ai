@@ -147,6 +147,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Vitest covers session transitions, targeted correction, typed errors, object-URL cleanup, request deduplication/cancellation, and image preparation. Python tests cover every immutable chart entry and boundary, calibration/measurement geometry, deterministic quality gates, API/annotation schemas, upload normalization, and safe-log field rejection.
 - The latest local combined run passed 154 tests; the standard CI run above enforced 94.45% coverage for production and dependency-light ML code. Heavy research modules are separately exercised by the pinned Linux workflow rather than counted as untested default code.
 
+## 2026-07-12 bounded-request contract verification
+
+- Browser measurement requests now have a 16-second deadline, just beyond the configured 15-second service timeout. The timer and caller signal feed one internal abort controller while preserving explicit user cancellation as `AbortError` and mapping deadline expiry to a typed retryable `timeout` error.
+- Unit contracts cover typed success and retake bodies, 413, 415, 408, 429, 503, 504, offline failure, deadline expiry, explicit cancellation, deduplication cleanup, and retry of the unchanged in-memory file.
+- All 24 web unit/component tests, TypeScript, ESLint, and the Vercel-compatible production build passed. The broad contract checklist remains open because real API success requires selected validated weights, while edge-generated 429/504 behavior requires deployed Cloud Armor/Cloud Run infrastructure.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

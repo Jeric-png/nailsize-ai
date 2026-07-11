@@ -4,7 +4,14 @@ const apiUrl =
   import.meta.env.VITE_INFERENCE_API_URL ?? "http://localhost:8000";
 
 export type MeasureErrorCode =
-  "offline" | "too_large" | "unsupported" | "rate_limited" | "service";
+  | "offline"
+  | "timeout"
+  | "too_large"
+  | "unsupported"
+  | "rate_limited"
+  | "service";
+
+export const REQUEST_TIMEOUT_MS = 16_000;
 
 export class MeasureRequestError extends Error {
   constructor(
@@ -50,21 +57,40 @@ async function sendCapture(
   body.set("capture_type", captureType);
   body.set("reference_type", "iso_id1");
 
+  const controller = new AbortController();
+  let timedOut = false;
+  const cancelFromCaller = () => controller.abort(signal?.reason);
+  if (signal?.aborted) cancelFromCaller();
+  else signal?.addEventListener("abort", cancelFromCaller, { once: true });
+  const timeout = globalThis.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
   let response: Response;
   try {
     response = await fetch(`${apiUrl}/v1/measure`, {
       method: "POST",
       body,
-      signal,
+      signal: controller.signal,
       cache: "no-store",
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError")
-      throw error;
+    if (signal?.aborted)
+      throw new DOMException("The upload was cancelled.", "AbortError");
+    if (timedOut)
+      throw new MeasureRequestError(
+        "timeout",
+        "The sizing check took too long. Retry the same photo.",
+      );
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new MeasureRequestError(
       "offline",
       "The sizing service could not be reached. Check your connection and retry.",
     );
+  } finally {
+    globalThis.clearTimeout(timeout);
+    signal?.removeEventListener("abort", cancelFromCaller);
   }
 
   if (!response.ok) {
@@ -82,6 +108,11 @@ async function sendCapture(
       throw new MeasureRequestError(
         "rate_limited",
         "The sizing service is busy. Wait a moment, then retry.",
+      );
+    if (response.status === 408 || response.status === 504)
+      throw new MeasureRequestError(
+        "timeout",
+        "The sizing check took too long. Retry the same photo.",
       );
     throw new MeasureRequestError(
       "service",
