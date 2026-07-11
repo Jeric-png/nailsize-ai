@@ -163,21 +163,33 @@ jobs:
           PYTHONPATH=services/inference
           python services/inference/tests/generate_container_contract_model.py
           services/inference/models/nail-segmentation.onnx
-      - name: Build and readiness-smoke the runtime image
+      - name: Build and privacy-smoke the runtime image
         working-directory: services/inference
         run: |
           docker build -t nailsize-inference:contract .
           MODEL_SHA256="$(sha256sum models/nail-segmentation.onnx | cut -d ' ' -f 1)"
           docker run --detach --name nailsize-contract --publish 8080:8080 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges \
             --env MODEL_VERSION=container-contract-only \
             --env MODEL_SHA256="$MODEL_SHA256" \
             --env SEGMENTATION_BOUNDARY_ERROR_PX=0.5 \
             nailsize-inference:contract
           trap 'docker logs nailsize-contract; docker rm --force nailsize-contract' EXIT
+          ready=false
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:8080/ready; then
-              exit 0
+              ready=true
+              break
             fi
             sleep 1
           done
-          exit 1
+          test "$ready" = true
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --form 'image=@/dev/null;filename=capture.jpg;type=image/jpeg' \
+            --form 'capture_type=left_thumb' \
+            --form 'reference_type=iso_id1' \
+            http://127.0.0.1:8080/v1/measure)"
+          test "$status" = 415
+          docker stop --time 1 nailsize-contract
+          test -z "$(docker diff nailsize-contract)"

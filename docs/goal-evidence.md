@@ -309,6 +309,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Fresh full verification passed 280 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the Vercel-compatible production build, 18 Chromium visual/E2E scenarios, 45 current browser-engine scenarios, all 16 Terraform tests and provider validation, workflow lint, changed-file formatting, and the high-severity npm audit with zero reported vulnerabilities.
 - GitHub CI run [29166999426](https://github.com/Jeric-png/nailsize-ai/actions/runs/29166999426) passed all ten jobs for implementation commit `4b80a5e`, including the source-managed privacy verifier, 280 Python/ML tests, security scanning, all browser and infrastructure gates, and the live runtime-container readiness smoke. Its inspected 447-byte `privacy-release-boundary` artifact reports `passed: true`, contains only the documented counts/booleans, and is retained through 2026-08-10.
 
+## 2026-07-12 dynamic ephemeral-runtime contract
+
+- Python audit hooks observe the complete accepted-measurement and malformed-upload paths plus timeout and cancellation while the real decoder cleanup runs. Any write-mode/flag file open or filesystem mutation fails the test; all four paths currently emit zero events, and timeout/cancellation close their upload buffers.
+- The Linux runtime-container smoke now starts the production image with a read-only root filesystem, every Linux capability dropped, and `no-new-privileges`. It verifies readiness, submits a malformed multipart upload and requires `415`, stops the process with a one-second grace period, and fails unless `docker diff` is empty.
+- Source tests require every container privacy flag, malformed-request assertion, termination command, and empty-diff check to remain in the required CI job. This proves the checked-in process has no persistent container write path; it does not prove applied cloud telemetry, external integrations, or staging termination behavior, so the release checkbox remains open.
+- Fresh local verification passed 285 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the Vercel-compatible production build, 18 Chromium visual/E2E scenarios, 45 current browser-engine scenarios, all 16 Terraform tests and provider validation, workflow lint, changed-file formatting, and the high-severity npm audit with zero reported vulnerabilities. The local Docker daemon was unavailable, so the required Linux CI job remains the authority for the live container termination check.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

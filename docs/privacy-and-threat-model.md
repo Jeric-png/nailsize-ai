@@ -36,6 +36,8 @@ The production Python package has no training-framework, object-storage, databas
 
 `verify_privacy_release_boundary.py` adds a fail-closed release audit. Runtime dependency sets, Terraform resource addresses/types, and referenced structured-log fields are explicitly reviewed; any new package, infrastructure instance, or payload field fails until the privacy allow-list is consciously updated. The audit also requires disabled Uvicorn access logs, native load-balancer metadata logging without optional fields, query-stripping HTTP redirects, one fixed query-free browser upload path, and a self-only browser script policy without CSP reporting. CI retains only the resulting counts and booleans in a 30-day `nailsize-privacy-release-boundary@1` artifact.
 
+Dynamic tests install a Python runtime audit hook around accepted measurement, malformed upload, timeout, and cancellation paths. They fail on filesystem opens with write flags or file/directory mutation events and require interrupted upload buffers to close. The Linux image smoke runs the production process with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`; after a malformed upload it terminates the process and requires `docker diff` to be empty. These controls cover the source-managed process boundary, not out-of-band platform integrations.
+
 This repository boundary prevents the application from exporting uploads into the available training path. Deployment review must still verify that the Cloud Run identity has no write access to research storage and that no platform integration captures request bodies.
 
 ## Remaining production reviews
