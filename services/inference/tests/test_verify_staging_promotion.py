@@ -45,7 +45,7 @@ def _evidence():
             "ready_substate": "PROMOTED",
         },
         "smoke_report": {
-            "schema_version": "nailsize-deployment-smoke@1",
+            "schema_version": "nailsize-deployment-smoke@2",
             "environment": "staging",
             "frontend_host": "staging.nailsize.example",
             "api_host": "api-staging.nailsize.example",
@@ -76,7 +76,7 @@ def test_accepts_exact_successful_staging_candidate() -> None:
     assert report["passed"] is True
     assert report["staging_run_id"] == RUN_ID
     assert report["git_commit_sha"] == COMMIT_SHA
-    assert report["smoke_checks_passed"] == 6
+    assert report["smoke_checks_passed"] == 7
     assert report["staging_vercel_deployment_id"] == "dpl_staging123"
 
 
@@ -89,6 +89,7 @@ def test_accepts_exact_successful_staging_candidate() -> None:
         ("deployment_manifest", "model_sha256", "e" * 64),
         ("vercel_deployment", "ready_substate", "STAGED"),
         ("smoke_report", "passed", False),
+        ("smoke_report", "schema_version", "nailsize-deployment-smoke@1"),
         ("smoke_report", "expected_model_version", "different-model"),
     ],
 )

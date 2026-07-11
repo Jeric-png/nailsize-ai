@@ -13,6 +13,7 @@ EXPECTED_SMOKE_CHECKS = frozenset(
         "cors_untrusted_origin",
         "malformed_upload_rejected",
         "frontend_security_headers",
+        "frontend_api_binding",
     }
 )
 
@@ -78,7 +79,7 @@ def verify_staging_promotion(
 
     checks = smoke_report.get("checks")
     if (
-        smoke_report.get("schema_version") != "nailsize-deployment-smoke@1"
+        smoke_report.get("schema_version") != "nailsize-deployment-smoke@2"
         or smoke_report.get("environment") != "staging"
         or smoke_report.get("expected_model_version") != expected_model_version
         or smoke_report.get("frontend_host") != urlparse(frontend_url).hostname

@@ -271,7 +271,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 ## 2026-07-12 staging-to-production promotion contract
 
 - Production now requires the numeric ID of a successful `Deploy verified release` staging run for the exact `main` commit, model release tag, model version, and model checksum. The gate runs before Google OIDC authentication and rejects a different workflow/event/branch/SHA, incomplete or failed run, mutable image reference, mismatched deployment identity, unpromoted Vercel result, or incomplete/failed smoke report.
-- Promotion evidence cross-checks the staging deployment and smoke artifacts: exact HTTPS frontend/API hosts, digest-pinned container, six uniquely named passing endpoint/security checks, and the same immutable model identity. The emitted promotion report retains only bounded identifiers and hostnames.
+- Promotion evidence cross-checks the staging deployment and smoke artifacts: exact HTTPS frontend/API hosts, digest-pinned container, seven uniquely named passing endpoint/security checks, the deployed frontend bundle's exact direct API binding, and the same immutable model identity. The emitted promotion report retains only bounded identifiers and hostnames.
 - Unit/configuration tests validate successful promotion and fail-closed behavior for run, commit, environment, model, Vercel, and smoke mismatches. These tests validate the gate only; no staging environment or production promotion is claimed.
 - A read-only GitHub API audit returned zero configured repository environments and zero published releases. Remote environment protection, release assets, cloud identity, and deployment evidence therefore remain absent rather than inferred from the source configuration.
 
@@ -282,6 +282,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The corrected local compatibility run passed all 45 scenarios. This is current engine/emulation evidence only; it does not prove the plan's current-and-previous-two branded versions, physical iOS/Android devices, Edge, VoiceOver, or TalkBack, so those release gates remain open.
 - Final local verification used Playwright 1.61.1 and passed 251 Python/ML tests at 93.34% measured coverage, 24 web tests, 18 Chromium visual/E2E scenarios, all 45 current-engine scenarios, contract drift, Ruff, ESLint, TypeScript, the production build, workflow lint, 16 Terraform tests, and the high-severity npm audit with zero reported vulnerabilities.
 - GitHub CI run [29165801302](https://github.com/Jeric-png/nailsize-ai/actions/runs/29165801302) passed all ten jobs for commit `9d3eda5`, including the new 45-scenario Linux browser-engine gate, the 18-scenario visual/E2E gate, 251 Python/ML tests, contracts, web, security, container readiness, and all three Terraform roots.
+
+## 2026-07-12 deployed frontend/API binding contract
+
+- Deployment smoke schema `nailsize-deployment-smoke@2` adds a seventh mandatory check that parses only same-origin module-script references from the deployed frontend, bounds script count and response size, and requires the same built module to contain both the exact load-balanced API origin and `/v1/measure` path.
+- A missing module, cross-origin-only module, stale API origin, failed asset response, oversized asset, or non-JavaScript response fails closed. The retained report records only the check name, bounded result, and status code; it never copies HTML, JavaScript, response bodies, or customer data.
+- Production promotion now rejects older six-check smoke artifacts, so the exact staging candidate must prove the new direct-binding contract before Google authentication can begin. Local mock tests prove contract behavior only; staging and production remain unverified until credentialed deployments produce immutable schema-v2 smoke artifacts.
+- Fresh local verification passed Ruff formatting/lint, 258 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, workflow lint, Prettier, and a Vercel-compatible production build with the exact configured staging API origin embedded in the same JavaScript asset as `/v1/measure` and no localhost fallback.
 
 ## Evidence rules
 

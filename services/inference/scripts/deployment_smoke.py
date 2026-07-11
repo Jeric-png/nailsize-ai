@@ -2,14 +2,31 @@ import argparse
 import json
 import re
 from dataclasses import asdict, dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
 UNTRUSTED_ORIGIN = "https://untrusted.invalid"
 MODEL_VERSION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+MAX_FRONTEND_SCRIPTS = 10
+MAX_SCRIPT_BYTES = 5 * 1024 * 1024
+
+
+class _ModuleScriptParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sources: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "script":
+            return
+        attributes = dict(attrs)
+        source = attributes.get("src")
+        if attributes.get("type") == "module" and source:
+            self.sources.append(source)
 
 
 @dataclass(frozen=True)
@@ -171,8 +188,23 @@ def run_smoke(
             )
         )
 
+        bundle_passed, bundle_status = _verify_frontend_api_binding(
+            client,
+            frontend,
+            frontend_origin,
+            api_origin,
+        )
+        checks.append(
+            SmokeCheck(
+                "frontend_api_binding",
+                bundle_passed,
+                bundle_status,
+                "exact_api_origin_embedded" if bundle_passed else "api_binding_failed",
+            )
+        )
+
     return SmokeReport(
-        schema_version="nailsize-deployment-smoke@1",
+        schema_version="nailsize-deployment-smoke@2",
         environment=environment,
         frontend_host=urlparse(frontend_origin).hostname or "",
         api_host=urlparse(api_origin).hostname or "",
@@ -187,6 +219,60 @@ def _request(client: httpx.Client, method: str, url: str, **kwargs: Any) -> http
         return client.request(method, url, **kwargs)
     except httpx.HTTPError:
         return None
+
+
+def _verify_frontend_api_binding(
+    client: httpx.Client,
+    frontend: httpx.Response | None,
+    frontend_origin: str,
+    api_origin: str,
+) -> tuple[bool, int | None]:
+    if frontend is None or frontend.status_code != 200:
+        return False, _status(frontend)
+    parser = _ModuleScriptParser()
+    try:
+        parser.feed(frontend.text)
+    except (UnicodeError, ValueError):
+        return False, frontend.status_code
+    sources = parser.sources[: MAX_FRONTEND_SCRIPTS + 1]
+    if not sources or len(sources) > MAX_FRONTEND_SCRIPTS:
+        return False, frontend.status_code
+
+    observed_status: int | None = frontend.status_code
+    for source in sources:
+        script_url = urljoin(f"{frontend_origin}/", source)
+        parsed = urlparse(script_url)
+        if (
+            f"{parsed.scheme}://{parsed.netloc}" != frontend_origin
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            continue
+        matched, observed_status = _script_has_api_binding(client, script_url, api_origin)
+        if matched:
+            return True, observed_status
+    return False, observed_status
+
+
+def _script_has_api_binding(
+    client: httpx.Client, script_url: str, api_origin: str
+) -> tuple[bool, int | None]:
+    try:
+        with client.stream("GET", script_url) as response:
+            status_code = response.status_code
+            if (
+                status_code != 200
+                or "javascript" not in response.headers.get("content-type", "").lower()
+            ):
+                return False, status_code
+            content = bytearray()
+            for chunk in response.iter_bytes():
+                if len(content) + len(chunk) > MAX_SCRIPT_BYTES:
+                    return False, status_code
+                content.extend(chunk)
+    except httpx.HTTPError:
+        return False, None
+    return api_origin.encode() in content and b"/v1/measure" in content, status_code
 
 
 def _json_identity_check(
