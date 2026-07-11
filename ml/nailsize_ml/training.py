@@ -197,7 +197,7 @@ def train_baseline(
             "config": asdict(config),
             "training_examples": len(train_examples),
             "losses": losses,
-            "torch_version": torch.__version__,
+            "torch_version": str(torch.__version__),
         },
         destination,
     )

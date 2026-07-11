@@ -342,6 +342,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Fresh local verification passed 295 Python/ML tests at 93.50% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the production build, 18 Chromium visual/E2E scenarios, 45 current browser-engine scenarios, all 16 Terraform tests and provider validation, workflow lint, fixture formatting/checksums, and the high-severity npm audit with zero reported vulnerabilities.
 - GitHub CI run [29168545936](https://github.com/Jeric-png/nailsize-ai/actions/runs/29168545936) passed all ten jobs for implementation commit `d6e69c3`, including the expanded 295-test inference/ML suite, both browser gates, security scanning, contracts, all Terraform roots, and the runtime-container privacy smoke.
 
+## 2026-07-12 selected-checkpoint ONNX handoff
+
+- The model tooling now accepts only a checksum-approved selected checkpoint and matching model version, loads it with PyTorch's restricted `weights_only=True` path, validates the recorded training schema, reconstructs the fixed DeepLabV3-MobileNetV3 architecture without fetching weights, and requires strict state-dictionary compatibility.
+- ONNX export now writes to a private temporary path, validates the graph and fixed tensor contract, executes CPU ONNX Runtime parity, and publishes the destination atomically only after the configured tolerance passes. A separate atomic JSON report locks the checkpoint and ONNX checksums, model identity, architecture, training counts/loss, tensor shapes, provider, PyTorch version, and measured parity. Failure to publish evidence removes the ONNX output.
+- The first focused run exposed that the trainer stored `torch.__version__` as PyTorch's `TorchVersion` object, which the restricted loader correctly rejected. The trainer now serializes a plain string, and a regression test proves newly trained checkpoints round-trip through `weights_only=True` without allow-listing executable globals.
+- Fourteen optional-toolchain tests passed, including two real native-to-ONNX Runtime parity exports, checksum/version rejection, atomic-failure cleanup, deterministic training, safe checkpoint loading, and the CPU benchmark harness. The standard suite passed 300 Python/ML tests at 93.50% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, the production build, all 16 Terraform tests and provider validation, workflow lint, the source privacy audit, and the high-severity npm audit with zero reported vulnerabilities.
+- This proves the selected-checkpoint handoff and evidence mechanics only. No real study checkpoint was exported, no model accuracy is claimed, and the ONNX checklist remains open until the approved participant-disjoint selection produces reviewed parity evidence at or below `1e-4`.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

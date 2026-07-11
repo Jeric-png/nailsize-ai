@@ -8,12 +8,15 @@ torch = pytest.importorskip("torch")
 pytest.importorskip("torchvision")
 from PIL import Image  # noqa: E402
 
+import nailsize_ml.training as training  # noqa: E402
 from nailsize_ml.dataset import DatasetSplit  # noqa: E402
 from nailsize_ml.training import (  # noqa: E402
     NailSegmentationDataset,
+    TrainingConfig,
     TrainingExample,
     load_training_manifest,
     set_reproducible_seed,
+    train_baseline,
     train_epoch,
 )
 
@@ -95,3 +98,32 @@ def test_seed_and_train_epoch_are_deterministic(tmp_path: Path) -> None:
     second_loss, second_weight = run_once()
     assert first_loss == pytest.approx(second_loss)
     assert torch.equal(first_weight, second_weight)
+
+
+def test_training_checkpoint_is_safe_weights_only_data(tmp_path: Path, monkeypatch) -> None:
+    image_path, mask_path = write_pair(tmp_path, "sample")
+    example = TrainingExample(
+        "image-001", "participant-001", DatasetSplit.TRAIN, image_path, mask_path
+    )
+    monkeypatch.setattr(
+        training,
+        "build_deeplab_mobilenet",
+        lambda *, pretrained_backbone: torch.nn.Conv2d(3, 1, kernel_size=1),
+    )
+    checkpoint = tmp_path / "candidate.pt"
+
+    train_baseline(
+        [example],
+        TrainingConfig(
+            model_version="candidate-1",
+            epochs=1,
+            batch_size=1,
+            pretrained_backbone=False,
+        ),
+        checkpoint,
+    )
+
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert payload["config"]["model_version"] == "candidate-1"
+    assert payload["torch_version"] == str(torch.__version__)
+    assert type(payload["torch_version"]) is str

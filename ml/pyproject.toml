@@ -18,6 +18,7 @@ training = [
 [project.scripts]
 nailsize-accuracy-report = "nailsize_ml.reporting:main"
 nailsize-benchmark = "nailsize_ml.benchmark:main"
+nailsize-export-checkpoint = "nailsize_ml.selected_export:main"
 nailsize-model-card = "nailsize_ml.model_card:main"
 nailsize-operational-report = "nailsize_ml.operational_validation:main"
 nailsize-release-bundle = "nailsize_ml.release_bundle:main"
