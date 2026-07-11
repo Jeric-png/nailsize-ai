@@ -68,14 +68,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # Bootstrap missing runner-specific visual baselines; restored to strict
-      # comparison after the Linux baselines are committed.
-      - run: npm run test:e2e -- --update-snapshots
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-visual-baselines
-          path: tests/e2e/core-flow.spec.ts-snapshots/*-linux.png
-          retention-days: 1
+      - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
