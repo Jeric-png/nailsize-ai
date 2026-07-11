@@ -8,6 +8,7 @@ def test_vercel_config_preserves_build_routing_and_security_headers() -> None:
     config = json.loads((REPOSITORY_ROOT / "vercel.json").read_text())
     assert config["buildCommand"] == "npm run build"
     assert config["outputDirectory"] == "apps/web/dist"
+    assert config["git"] == {"deploymentEnabled": {"main": False}}
     assert config["rewrites"] == [{"source": "/((?!assets/).*)", "destination": "/index.html"}]
 
     headers = {entry["key"]: entry["value"] for entry in config["headers"][0]["headers"]}
@@ -88,3 +89,42 @@ def test_deployment_smoke_workflow_is_reusable_and_preserves_safe_evidence() -> 
     assert "services/inference/scripts/deployment_smoke.py" in workflow
     assert "retention-days: 30" in workflow
     assert "permissions:\n  contents: read" in workflow
+    assert "actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd" in workflow
+    assert "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1" in workflow
+    assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
+
+
+def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+
+    assert "workflow_dispatch:" in workflow
+    assert "pull_request:" not in workflow
+    assert "\n  push:" not in workflow
+    assert "actions: read\n  contents: read\n  id-token: write" in workflow
+    assert "environment: ${{ inputs.environment }}" in workflow
+    assert "cancel-in-progress: false" in workflow
+    assert "PRODUCTION_CONFIRMATION" in workflow
+    assert "DEPLOY_PRODUCTION" in workflow
+    assert 'gh run list --repo "$GITHUB_REPOSITORY" --workflow CI' in workflow
+    assert "google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093" in workflow
+    assert "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db" in workflow
+    assert "credentials_json" not in workflow
+    assert "npx vercel" not in workflow
+    assert "npm install vercel" not in workflow
+    assert "uses: ./.github/workflows/deployment-smoke.yml" in workflow
+
+    release_gate = workflow.index("nailsize-release-bundle")
+    runtime_gate = workflow.index("verify_runtime_model.py")
+    vercel_gate = workflow.index("verify_vercel_deployment.py")
+    cloud_auth = workflow.index("google-github-actions/auth@")
+    image_build = workflow.index("docker build --tag")
+    observability_apply = workflow.index("terraform -chdir=infra/observability apply")
+    assert (
+        release_gate < runtime_gate < cloud_auth < image_build < observability_apply < vercel_gate
+    )
+
+
+def test_every_terraform_root_declares_remote_gcs_state() -> None:
+    for root in ("bootstrap", "platform", "observability"):
+        versions = (REPOSITORY_ROOT / "infra" / root / "versions.tf").read_text()
+        assert 'backend "gcs" {}' in versions

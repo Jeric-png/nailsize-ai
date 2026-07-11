@@ -59,8 +59,10 @@ jobs:
       SMOKE_EXPECTED_ORIGIN: ${{ inputs.expected_origin }}
       SMOKE_MODEL_VERSION: ${{ inputs.expected_model_version }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      # v5, pinned for the production verification boundary.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      # v6, pinned for the production verification boundary.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: "3.12"
           cache: pip
@@ -74,7 +76,8 @@ jobs:
           --expected-origin "$SMOKE_EXPECTED_ORIGIN"
           --expected-model-version "$SMOKE_MODEL_VERSION"
           --output work/deployment-smoke.json
-      - uses: actions/upload-artifact@v7
+      # v7, pinned; the report contains only bounded deployment metadata.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: deployment-smoke-${{ inputs.environment }}

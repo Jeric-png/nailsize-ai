@@ -1,0 +1,318 @@
+name: Deploy verified release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Protected environment to deploy
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      model_release_tag:
+        description: Published GitHub release containing the exact five model assets
+        required: true
+        type: string
+      expected_model_version:
+        description: Immutable model version approved in release evidence
+        required: true
+        type: string
+      expected_model_sha256:
+        description: Lowercase SHA-256 of nail-segmentation.onnx
+        required: true
+        type: string
+      production_confirmation:
+        description: Enter DEPLOY_PRODUCTION for production; staging may be left blank
+        required: false
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nailsize-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ inputs.environment }}
+    outputs:
+      api_url: ${{ steps.release_outputs.outputs.api_url }}
+      frontend_url: ${{ steps.release_outputs.outputs.frontend_url }}
+      model_version: ${{ steps.release_outputs.outputs.model_version }}
+    env:
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      MODEL_RELEASE_TAG: ${{ inputs.model_release_tag }}
+      EXPECTED_MODEL_VERSION: ${{ inputs.expected_model_version }}
+      EXPECTED_MODEL_SHA256: ${{ inputs.expected_model_sha256 }}
+      PRODUCTION_CONFIRMATION: ${{ inputs.production_confirmation }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      API_DOMAIN: ${{ vars.API_DOMAIN }}
+      FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+      MAX_INSTANCES: ${{ vars.MAX_INSTANCES }}
+      RATE_LIMIT_REQUESTS: ${{ vars.RATE_LIMIT_REQUESTS }}
+      RATE_LIMIT_INTERVAL_SECONDS: ${{ vars.RATE_LIMIT_INTERVAL_SECONDS }}
+      RATE_LIMIT_PREVIEW: ${{ vars.RATE_LIMIT_PREVIEW }}
+      DELETION_PROTECTION: ${{ vars.DELETION_PROTECTION }}
+      MONITORING_NOTIFICATION_CHANNEL_IDS_JSON: ${{ vars.MONITORING_NOTIFICATION_CHANNEL_IDS_JSON }}
+      ERROR_RATE_THRESHOLD: ${{ vars.ERROR_RATE_THRESHOLD }}
+      P95_LATENCY_THRESHOLD_MS: ${{ vars.P95_LATENCY_THRESHOLD_MS }}
+      MALFORMED_UPLOADS_PER_MINUTE_THRESHOLD: ${{ vars.MALFORMED_UPLOADS_PER_MINUTE_THRESHOLD }}
+      BILLING_ACCOUNT_ID: ${{ vars.BILLING_ACCOUNT_ID }}
+      MONTHLY_BUDGET_UNITS: ${{ vars.MONTHLY_BUDGET_UNITS }}
+      BUDGET_CURRENCY: ${{ vars.BUDGET_CURRENCY }}
+      BUDGET_THRESHOLDS_JSON: ${{ vars.BUDGET_THRESHOLDS_JSON }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME }}
+      VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+      VERCEL_GITHUB_REPO_ID: ${{ vars.VERCEL_GITHUB_REPO_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Validate explicit deployment authority and configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            GCP_PROJECT_ID GCP_REGION GCP_WORKLOAD_IDENTITY_PROVIDER
+            GCP_DEPLOY_SERVICE_ACCOUNT TF_STATE_BUCKET API_DOMAIN FRONTEND_ORIGIN
+            MAX_INSTANCES RATE_LIMIT_REQUESTS RATE_LIMIT_INTERVAL_SECONDS
+            RATE_LIMIT_PREVIEW DELETION_PROTECTION
+            MONITORING_NOTIFICATION_CHANNEL_IDS_JSON ERROR_RATE_THRESHOLD
+            P95_LATENCY_THRESHOLD_MS MALFORMED_UPLOADS_PER_MINUTE_THRESHOLD
+            BILLING_ACCOUNT_ID MONTHLY_BUDGET_UNITS BUDGET_CURRENCY
+            BUDGET_THRESHOLDS_JSON VERCEL_PROJECT_ID VERCEL_PROJECT_NAME
+            VERCEL_TEAM_ID VERCEL_GITHUB_REPO_ID VERCEL_TOKEN
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing protected-environment configuration: $name" >&2
+              exit 1
+            fi
+          done
+          [[ "$MODEL_RELEASE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
+          [[ "$EXPECTED_MODEL_VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
+          [[ "$EXPECTED_MODEL_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$RATE_LIMIT_PREVIEW" == "true" || "$RATE_LIMIT_PREVIEW" == "false" ]]
+          [[ "$DELETION_PROTECTION" == "true" || "$DELETION_PROTECTION" == "false" ]]
+          if [[ "$DEPLOY_ENVIRONMENT" == "production" ]]; then
+            [[ "$PRODUCTION_CONFIRMATION" == "DEPLOY_PRODUCTION" ]]
+            [[ "$DELETION_PROTECTION" == "true" ]]
+          fi
+
+      # v5, pinned so release inputs cannot be evaluated by a moving checkout action.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          fetch-depth: 0
+
+      # v6, pinned for the release-verification boundary.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Download an immutable published model release
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci_runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow CI \
+            --commit "$GITHUB_SHA" --limit 10 \
+            --json status,conclusion,databaseId,headSha)"
+          jq -e --arg sha "$GITHUB_SHA" \
+            'any(.[]; .headSha == $sha and .status == "completed" and .conclusion == "success")' \
+            <<<"$ci_runs" >/dev/null
+          release_json="$(gh release view "$MODEL_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName)"
+          [[ "$(jq -r '.tagName' <<<"$release_json")" == "$MODEL_RELEASE_TAG" ]]
+          [[ "$(jq -r '.isDraft' <<<"$release_json")" == "false" ]]
+          [[ "$(jq -r '.isPrerelease' <<<"$release_json")" == "false" ]]
+          tag_commit="$(git rev-list -n 1 "$MODEL_RELEASE_TAG")"
+          [[ -n "$tag_commit" ]]
+          git merge-base --is-ancestor "$tag_commit" "$GITHUB_SHA"
+          mkdir -p work/model-release
+          gh release download "$MODEL_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir work/model-release
+
+      - name: Verify release evidence and production runtime compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e ml -e services/inference
+          nailsize-release-bundle work/model-release \
+            --expected-model-version "$EXPECTED_MODEL_VERSION" \
+            --expected-model-sha256 "$EXPECTED_MODEL_SHA256" \
+            --output work/model-release-manifest.json
+          python services/inference/scripts/verify_runtime_model.py \
+            work/model-release/nail-segmentation.onnx \
+            --model-version "$EXPECTED_MODEL_VERSION" \
+            --sha256 "$EXPECTED_MODEL_SHA256" \
+            --output work/runtime-model-verification.json
+          cp work/model-release/nail-segmentation.onnx \
+            services/inference/models/nail-segmentation.onnx
+          python services/inference/scripts/fetch_hand_landmarker.py
+          python services/inference/scripts/smoke_hand_landmarker.py
+
+      # v3, pinned. Authentication uses GitHub OIDC and never a service-account key.
+      - name: Authenticate to Google Cloud with workload identity federation
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+
+      # v3, pinned after OIDC authentication.
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+
+      # v4.0.1, pinned so infrastructure behavior cannot silently change upstream.
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+        with:
+          terraform_version: "1.15.8"
+
+      - name: Apply environment bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/bootstrap init -input=false -reconfigure \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="prefix=nailsize/$DEPLOY_ENVIRONMENT/bootstrap"
+          terraform -chdir=infra/bootstrap plan -input=false \
+            -var="project_id=$GCP_PROJECT_ID" \
+            -var="environment=$DEPLOY_ENVIRONMENT" \
+            -var="region=$GCP_REGION" \
+            -out="$RUNNER_TEMP/bootstrap.tfplan"
+          terraform -chdir=infra/bootstrap apply -input=false \
+            "$RUNNER_TEMP/bootstrap.tfplan"
+
+      - name: Build and push immutable inference image
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry="$GCP_REGION-docker.pkg.dev"
+          repository="nailsize-$DEPLOY_ENVIRONMENT-inference"
+          image_tag="$registry/$GCP_PROJECT_ID/$repository/inference:github-$GITHUB_SHA"
+          gcloud auth configure-docker "$registry" --quiet
+          docker build --tag "$image_tag" services/inference
+          docker push "$image_tag"
+          digest="$(gcloud artifacts docker images describe "$image_tag" --format='value(image_summary.digest)')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          image_uri="${image_tag%:*}@$digest"
+          echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
+
+      - name: Apply API platform
+        id: platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          boundary_error="$(jq -r '.segmentation_boundary_error_px' work/model-release-manifest.json)"
+          terraform -chdir=infra/platform init -input=false -reconfigure \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="prefix=nailsize/$DEPLOY_ENVIRONMENT/platform"
+          terraform -chdir=infra/platform plan -input=false \
+            -var="project_id=$GCP_PROJECT_ID" \
+            -var="environment=$DEPLOY_ENVIRONMENT" \
+            -var="region=$GCP_REGION" \
+            -var="api_domain=$API_DOMAIN" \
+            -var="frontend_origin=$FRONTEND_ORIGIN" \
+            -var="image_uri=${{ steps.image.outputs.image_uri }}" \
+            -var="model_version=$EXPECTED_MODEL_VERSION" \
+            -var="model_sha256=$EXPECTED_MODEL_SHA256" \
+            -var="segmentation_boundary_error_px=$boundary_error" \
+            -var="max_instances=$MAX_INSTANCES" \
+            -var="rate_limit_requests=$RATE_LIMIT_REQUESTS" \
+            -var="rate_limit_interval_seconds=$RATE_LIMIT_INTERVAL_SECONDS" \
+            -var="rate_limit_preview=$RATE_LIMIT_PREVIEW" \
+            -var="deletion_protection=$DELETION_PROTECTION" \
+            -out="$RUNNER_TEMP/platform.tfplan"
+          terraform -chdir=infra/platform apply -input=false "$RUNNER_TEMP/platform.tfplan"
+          echo "api_url=$(terraform -chdir=infra/platform output -raw api_url)" >> "$GITHUB_OUTPUT"
+          echo "service_name=$(terraform -chdir=infra/platform output -raw cloud_run_service)" >> "$GITHUB_OUTPUT"
+
+      - name: Apply privacy-safe observability and budget controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/observability init -input=false -reconfigure \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="prefix=nailsize/$DEPLOY_ENVIRONMENT/observability"
+          terraform -chdir=infra/observability plan -input=false \
+            -var="project_id=$GCP_PROJECT_ID" \
+            -var="environment=$DEPLOY_ENVIRONMENT" \
+            -var="service_name=${{ steps.platform.outputs.service_name }}" \
+            -var="max_instances=$MAX_INSTANCES" \
+            -var="notification_channel_ids=$MONITORING_NOTIFICATION_CHANNEL_IDS_JSON" \
+            -var="error_rate_threshold=$ERROR_RATE_THRESHOLD" \
+            -var="p95_latency_threshold_ms=$P95_LATENCY_THRESHOLD_MS" \
+            -var="malformed_uploads_per_minute_threshold=$MALFORMED_UPLOADS_PER_MINUTE_THRESHOLD" \
+            -var="billing_account_id=$BILLING_ACCOUNT_ID" \
+            -var="monthly_budget_units=$MONTHLY_BUDGET_UNITS" \
+            -var="budget_currency=$BUDGET_CURRENCY" \
+            -var="budget_thresholds=$BUDGET_THRESHOLDS_JSON" \
+            -out="$RUNNER_TEMP/observability.tfplan"
+          terraform -chdir=infra/observability apply -input=false \
+            "$RUNNER_TEMP/observability.tfplan"
+
+      - name: Create and require Vercel Git deployment of this exact commit
+        run: >-
+          python services/inference/scripts/verify_vercel_deployment.py
+          --project-id "$VERCEL_PROJECT_ID"
+          --project-name "$VERCEL_PROJECT_NAME"
+          --team-id "$VERCEL_TEAM_ID"
+          --github-repo-id "$VERCEL_GITHUB_REPO_ID"
+          --commit-sha "$GITHUB_SHA"
+          --frontend-url "$FRONTEND_ORIGIN"
+          --output work/vercel-deployment.json
+
+      - name: Write privacy-safe deployment evidence
+        id: release_outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_url="${{ steps.platform.outputs.api_url }}"
+          jq -n \
+            --arg schema_version "nailsize-deployment@1" \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg git_commit_sha "$GITHUB_SHA" \
+            --arg api_url "$api_url" \
+            --arg frontend_url "$FRONTEND_ORIGIN" \
+            --arg image_uri "${{ steps.image.outputs.image_uri }}" \
+            --arg model_version "$EXPECTED_MODEL_VERSION" \
+            --arg model_sha256 "$EXPECTED_MODEL_SHA256" \
+            '{schema_version: $schema_version, environment: $environment,
+              git_commit_sha: $git_commit_sha, api_url: $api_url,
+              frontend_url: $frontend_url, image_uri: $image_uri,
+              model_version: $model_version, model_sha256: $model_sha256}' \
+            > work/deployment-manifest.json
+          echo "api_url=$api_url" >> "$GITHUB_OUTPUT"
+          echo "frontend_url=$FRONTEND_ORIGIN" >> "$GITHUB_OUTPUT"
+          echo "model_version=$EXPECTED_MODEL_VERSION" >> "$GITHUB_OUTPUT"
+
+      # v7, pinned; only bounded metadata reports are retained.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: deployment-evidence-${{ inputs.environment }}
+          path: |
+            work/deployment-manifest.json
+            work/model-release-manifest.json
+            work/runtime-model-verification.json
+            work/vercel-deployment.json
+          if-no-files-found: error
+          retention-days: 30
+
+  smoke:
+    needs: deploy
+    uses: ./.github/workflows/deployment-smoke.yml
+    with:
+      environment: ${{ inputs.environment }}
+      frontend_url: ${{ needs.deploy.outputs.frontend_url }}
+      api_url: ${{ needs.deploy.outputs.api_url }}
+      expected_origin: ${{ needs.deploy.outputs.frontend_url }}
+      expected_model_version: ${{ needs.deploy.outputs.model_version }}

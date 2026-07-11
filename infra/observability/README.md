@@ -28,7 +28,9 @@ terraform -chdir=infra/observability test
 Supply every required variable through an environment-specific, uncommitted variable file or CI variables. Thresholds and the budget intentionally have no defaults: the operator must enter approved values rather than inheriting guesses.
 
 ```sh
-terraform -chdir=infra/observability init -backend-config=<approved-backend-file>
+terraform -chdir=infra/observability init \
+  -backend-config="bucket=<approved-versioned-state-bucket>" \
+  -backend-config="prefix=nailsize/<environment>/observability"
 terraform -chdir=infra/observability plan -out=<environment>.tfplan
 terraform -chdir=infra/observability apply <environment>.tfplan
 ```

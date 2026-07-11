@@ -12,7 +12,9 @@ terraform -chdir=infra/platform test
 Use a remote state backend before any authorized plan or apply:
 
 ```sh
-terraform -chdir=infra/platform init -backend-config=<approved-backend-file>
+terraform -chdir=infra/platform init \
+  -backend-config="bucket=<approved-versioned-state-bucket>" \
+  -backend-config="prefix=nailsize/<environment>/platform"
 terraform -chdir=infra/platform plan -out=<environment>.tfplan
 terraform -chdir=infra/platform apply <environment>.tfplan
 ```

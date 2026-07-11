@@ -13,6 +13,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Add `docs/decisions.md` for architecture and product deviations.
 - [x] Configure CI to run formatting checks, lint, typecheck, unit tests, API contract tests, build, security scans, and E2E smoke tests.
 - [ ] Configure separate development, staging, and production environments.
+  - GitHub's manual deployment workflow now consumes isolated protected-environment variables/secrets, separate Vercel project IDs, and separate GCS state prefixes. The checkbox remains open until both remote environments, reviewers, OIDC bindings, state buckets, domains, and platform projects are actually configured and inspected.
 - [x] Record secrets only in the deployment secret manager or CI secret store; commit `.env.example` without credentials.
 
 ## 1. Stitch Design Implementation
@@ -106,10 +107,11 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Containerize the API and bundle the verified ONNX model.
   - The non-root runtime image installs MediaPipe/native dependencies and requires both checksum-verified runtime artifacts at build time. CI builds it with a clearly non-release synthetic graph and requires checksum/version/warmup readiness. The checkbox remains open until the selected validated ONNX file is supplied and that immutable image passes the same smoke.
 - [ ] Provision Artifact Registry, Cloud Run, Vercel, TLS, and environment configuration.
-  - `infra/bootstrap` first defines required APIs, Artifact Registry, and a role-less runtime identity; after the validated image is pushed, `infra/platform` defines Cloud Run, serverless NEG, global HTTPS load balancing, managed TLS, HTTP redirect, and Cloud Armor. The runtime rejects images outside its exact environment repository. Vercel configuration is versioned separately. The checkbox remains open until authorized staging and production applies, DNS/certificate activation, and immutable deployment evidence are complete.
+  - `infra/bootstrap` first defines required APIs, Artifact Registry, and a role-less runtime identity; after the validated image is pushed, `infra/platform` defines Cloud Run, serverless NEG, global HTTPS load balancing, managed TLS, HTTP redirect, and Cloud Armor. All roots now declare isolated GCS state. A protected, manual GitHub workflow verifies the exact published model bundle before OIDC authentication, applies all three roots with a digest-pinned image, and only then creates and verifies the exact Vercel Git-SHA deployment. The checkbox remains open until authorized staging and production applies, DNS/certificate activation, and immutable deployment evidence are complete.
 - [ ] Configure Cloud Run with one worker, concurrency `1`, one warm minimum instance, 2 vCPU, 4 GiB RAM, and a 15-second timeout.
   - Both the provider-validated Terraform stack and manual recovery manifest lock these settings, load-balancer-only ingress, and a disabled default URL. The checkbox remains open until the deployed revisions are inspected and benchmarked with the validated model.
 - [ ] Deploy the frontend so photos post directly to the inference service rather than through a frontend server function.
+  - The Vite client already calls the configured inference origin directly. After protected-environment approval, deployment automation creates the Vercel production build from the connected repository and exact Git SHA through the REST API, without the Vercel CLI, then requires that immutable deployment to become `READY` and `PROMOTED`. Live network inspection in both configured environments remains pending.
 - [ ] Add stage-level latency metrics, request/error counts, retake reasons, saturation, cold starts, and model/chart version dashboards.
   - Privacy-safe structured events now emit JSON-only Cloud Logging payloads. Validated Terraform defines the log metrics and a dashboard covering request/stage latency, outcomes, retakes, saturation, concurrency, CPU/memory, startup, billable time, and model/chart versions. Provisioning and live-data verification remain pending.
 - [ ] Configure sanitized log retention for 30 days.
@@ -117,7 +119,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Add alerts for error rate, p95 latency, instance saturation, malformed-upload spikes, and budget thresholds.
   - Validated, fail-closed Terraform defines all four incident policies and a project-scoped budget. Required thresholds, notification channels, account/currency, and amount have no defaults; authorized plan/apply and notification tests remain pending.
 - [ ] Run staging smoke tests after every deployment and production smoke tests after promotion.
-  - A reusable/manual GitHub workflow now emits a privacy-safe, versioned JSON report covering health/readiness, immutable model identity, exact CORS allow/deny behavior, malformed-upload `415` plus `no-store`, and deployed Vercel security headers. The checkbox remains open until credentialed deployment automation invokes it and real staging/production revisions pass.
+  - A reusable/manual GitHub workflow emits a privacy-safe, versioned JSON report covering health/readiness, immutable model identity, exact CORS allow/deny behavior, malformed-upload `415` plus `no-store`, and deployed Vercel security headers. The credentialed deployment workflow now invokes it automatically after infrastructure apply. The checkbox remains open until real staging and production revisions pass and artifacts are linked here.
 - [x] Document rollback for frontend, container revision, model version, and chart version.
 
 ## 8. Functional and Adversarial QA

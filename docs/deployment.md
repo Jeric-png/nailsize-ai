@@ -14,14 +14,16 @@ Committed, non-secret templates live in `infra/environments/`. Copy the matching
 
 ## Vercel frontend
 
-The repository root contains `vercel.json`. Connect `Jeric-png/nailsize-ai`, keep the project root at the repository root, and configure:
+The repository root contains `vercel.json`. Create separate staging and production Vercel projects, connect both to `Jeric-png/nailsize-ai`, and keep the project root at the repository root. The committed `git.deploymentEnabled.main=false` setting disables automatic deployments from `main` so production pushes cannot bypass GitHub environment approval; other branches may still receive previews. Configure:
 
 - Build command: `npm run build`
 - Output directory: `apps/web/dist`
 - Node.js: 22
-- `VITE_INFERENCE_API_URL`: the matching HTTPS Cloud Run origin
+- `VITE_INFERENCE_API_URL`: the matching stable load-balanced HTTPS API origin
 
-Pull requests should receive preview deployments. Promote to production only after staging smoke, accessibility, privacy, and cross-browser checks pass.
+Pull requests may receive preview deployments. Production deployments must be created by the protected GitHub workflow after staging smoke, accessibility, privacy, and cross-browser checks pass.
+
+The deployment workflow does not install or invoke the Vercel CLI. After protected-environment approval, it calls the official `POST /v13/deployments` endpoint with the connected GitHub repository ID and exact `GITHUB_SHA`, then polls that immutable deployment ID. It refuses to continue unless the project, repository, SHA, production target, `READY` state, and `PROMOTED` substate all still match. Store a narrowly scoped Vercel access token as the protected environment secret `VERCEL_TOKEN`; store project/team/repository identifiers as environment variables. The resulting evidence contains deployment IDs and hostnames, never the token.
 
 `vercel.json` applies CSP, frame, MIME-sniffing, referrer, browser-capability, and cross-origin isolation headers to every route. Vercel supplies HSTS automatically. Once the production API hostname exists, narrow the CSP `connect-src` directive from generic HTTPS to the exact staging and production API hosts and verify it with the browser console and `curl -I`.
 
@@ -64,7 +66,9 @@ gcloud run services replace work/cloud-run-service.yaml --region REGION --projec
 gcloud run services update "$SERVICE_NAME" --no-default-url --region REGION --project PROJECT_ID
 ```
 
-For normal provisioning, follow both infrastructure READMEs, use separate remote state for each environment and Terraform root, and review every saved plan before an authorized apply. Point the API domain's DNS A record to the resulting global address and wait for the managed certificate to become active before smoke testing. The public `allUsers` binding grants only `roles/run.invoker`; load-balancer-only ingress plus the disabled `run.app` URL prevents internet traffic from bypassing Cloud Armor. The runtime service account deliberately receives no project roles because both model assets are bundled in the immutable image.
+For normal provisioning, follow all three infrastructure READMEs. Every Terraform root declares a GCS backend, and the deployment workflow isolates state under `nailsize/<environment>/<root>`. The state bucket must already exist, have versioning and uniform bucket-level access enabled, and grant the deployment identity object access; Terraform cannot safely create the bucket that contains its own state. Never share a state prefix between roots or environments.
+
+Point the API domain's DNS A record to the resulting global address and wait for the managed certificate to become active before smoke testing. The public `allUsers` binding grants only `roles/run.invoker`; load-balancer-only ingress plus the disabled `run.app` URL prevents internet traffic from bypassing Cloud Armor. The runtime service account deliberately receives no project roles because both model assets are bundled in the immutable image.
 
 Begin Cloud Armor rate rules in preview mode, derive per-client thresholds from at least one day of representative staging and abuse-test logs, then submit a separate reviewed plan that changes only the evidence-backed threshold or enforcement switch. The exceed action is `deny(429)`. Do not copy example traffic thresholds into production.
 
@@ -83,6 +87,66 @@ Use a synthetic or explicitly approved non-customer capture against staging. Sta
 ```
 
 The command exits non-zero unless every request returns HTTP 200 and p50 is at most 2 seconds, p95 at most 5 seconds, and p99 at most 10 seconds. The report contains only aggregate timing/status data and endpoint host metadata; it does not embed the image or response bodies.
+
+## Model release gate
+
+A deployable model is a published, non-prerelease GitHub release whose tag resolves to an ancestor of the deployed `main` commit. The release must contain exactly these assets:
+
+- `nail-segmentation.onnx`
+- `model-metadata.json`
+- `accuracy-report.json`
+- `operational-report.json`
+- `model-card.md`
+
+`nailsize-release-bundle` rejects missing or extra assets, placeholder/synthetic version names, checksum mismatches, a regenerated model-card difference, incomplete cohort evidence, fewer than 200 participants, failed accuracy/operational gates, and a nonpositive segmentation boundary error. The runtime verifier then loads the exact ONNX bytes with `CPUExecutionProvider`, checks embedded model identity and tensor contracts, and performs warm-up inference. These gates validate supplied evidence integrity; they do not make synthetic evidence representative or replace independent study review.
+
+## Credentialed deployment workflow
+
+`.github/workflows/deploy.yml` is manual-only, runs only from `main`, serializes each environment, and uses the matching GitHub protected environment. Production additionally requires the literal dispatch confirmation `DEPLOY_PRODUCTION` and `DELETION_PROTECTION=true`. Configure required reviewers, prevent self-review for production, and restrict both environments to `main` before adding credentials.
+
+Create a dedicated Google deployment service account and GitHub workload identity provider. Bind `roles/iam.workloadIdentityUser` only to the exact environment subjects:
+
+```text
+repo:Jeric-png/nailsize-ai:environment:staging
+repo:Jeric-png/nailsize-ai:environment:production
+```
+
+Also constrain the provider to the repository owner/repository claims. Grant the deployment account only the reviewed permissions needed for the three Terraform roots, Artifact Registry pushes, and GCS state; never create or store a service-account JSON key. Initial creation of the Google project, billing link, state bucket, DNS records, workload identity pool/provider, deploy identity grants, notification channels, and Vercel projects remains an authorized one-time bootstrap outside this repository.
+
+Define these GitHub environment variables separately for staging and production:
+
+```text
+GCP_PROJECT_ID
+GCP_REGION
+GCP_WORKLOAD_IDENTITY_PROVIDER
+GCP_DEPLOY_SERVICE_ACCOUNT
+TF_STATE_BUCKET
+API_DOMAIN
+FRONTEND_ORIGIN
+MAX_INSTANCES
+RATE_LIMIT_REQUESTS
+RATE_LIMIT_INTERVAL_SECONDS
+RATE_LIMIT_PREVIEW
+DELETION_PROTECTION
+MONITORING_NOTIFICATION_CHANNEL_IDS_JSON
+ERROR_RATE_THRESHOLD
+P95_LATENCY_THRESHOLD_MS
+MALFORMED_UPLOADS_PER_MINUTE_THRESHOLD
+BILLING_ACCOUNT_ID
+MONTHLY_BUDGET_UNITS
+BUDGET_CURRENCY
+BUDGET_THRESHOLDS_JSON
+VERCEL_PROJECT_ID
+VERCEL_PROJECT_NAME
+VERCEL_TEAM_ID
+VERCEL_GITHUB_REPO_ID
+```
+
+JSON list variables use Terraform syntax, for example `["projects/PROJECT/notificationChannels/ID"]` and `[0.5,0.8,1.0]`. Begin staging with `RATE_LIMIT_PREVIEW=true`; use only load-tested capacity and evidence-backed alert, budget, and rate values. Store only `VERCEL_TOKEN` as a GitHub environment secret. Workload identity values and resource identifiers are configuration, not private keys.
+
+Dispatch **Deploy verified release** with the published model tag, exact approved model version, and lowercase ONNX SHA-256. The workflow verifies release evidence before requesting a Google OIDC token, applies bootstrap, builds and pushes a commit-tagged image, resolves its registry digest, and applies platform and observability state. Only then does it create and verify the exact Vercel production deployment, upload privacy-safe metadata, and call the reusable deployment smoke workflow. This order leaves the previous frontend serving if backend deployment fails. A failed smoke job means the release is not accepted evidence, even if infrastructure apply succeeded.
+
+Official references: [GitHub deployment environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments), [GitHub OIDC](https://docs.github.com/en/actions/reference/security/oidc), [Google authentication action](https://github.com/google-github-actions/auth), [Vercel Git deployments](https://vercel.com/docs/git), and [Vercel create deployment API](https://vercel.com/docs/rest-api/deployments/create-a-new-deployment).
 
 ## Release verification
 
@@ -116,7 +180,7 @@ python services/inference/scripts/deployment_smoke.py \
 
 The command requires exact HTTPS origins, refuses the bypassable `run.app` hostname, verifies health/readiness and the immutable model version, checks trusted and untrusted CORS, submits only a fixed invalid byte string to prove typed `415` plus `no-store`, and verifies the deployed frontend security headers. Its report contains hostnames, status codes, enumerated outcomes, and the expected model version; it never copies response bodies.
 
-`.github/workflows/deployment-smoke.yml` exposes the same verifier through both `workflow_dispatch` and `workflow_call`. Run it after each staging deployment and after production promotion. A future credentialed deployment workflow must call this reusable workflow before promotion can succeed; until that workflow exists, trigger it manually and link its 30-day JSON artifact in the evidence ledger.
+`.github/workflows/deployment-smoke.yml` exposes the same verifier through both `workflow_dispatch` and `workflow_call`. The credentialed deployment workflow calls it after each applied release. It may also be triggered manually for investigation. Link the 30-day JSON artifact in the evidence ledger; workflow source validation is not evidence that a live environment passed.
 
 ## Observability and budget
 
