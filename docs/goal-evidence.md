@@ -140,6 +140,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 
 - The benchmark runner rejects models outside the fixed production input/output contract, performs configurable warmup, validates every output, and records checksum/provider/host metadata with p50, p95, p99, and mean inference latency.
 - Two synthetic ONNX tests prove successful CPU-provider reporting and rejection of an invalid output tensor. These tests validate the harness only; the Cloud Run CPU benchmark checklist remains open until a selected model runs inside the configured 2-vCPU/4-GiB revision.
+- GitHub CI run [29161742701](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161742701) passed all five standard jobs for benchmark commit `2cd22c4`. Dedicated Linux run [29161744869](https://github.com/Jeric-png/nailsize-ai/actions/runs/29161744869) installed the pinned stack and passed all nine model/export/training/benchmark tests.
+
+## 2026-07-12 unit-test category audit
+
+- Vitest covers session transitions, targeted correction, typed errors, object-URL cleanup, request deduplication/cancellation, and image preparation. Python tests cover every immutable chart entry and boundary, calibration/measurement geometry, deterministic quality gates, API/annotation schemas, upload normalization, and safe-log field rejection.
+- The latest local combined run passed 154 tests; the standard CI run above enforced 94.45% coverage for production and dependency-light ML code. Heavy research modules are separately exercised by the pinned Linux workflow rather than counted as untested default code.
 
 ## Evidence rules
 

@@ -112,7 +112,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 ## 8. Functional and Adversarial QA
 
-- [ ] Unit-test state transitions, chart mapping, quality rules, geometry, schemas, and sanitization.
+- [x] Unit-test state transitions, chart mapping, quality rules, geometry, schemas, and sanitization.
 - [ ] Contract-test all success, retake, 413, 415, 429, timeout, and 5xx responses.
 - [x] E2E-test the happy path for all four captures and ten results.
 - [x] E2E-test every targeted retake without losing previously accepted measurements.
