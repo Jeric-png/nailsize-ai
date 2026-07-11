@@ -59,6 +59,20 @@ Use an external Application Load Balancer in front of the service and attach Clo
 
 Official references: [Cloud Run ingress](https://docs.cloud.google.com/run/docs/securing/ingress), [Cloud Run YAML](https://docs.cloud.google.com/run/docs/reference/yaml/v1), [Cloud Armor rate limiting](https://docs.cloud.google.com/armor/docs/configure-rate-limiting), and [Vercel project configuration](https://vercel.com/docs/project-configuration/vercel-json).
 
+## Load validation
+
+Use a synthetic or explicitly approved non-customer capture against staging. Start at the expected concurrency, then rerun at peak plus 20%:
+
+```bash
+.venv/bin/python services/inference/scripts/load_test.py \
+  --endpoint https://STAGING_API/v1/measure \
+  --image /path/to/approved-load-fixture.webp \
+  --requests 100 --concurrency 2 \
+  --output work/staging-load-report.json
+```
+
+The command exits non-zero unless every request returns HTTP 200 and p50 is at most 2 seconds, p95 at most 5 seconds, and p99 at most 10 seconds. The report contains only aggregate timing/status data and endpoint host metadata; it does not embed the image or response bodies.
+
 ## Release verification
 
 For each staging or production revision, record the immutable frontend URL, Cloud Run revision, image digest, model checksum, chart version, and CI run in `docs/goal-evidence.md`. At minimum, verify:

@@ -139,6 +139,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Demonstrate invalid false acceptance ≤ 2% and valid false rejection ≤ 10%.
 - [ ] Demonstrate required subgroup accuracy and rejection-rate parity.
 - [ ] Load-test expected peak plus 20% and prove p50 ≤ 2s, p95 ≤ 5s, and p99 ≤ 10s per capture.
+  - A bounded-concurrency staging harness now produces aggregate status/throughput/p50/p95/p99 JSON and fails the documented gates. Running it at the approved traffic target still requires a deployed validated model and staging endpoint.
 - [ ] Publish reproducible accuracy, fairness, rejection, repeatability, and performance reports.
 
 ## 10. Privacy, Release, and Goal Closure

@@ -179,6 +179,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 
 - The API now emits allow-listed structured events for cold-start readiness, request status and total latency, decode/quality stage latency, retake codes, and model/chart versions. Server-generated UUIDs correlate events without reflecting caller-provided identifiers.
 - Tests parse emitted JSON, verify the expected stages and response correlation, and retain the existing fail-closed sensitive-field checks. Provisioned log-based metrics, Cloud Run saturation data, dashboards, retention, and alerts remain deployment gates.
+- GitHub CI run [29162325250](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162325250) passed all five jobs for observability commit `7e655c6`.
+
+## 2026-07-12 reproducible load-gate harness
+
+- The staging load tool sends bounded-concurrency multipart captures, records only status and elapsed time, and reports aggregate throughput plus nearest-rank p50/p95/p99 latency. HTTPS is mandatory except for explicitly enabled localhost runs.
+- It exits non-zero on any non-200/transport failure or when the plan's 2s/5s/10s latency gates fail. Mock-transport tests prove the concurrency ceiling, multipart contract, percentile calculation, error accounting, and release decision without claiming deployed performance.
 
 ## Evidence rules
 
