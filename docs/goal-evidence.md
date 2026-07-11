@@ -173,6 +173,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Every scan runs at the 390px mobile and 1280px desktop Playwright viewports and fails on critical or serious violations. Expanding coverage exposed an unnamed file input on capture; the control now has a capture-specific accessible name. Manual keyboard, VoiceOver, and TalkBack verification remains open and cannot be replaced by automated scans.
 - GitHub CI run [29162095262](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162095262) passed all five jobs for accessibility commit `e6d5128`, including the expanded Axe coverage in both Playwright projects.
 - Automated keyboard checks verify visible focus order and Enter activation from landing through preparation to capture. Client-side route changes move focus to the new primary heading for predictable announcement and onward tab order. The hidden file input is programmatically named but removed from sequential focus because the visible upload button owns that interaction.
+- GitHub CI run [29162222625](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162222625) passed all five jobs for route-focus commit `0c1b348`, including 16 Playwright scenarios in both viewport projects.
 
 ## Evidence rules
 
