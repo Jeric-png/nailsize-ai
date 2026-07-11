@@ -289,6 +289,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - A missing module, cross-origin-only module, stale API origin, failed asset response, oversized asset, or non-JavaScript response fails closed. The retained report records only the check name, bounded result, and status code; it never copies HTML, JavaScript, response bodies, or customer data.
 - Production promotion now rejects older six-check smoke artifacts, so the exact staging candidate must prove the new direct-binding contract before Google authentication can begin. Local mock tests prove contract behavior only; staging and production remain unverified until credentialed deployments produce immutable schema-v2 smoke artifacts.
 - Fresh local verification passed Ruff formatting/lint, 258 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, ESLint, TypeScript, workflow lint, Prettier, and a Vercel-compatible production build with the exact configured staging API origin embedded in the same JavaScript asset as `/v1/measure` and no localhost fallback.
+- GitHub CI run [29166150898](https://github.com/Jeric-png/nailsize-ai/actions/runs/29166150898) passed all ten jobs for commit `bb50104`, including the schema-v2 smoke/promotion tests, 258 Python/ML tests, 24 web tests, 18 visual/E2E scenarios, 45 current-engine scenarios, contract drift, security scanning, live container readiness, and all three Terraform roots.
 
 ## Evidence rules
 
