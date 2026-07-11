@@ -20,8 +20,20 @@ logger = logging.getLogger("nailsize.inference")
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    started = time.perf_counter()
     runtime = load_runtime_models(settings)
     application.state.runtime = runtime
+    safe_log(
+        logger,
+        logging.INFO,
+        event="runtime_initialized",
+        duration_ms=int((time.perf_counter() - started) * 1000),
+        cold_start=True,
+        ready=runtime.ready,
+        model_version=settings.model_version,
+        chart_version="1",
+        error_code=runtime.error_code,
+    )
     try:
         yield
     finally:
@@ -41,17 +53,31 @@ app.add_middleware(
 
 @app.middleware("http")
 async def privacy_headers(request: Request, call_next):
+    started = time.perf_counter()
+    request_id = str(uuid4())
+    request.state.request_id = request_id
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     response.headers["Pragma"] = "no-cache"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Request-ID"] = request_id
+    safe_log(
+        logger,
+        logging.INFO,
+        event="request_completed",
+        request_id=request_id,
+        processing_ms=int((time.perf_counter() - started) * 1000),
+        model_version=settings.model_version,
+        chart_version="1",
+        status_code=response.status_code,
+    )
     return response
 
 
 @app.exception_handler(Exception)
 async def unhandled_error(request: Request, error: Exception):
-    request_id = request.headers.get("X-Request-ID", str(uuid4()))
+    request_id = getattr(request.state, "request_id", str(uuid4()))
     safe_log(
         logger,
         logging.ERROR,
@@ -86,13 +112,25 @@ async def ready() -> JSONResponse:
 
 @app.post("/v1/measure", response_model=MeasureResponse)
 async def measure(
+    request: Request,
     image: UploadFile = File(...),
     capture_type: CaptureType = Form(...),
     reference_type: str = Form(...),
 ) -> MeasureResponse:
     started = time.perf_counter()
-    request_id = str(uuid4())
+    request_id = request.state.request_id
+    stage_started = time.perf_counter()
     decoded = await decode_upload(image, settings)
+    safe_log(
+        logger,
+        logging.INFO,
+        event="stage_completed",
+        request_id=request_id,
+        stage="upload_decode",
+        duration_ms=int((time.perf_counter() - stage_started) * 1000),
+        model_version=settings.model_version,
+        chart_version="1",
+    )
     try:
         issue: QualityIssue
         if reference_type != "iso_id1":
@@ -102,7 +140,18 @@ async def measure(
                 correction="Use a blank ISO ID-1 size card.",
             )
         else:
+            stage_started = time.perf_counter()
             capture_quality = assess_capture(decoded.rgb)
+            safe_log(
+                logger,
+                logging.INFO,
+                event="stage_completed",
+                request_id=request_id,
+                stage="capture_quality",
+                duration_ms=int((time.perf_counter() - stage_started) * 1000),
+                model_version=settings.model_version,
+                chart_version="1",
+            )
             if capture_quality.issues:
                 issue = capture_quality.issues[0]
             else:

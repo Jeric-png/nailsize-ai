@@ -105,6 +105,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Configure Cloud Run with one worker, concurrency `1`, one warm minimum instance, 2 vCPU, 4 GiB RAM, and a 15-second timeout.
 - [ ] Deploy the frontend so photos post directly to the inference service rather than through a frontend server function.
 - [ ] Add stage-level latency metrics, request/error counts, retake reasons, saturation, cold starts, and model/chart version dashboards.
+  - Privacy-safe structured events now expose cold-start/readiness, request status/latency, decode and quality-stage latency, retake codes, and model/chart versions. Cloud Run saturation metrics and provisioned dashboards remain pending.
 - [ ] Configure sanitized log retention for 30 days.
 - [ ] Add alerts for error rate, p95 latency, instance saturation, malformed-upload spikes, and budget thresholds.
 - [ ] Run staging smoke tests after every deployment and production smoke tests after promotion.

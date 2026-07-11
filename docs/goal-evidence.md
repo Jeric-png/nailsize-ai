@@ -175,6 +175,11 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Automated keyboard checks verify visible focus order and Enter activation from landing through preparation to capture. Client-side route changes move focus to the new primary heading for predictable announcement and onward tab order. The hidden file input is programmatically named but removed from sequential focus because the visible upload button owns that interaction.
 - GitHub CI run [29162222625](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162222625) passed all five jobs for route-focus commit `0c1b348`, including 16 Playwright scenarios in both viewport projects.
 
+## 2026-07-12 privacy-safe observability contract
+
+- The API now emits allow-listed structured events for cold-start readiness, request status and total latency, decode/quality stage latency, retake codes, and model/chart versions. Server-generated UUIDs correlate events without reflecting caller-provided identifiers.
+- Tests parse emitted JSON, verify the expected stages and response correlation, and retain the existing fail-closed sensitive-field checks. Provisioned log-based metrics, Cloud Run saturation data, dashboards, retention, and alerts remain deployment gates.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

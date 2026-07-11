@@ -22,11 +22,16 @@ def jpeg_fixture(with_reference: bool = False) -> bytes:
     return buffer.getvalue()
 
 
-def post_image(payload: bytes, filename: str = "private-customer-name.jpg"):
+def post_image(
+    payload: bytes,
+    filename: str = "private-customer-name.jpg",
+    headers: dict[str, str] | None = None,
+):
     return client.post(
         "/v1/measure",
         files={"image": (filename, payload, "image/jpeg")},
         data={"capture_type": "left_fingers", "reference_type": "iso_id1"},
+        headers=headers,
     )
 
 
