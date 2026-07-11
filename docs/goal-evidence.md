@@ -225,6 +225,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The plan does not define universal numeric repeatability or subgroup rejection-parity thresholds. The report therefore exposes the measurements and requires named study-review references instead of inventing cutoffs. Synthetic tests validate calculations and fail-closed behavior only; the related study checkboxes remain open pending consented real-world evidence.
 - GitHub CI run [29163415282](https://github.com/Jeric-png/nailsize-ai/actions/runs/29163415282) passed all six jobs for commit `9805d1a`, including Linux lint and dependency-light ML coverage, contracts, web, E2E, security, and live container readiness.
 
+## 2026-07-12 in-memory multipart boundary
+
+- The audit found that framework multipart handling could roll uploads above Starlette's default spool threshold to a temporary file before application decoding. The service now sets the spool threshold one byte above a bounded multipart envelope and rejects both declared-length and chunked bodies before that envelope is crossed.
+- API regressions exercise an upload above the former 1 MiB threshold and a request beyond the full-body ceiling while tracking every framework spool; neither rolls to disk. Lower-level tests prove excess chunked data is rejected before the chunk reaches multipart parsing.
+- This closes the known application-level temporary-file path. The release checkbox remains open until cancellation, timeout, forced termination, Cloud Run telemetry, and platform storage behavior are observed in staging.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

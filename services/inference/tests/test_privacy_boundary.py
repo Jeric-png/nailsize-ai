@@ -114,6 +114,13 @@ def test_production_runtime_has_no_filesystem_write_path() -> None:
     assert not violations, f"Production filesystem writes: {violations}"
 
 
+def test_multipart_uploads_are_bounded_below_the_disk_rollover_threshold() -> None:
+    source = (INFERENCE_ROOT / "app" / "main.py").read_text(encoding="utf-8")
+
+    assert "configure_in_memory_multipart(settings.max_encoded_bytes)" in source
+    assert "InMemoryRequestLimitMiddleware" in source
+
+
 def test_browser_has_no_persistent_storage_or_payload_export_path() -> None:
     sources = "\n".join(
         source.read_text(encoding="utf-8")

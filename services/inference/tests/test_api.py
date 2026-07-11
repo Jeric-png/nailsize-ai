@@ -3,11 +3,12 @@ from io import BytesIO
 
 import cv2
 import numpy as np
+import starlette.formparsers
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw
 from test_calibration import card_scene
 
-from app.main import app, settings
+from app.main import app, max_request_body_bytes, settings
 from app.pipeline import PipelineResult
 from app.runtime import RuntimeModels
 from app.schemas import NailMeasurement
@@ -101,6 +102,43 @@ def test_encoded_limit_returns_413_without_filename_leak(monkeypatch, caplog) ->
     assert response.status_code == 413
     assert response.headers["cache-control"] == "no-store"
     assert "private-client-name" not in caplog.text
+
+
+def test_multipart_above_default_spool_threshold_never_rolls_to_disk(monkeypatch) -> None:
+    created_spools = []
+    original_factory = starlette.formparsers.SpooledTemporaryFile
+
+    def tracked_spool(*args, **kwargs):
+        spool = original_factory(*args, **kwargs)
+        created_spools.append(spool)
+        return spool
+
+    monkeypatch.setattr(starlette.formparsers, "SpooledTemporaryFile", tracked_spool)
+
+    response = post_image(b"x" * (2 * 1024 * 1024))
+
+    assert response.status_code == 415
+    assert created_spools
+    assert all(spool._max_size > max_request_body_bytes for spool in created_spools)
+    assert all(not spool._rolled for spool in created_spools)
+
+
+def test_oversized_multipart_is_rejected_before_any_disk_rollover(monkeypatch) -> None:
+    created_spools = []
+    original_factory = starlette.formparsers.SpooledTemporaryFile
+
+    def tracked_spool(*args, **kwargs):
+        spool = original_factory(*args, **kwargs)
+        created_spools.append(spool)
+        return spool
+
+    monkeypatch.setattr(starlette.formparsers, "SpooledTemporaryFile", tracked_spool)
+
+    response = post_image(b"x" * max_request_body_bytes)
+
+    assert response.status_code == 413
+    assert response.headers["cache-control"] == "no-store"
+    assert all(not spool._rolled for spool in created_spools)
 
 
 def test_unexpected_decoder_error_is_sanitized(monkeypatch, caplog) -> None:

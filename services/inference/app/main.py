@@ -12,10 +12,12 @@ from .image_io import decode_upload
 from .logging_config import safe_log
 from .pipeline import run_measurement_pipeline
 from .quality import assess_capture
+from .request_limits import InMemoryRequestLimitMiddleware, configure_in_memory_multipart
 from .runtime import RuntimeModels, load_runtime_models
 from .schemas import CaptureType, HealthResponse, MeasureResponse, QualityIssue, QualityIssueCode
 
 settings = get_settings()
+max_request_body_bytes = configure_in_memory_multipart(settings.max_encoded_bytes)
 logger = logging.getLogger("nailsize.inference")
 
 
@@ -49,6 +51,10 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-Request-ID"],
+)
+app.add_middleware(
+    InMemoryRequestLimitMiddleware,
+    max_body_bytes=max_request_body_bytes,
 )
 
 
