@@ -255,6 +255,7 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Cloud Armor requires an explicit per-IP threshold and supported interval, emits full backend request logs, begins in caller-selected preview mode, and returns `429` only after reviewed enforcement. Provider-backed tests prove the bootstrap prerequisites and secure boundary, rejecting mutable or cross-environment images, wildcard origins, unapproved environments, and invalid rate intervals.
 - Local verification passed formatting, Google provider 7.39.0 validation, two bootstrap tests, and seven platform tests. No Google Cloud resource was created or changed, no domain was pointed, and no rate threshold was inferred. Provisioning, certificate activation, preview-log review, enforcement, IAM inspection, and deployment smoke evidence remain open.
 - GitHub CI run [29164498124](https://github.com/Jeric-png/nailsize-ai/actions/runs/29164498124) passed all eight jobs for commit `63139ac`, including separate Linux validation/test jobs for the platform and observability roots, 214 Python/ML tests, contract drift, web checks, security scans, Playwright, and live container readiness.
+- GitHub CI run [29164677105](https://github.com/Jeric-png/nailsize-ai/actions/runs/29164677105) passed all nine jobs for bootstrap/runtime split commit `3c5f160`, including separate Linux validation/test jobs for bootstrap, platform, and observability plus the complete application and container suite.
 
 ## Evidence rules
 
