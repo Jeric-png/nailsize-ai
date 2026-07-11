@@ -7,6 +7,7 @@ dependencies = [
   "fastapi>=0.116,<1",
   "httpx>=0.28,<1",
   "numpy>=2.2,<3",
+  "onnxruntime>=1.27,<2",
   "opencv-python-headless>=4.11,<5",
   "pillow>=11,<12",
   "pillow-heif>=1.1,<2",
@@ -18,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 landmarks = ["mediapipe==0.10.35"]
 dev = [
+  "onnx>=1.19,<2",
   "pytest>=8.4,<9",
   "pytest-cov>=6.2,<7",
   "ruff>=0.12,<1"

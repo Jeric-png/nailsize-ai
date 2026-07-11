@@ -1,3 +1,5 @@
+import hashlib
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -6,6 +8,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .hand_geometry import LANDMARK_COUNT, NormalizedLandmark
+
+_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 @dataclass(frozen=True)
@@ -18,10 +22,14 @@ class HandDetection:
 class MediaPipeHandDetector:
     """Single-image MediaPipe adapter; capture_type remains the source of left/right identity."""
 
-    def __init__(self, model_path: str | Path) -> None:
+    def __init__(self, model_path: str | Path, *, sha256: str) -> None:
         path = Path(model_path)
         if not path.is_file():
             raise FileNotFoundError(f"Hand landmarker model not found: {path}")
+        if not _SHA256_PATTERN.fullmatch(sha256):
+            raise ValueError("A lowercase SHA-256 hand model checksum is required")
+        if _file_sha256(path) != sha256:
+            raise ValueError("Hand landmarker model checksum mismatch")
         try:
             import mediapipe as mp
         except ImportError as error:  # pragma: no cover - exercised in deployment packaging
@@ -68,3 +76,11 @@ class MediaPipeHandDetector:
             handedness_label=getattr(handedness, "category_name", None),
             handedness_score=getattr(handedness, "score", None),
         )
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        while chunk := source.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()

@@ -1,3 +1,4 @@
+import hashlib
 import sys
 from types import SimpleNamespace
 
@@ -49,7 +50,8 @@ def test_mediapipe_adapter_returns_one_normalized_hand(monkeypatch, tmp_path) ->
     model_path = tmp_path / "hand.task"
     model_path.write_bytes(b"model")
 
-    with MediaPipeHandDetector(model_path) as detector:
+    checksum = hashlib.sha256(model_path.read_bytes()).hexdigest()
+    with MediaPipeHandDetector(model_path, sha256=checksum) as detector:
         detection = detector.detect(np.zeros((32, 32, 3), dtype=np.uint8))
 
     assert detection is not None
@@ -67,11 +69,12 @@ def test_mediapipe_adapter_rejects_missing_or_incomplete_hand(
     install_fake_mediapipe(monkeypatch, result)
     model_path = tmp_path / "hand.task"
     model_path.write_bytes(b"model")
-    detector = MediaPipeHandDetector(model_path)
+    checksum = hashlib.sha256(model_path.read_bytes()).hexdigest()
+    detector = MediaPipeHandDetector(model_path, sha256=checksum)
     assert detector.detect(np.zeros((32, 32, 3), dtype=np.uint8)) is None
     detector.close()
 
 
 def test_mediapipe_adapter_requires_model_file(tmp_path) -> None:
     with pytest.raises(FileNotFoundError, match="model not found"):
-        MediaPipeHandDetector(tmp_path / "missing.task")
+        MediaPipeHandDetector(tmp_path / "missing.task", sha256="0" * 64)

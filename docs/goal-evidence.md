@@ -52,6 +52,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - MediaPipe's handedness classification is retained only as diagnostic metadata; it cannot override the submitted left/right capture type.
 - GitHub CI: [run 29159701659](https://github.com/Jeric-png/nailsize-ai/actions/runs/29159701659) passed all five jobs, including checksum-pinned model download and real MediaPipe initialization/inference on Linux.
 
+## 2026-07-12 segmentation-runtime contract
+
+- A generated ONNX graph proves the CPU runtime loads one `1x3x224x160` input and one `1x1x224x160` output, validates embedded model-version metadata, and completes startup warmup.
+- Tests reject missing files, checksum mismatches, version mismatches, and invalid crop tensors before measurements are possible.
+- Preprocessing uses fixed RGB/ImageNet normalization; postprocessing applies sigmoid probabilities, a fixed threshold, and largest-connected-component cleanup.
+- Application readiness now requires initialized hand-landmark and nail-segmentation runtimes; a configured version string alone cannot report ready.
+- This verifies the runtime contract only. It is not evidence that a trained nail model is accurate or approved.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

@@ -84,7 +84,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Evaluate mask boundary error as well as IoU; do not approve based on IoU alone.
 - [ ] Export the selected model to ONNX and verify output parity with PyTorch.
 - [ ] Benchmark ONNX Runtime on the Cloud Run CPU configuration.
-- [ ] Add model versioning, checksum validation, startup warmup, and readiness failure when the model cannot load.
+- [x] Add model versioning, checksum validation, startup warmup, and readiness failure when the model cannot load.
 - [ ] Publish a model card with dataset, metrics, subgroup results, limitations, and intended-use restrictions.
 
 ## 6. Size Mapping and Results

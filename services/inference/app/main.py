@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
@@ -10,11 +11,25 @@ from .config import get_settings
 from .image_io import decode_upload
 from .logging_config import safe_log
 from .quality import assess_capture
+from .runtime import RuntimeModels, load_runtime_models
 from .schemas import CaptureType, HealthResponse, MeasureResponse, QualityIssue, QualityIssueCode
 
 settings = get_settings()
 logger = logging.getLogger("nailsize.inference")
-app = FastAPI(title="NailSize Inference API", version="0.1.0")
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    runtime = load_runtime_models(settings)
+    application.state.runtime = runtime
+    try:
+        yield
+    finally:
+        runtime.close()
+
+
+app = FastAPI(title="NailSize Inference API", version="0.1.0", lifespan=lifespan)
+app.state.runtime = RuntimeModels()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins,
@@ -59,7 +74,7 @@ async def health() -> HealthResponse:
 
 @app.get("/ready", response_model=HealthResponse, status_code=503)
 async def ready() -> JSONResponse:
-    ready_state = settings.model_version != "unavailable"
+    ready_state = app.state.runtime.ready
     return JSONResponse(
         status_code=200 if ready_state else 503,
         content=HealthResponse(
