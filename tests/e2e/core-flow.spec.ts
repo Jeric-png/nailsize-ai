@@ -100,6 +100,34 @@ test("unknown routes recover to the landing page", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Start sizing" })).toBeVisible();
 });
 
+test("primary capture navigation is operable in keyboard focus order", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const brand = page.getByRole("link", { name: "NAILSIZE / AI" });
+  const start = page.getByRole("link", { name: "Start sizing" });
+
+  await page.keyboard.press("Tab");
+  await expect(brand).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(start).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/prepare$/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  const ready = page.getByRole("link", { name: "I’m ready" });
+  await expect(ready).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/capture\/left_fingers$/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Take or choose photo" }),
+  ).toBeFocused();
+});
+
 test("an expired in-memory session explains the privacy-safe reset", async ({
   page,
 }) => {

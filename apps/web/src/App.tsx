@@ -4,6 +4,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -18,6 +19,22 @@ import {
 } from "./components/Primitives";
 import { prepareImage } from "./imagePreparation";
 import { captureOrder, initialSession, sessionReducer } from "./session";
+
+function FocusOnNavigation() {
+  const { pathname } = useLocation();
+  const previousPath = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    const heading = document.querySelector<HTMLElement>("main h1");
+    if (!heading) return;
+    heading.tabIndex = -1;
+    heading.focus();
+  }, [pathname]);
+
+  return null;
+}
 
 const captureCopy: Record<
   CaptureType,
@@ -224,6 +241,7 @@ function CapturePage({
         ref={inputRef}
         className="visually-hidden"
         type="file"
+        tabIndex={-1}
         aria-label={`Choose photo for ${config.title.toLowerCase()}`}
         accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         capture="environment"
@@ -756,6 +774,7 @@ export function App() {
   );
   return (
     <Shell>
+      <FocusOnNavigation />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/prepare" element={<Preparation />} />

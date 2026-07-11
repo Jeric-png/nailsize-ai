@@ -35,6 +35,9 @@
   line-height: 1.02;
   letter-spacing: -0.035em;
 }
+.page h1[tabindex="-1"]:focus {
+  outline: none;
+}
 .page h2 {
   margin: 0 0 8px;
   font-size: 18px;

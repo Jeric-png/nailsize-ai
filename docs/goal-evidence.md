@@ -165,12 +165,14 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 
 - CI statically rejects filesystem-writing calls and temporary-file/database imports in the production Python application. Browser source is separately rejected if it introduces local/session storage, IndexedDB, Cache Storage, persistent-storage management, or beacon payload export.
 - These guards complement runtime buffer-zeroing, upload closure, object-URL revocation, safe-log tests, and `no-store` responses. The full checklist remains open until deployed cancellation, timeout, and forced process termination are observed against Cloud Run/Vercel telemetry and storage configuration.
+- GitHub CI run [29162139676](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162139676) passed all five jobs for persistent-write exclusion commit `7446f84`.
 
 ## 2026-07-12 automated accessibility coverage
 
 - Axe now scans every distinct workflow state represented by the approved Stitch screens: landing, preparation, capture, accepted quality, processing, results, typed upload error, and expired-session recovery.
 - Every scan runs at the 390px mobile and 1280px desktop Playwright viewports and fails on critical or serious violations. Expanding coverage exposed an unnamed file input on capture; the control now has a capture-specific accessible name. Manual keyboard, VoiceOver, and TalkBack verification remains open and cannot be replaced by automated scans.
 - GitHub CI run [29162095262](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162095262) passed all five jobs for accessibility commit `e6d5128`, including the expanded Axe coverage in both Playwright projects.
+- Automated keyboard checks verify visible focus order and Enter activation from landing through preparation to capture. Client-side route changes move focus to the new primary heading for predictable announcement and onward tab order. The hidden file input is programmatically named but removed from sequential focus because the visible upload button owns that interaction.
 
 ## Evidence rules
 
