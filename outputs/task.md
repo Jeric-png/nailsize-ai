@@ -142,6 +142,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 
 - [x] Complete a data-flow and threat-model review.
 - [ ] Verify that production photos are excluded from model-training workflows by technical controls, not policy alone.
+  - CI now forbids training/persistence imports and dependencies in the production service, constrains the container to the production package, and keeps model tooling manual without cloud auth or artifact ingress. Cloud IAM and deployed telemetry isolation remain pending.
 - [ ] Publish privacy copy that accurately says images are never persistently stored and explains transient processing.
 - [ ] Verify monitoring, backups, crash reporting, and analytics cannot capture image or result payloads.
 - [ ] Resolve every critical/high security issue and every severity-1/2 product defect.

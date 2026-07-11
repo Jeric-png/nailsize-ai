@@ -152,6 +152,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Browser measurement requests now have a 16-second deadline, just beyond the configured 15-second service timeout. The timer and caller signal feed one internal abort controller while preserving explicit user cancellation as `AbortError` and mapping deadline expiry to a typed retryable `timeout` error.
 - Unit contracts cover typed success and retake bodies, 413, 415, 408, 429, 503, 504, offline failure, deadline expiry, explicit cancellation, deduplication cleanup, and retry of the unchanged in-memory file.
 - All 24 web unit/component tests, TypeScript, ESLint, and the Vercel-compatible production build passed. The broad contract checklist remains open because real API success requires selected validated weights, while edge-generated 429/504 behavior requires deployed Cloud Armor/Cloud Run infrastructure.
+- GitHub CI run [29162004157](https://github.com/Jeric-png/nailsize-ai/actions/runs/29162004157) passed all five jobs for timeout commit `910e3ef`, including 14 Playwright scenarios and dependency/security scanning.
+
+## 2026-07-12 production/research isolation contract
+
+- A repository-level privacy test parses every production Python module and fails if it imports the research package, PyTorch/TorchVision, common object-storage/database clients, or Sentry. It separately rejects those packages from production runtime dependencies.
+- The same contract locks the runtime container to copying only the inference `pyproject.toml` and `app/`, and requires model tooling to remain manually dispatched without artifact download or Google Cloud authentication.
+- These controls prove there is no repository path from a production request to training. The checklist remains open until deployed Cloud Run IAM and telemetry are inspected, because source controls cannot prove cloud identity permissions or platform configuration.
 
 ## Evidence rules
 

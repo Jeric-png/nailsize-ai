@@ -30,6 +30,12 @@ The production path has no database, object storage, queue, image cache, request
 | Cross-origin abuse                       | Exact CORS allow-list and deployment-level rate/bot controls                   | Configuration tests                        |
 | False precision                          | API schema cannot return measurements on retake; readiness fails without model | Contract tests                             |
 
+## Enforced production/research boundary
+
+The production Python package has no training-framework, object-storage, database, or telemetry-export dependencies. Its container build copies only `pyproject.toml` and `app/`; neither `ml/` nor the repository root enters the image. Production modules are forbidden from importing the research package or common persistence/training clients. The model-tooling workflow is manual and has no artifact-download or cloud-auth step. `test_privacy_boundary.py` enforces these constraints in standard CI.
+
+This repository boundary prevents the application from exporting uploads into the available training path. Deployment review must still verify that the Cloud Run identity has no write access to research storage and that no platform integration captures request bodies.
+
 ## Remaining production reviews
 
 - Verify Cloud Run request logging excludes bodies and query payloads.
