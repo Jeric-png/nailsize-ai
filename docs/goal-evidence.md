@@ -360,6 +360,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - GitHub CI run [29172605715](https://github.com/Jeric-png/nailsize-ai/actions/runs/29172605715) passed all ten jobs for implementation commit `33ab89f`, including 305 dependency-light Python/ML tests at 93.50% coverage, 24 web tests, 18 strict E2E scenarios, 45 browser-engine scenarios, security scanning, contracts, all Terraform roots, and the runtime-container privacy smoke. Dedicated Linux Model Tooling run [29172607521](https://github.com/Jeric-png/nailsize-ai/actions/runs/29172607521) installed the pinned PyTorch/TorchVision/ONNX stack and passed all 40 factory, loss, selected-checkpoint export, release-provenance, safe-load, training, and benchmark tests.
 - These checks prove the chain-of-custody mechanism, not the origin or quality of a future submitted checkpoint or study. The model export, accuracy, model-card, and deployment tasks remain open until real approved evidence passes this contract.
 
+## 2026-07-12 repository vulnerability controls
+
+- The authenticated GitHub repository administrator API enabled vulnerability alerts and automated security fixes for the private repository. A subsequent `GET /vulnerability-alerts` returned `204`, and `GET /automated-security-fixes` returned `enabled: true` and `paused: false`.
+- The live Dependabot security-alert endpoint returned an empty list, and the repository has zero open product issues. All 13 open pull requests are Dependabot version updates; they are not evidence of a current vulnerability and were not merged merely because their individual CI runs were green.
+- GitHub still reports code scanning as not enabled and secret scanning as disabled. Those private-repository controls and branch protection require a supported plan or approved compensating control, so the critical/high issue closure task remains open alongside deployed-artifact scanning and accountable sign-off.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
