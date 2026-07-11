@@ -4,7 +4,8 @@ from pathlib import Path
 import onnx
 from onnx import TensorProto, helper
 
-from app.segmentation import INPUT_HEIGHT, INPUT_WIDTH
+INPUT_WIDTH = 160
+INPUT_HEIGHT = 224
 
 
 def main() -> None:

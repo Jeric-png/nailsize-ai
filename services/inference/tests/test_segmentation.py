@@ -3,6 +3,12 @@ import hashlib
 import numpy as np
 import onnx
 import pytest
+from generate_container_contract_model import (
+    INPUT_HEIGHT as CONTRACT_INPUT_HEIGHT,
+)
+from generate_container_contract_model import (
+    INPUT_WIDTH as CONTRACT_INPUT_WIDTH,
+)
 from onnx import TensorProto, helper
 
 from app.segmentation import (
@@ -43,6 +49,10 @@ def test_loads_verified_model_warms_up_and_segments(tmp_path) -> None:
     assert result.mask.dtype == np.uint8
     assert result.mask.all()
     assert result.confidence > 0.9
+
+
+def test_container_contract_fixture_matches_runtime_tensor_dimensions() -> None:
+    assert (CONTRACT_INPUT_HEIGHT, CONTRACT_INPUT_WIDTH) == (INPUT_HEIGHT, INPUT_WIDTH)
 
 
 def test_rejects_missing_checksum_mismatch_and_version_mismatch(tmp_path) -> None:
