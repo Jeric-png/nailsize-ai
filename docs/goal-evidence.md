@@ -64,14 +64,15 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 ## 2026-07-12 Stitch-aligned frontend workflow
 
 - Live Stitch MCP retrieval re-verified quality screen `b230e530ded64687b7d0179404a3de69`, processing screen `7f9fa8f92b3b43fabf43a358bfac8199`, mobile results `7c2120dc69554f7fbcab9510ef84455c`, and desktop results `032c6ffdff5244f3a841db78c11d1861` before visual review.
-- `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` passed; the web suite contains 10 unit tests covering session corrections, typed infrastructure errors, response mapping, and duplicate-request suppression.
+- `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` passed; the web suite contains 17 unit tests covering image sizing/animation guards, session corrections, typed infrastructure errors, response mapping, and duplicate-request suppression.
 - `npm run test:e2e` passed 10 scenarios across 390px mobile and 1280px desktop. The suite proves four accepted captures produce ten results, text-only copy works, a targeted correction preserves other accepted captures, unsupported files recover, and expired in-memory sessions reset safely.
 - Sixteen responsive state/width baselines cover landing, preparation, capture, accepted quality, processing, results, unsupported-file recovery, and session recovery. Platform-specific macOS and Linux images (32 files) keep local and GitHub comparisons strict; the second Playwright run passed without updates.
 - Axe scans found no critical or serious violations on landing, quality, processing, results, unsupported-file recovery, or session recovery at either width.
 - `npm audit --audit-level=high` reported zero vulnerabilities.
 - Normalized API contours render only over the browser-local preview. Copy and native sharing contain text measurements only, never photos.
+- Browser-decodable static JPEG, PNG, and WebP captures are orientation-normalized, metadata-free WebP uploads capped at a 4096px edge and 16 MP without aspect distortion. Animated files, HEIC/HEIF, oversized encoded sources, and decode failures remain unchanged for the hardened server path; E2E multipart assertions prove the normal browser path uploads the rewritten WebP.
 - ADR-005 through ADR-007 record intentional Stitch adaptations for honest processing state, account-free recovery, and calibrated result evidence.
-- GitHub CI bootstrap run [29160372615](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160372615) passed all five jobs and generated the checked-in Linux baselines. The subsequent CI run verifies them without snapshot updates.
+- GitHub CI bootstrap run [29160372615](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160372615) passed all five jobs and generated the checked-in Linux baselines. Strict follow-up run [29160434743](https://github.com/Jeric-png/nailsize-ai/actions/runs/29160434743) verified them without snapshot updates.
 
 ## Evidence rules
 

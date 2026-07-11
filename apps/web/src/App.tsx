@@ -16,6 +16,7 @@ import {
   ProgressStepper,
   StatusMessage,
 } from "./components/Primitives";
+import { prepareImage } from "./imagePreparation";
 import { captureOrder, initialSession, sessionReducer } from "./session";
 
 const captureCopy: Record<
@@ -155,6 +156,8 @@ function CapturePage({
   const params = useParams();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const preparationId = useRef(0);
+  const [preparing, setPreparing] = useState(false);
   const captureType = captureOrder.includes(params.captureType as CaptureType)
     ? (params.captureType as CaptureType)
     : "left_fingers";
@@ -163,10 +166,36 @@ function CapturePage({
   const step = captureOrder.indexOf(captureType) + 1;
 
   function submit() {
-    if (!record || state.status === "submitting") return;
+    if (!record || preparing || state.status === "submitting") return;
     dispatch({ type: "submitting" });
     navigate(`/quality/${captureType}`);
   }
+
+  async function selectFile(file: File) {
+    const requestId = ++preparationId.current;
+    setPreparing(true);
+    const prepared = await prepareImage(file).catch(() => ({
+      file,
+      normalizedInBrowser: false,
+    }));
+    if (requestId !== preparationId.current) return;
+    dispatch({
+      type: "select",
+      captureType,
+      record: {
+        file: prepared.file,
+        previewUrl: URL.createObjectURL(prepared.file),
+      },
+    });
+    setPreparing(false);
+  }
+
+  useEffect(
+    () => () => {
+      preparationId.current += 1;
+    },
+    [captureType],
+  );
 
   return (
     <div className="page capture-page">
@@ -199,14 +228,15 @@ function CapturePage({
         capture="environment"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file)
-            dispatch({
-              type: "select",
-              captureType,
-              record: { file, previewUrl: URL.createObjectURL(file) },
-            });
+          if (file) void selectFile(file);
+          event.target.value = "";
         }}
       />
+      {preparing && (
+        <StatusMessage>
+          Preparing the photo for a smaller, orientation-safe upload…
+        </StatusMessage>
+      )}
       {record?.issues?.map((issue) => (
         <StatusMessage key={issue.code} tone="error">
           <strong>{issue.message}</strong>
@@ -221,12 +251,17 @@ function CapturePage({
         <Button
           onClick={() => inputRef.current?.click()}
           className={record ? "button--secondary" : ""}
+          disabled={preparing}
         >
-          {record ? "Choose another photo" : "Take or choose photo"}
+          {preparing
+            ? "Preparing photo…"
+            : record
+              ? "Choose another photo"
+              : "Take or choose photo"}
         </Button>
         <Button
           onClick={submit}
-          disabled={!record || state.status === "submitting"}
+          disabled={!record || preparing || state.status === "submitting"}
         >
           {state.status === "submitting"
             ? "Checking photo…"

@@ -9,7 +9,7 @@ const captureDigits = {
 } as const;
 
 const onePixelPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3Zk9WQAAAABJRU5ErkJggg==",
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWJi+M/wHwAAAP//Qn/6uQAAAAZJREFUAwAECwIBcGRBzAAAAABJRU5ErkJggg==",
   "base64",
 );
 
@@ -124,10 +124,11 @@ test("four accepted captures produce ten shareable results and a targeted correc
     origin: "http://127.0.0.1:4173",
   });
   await page.route("http://localhost:8000/v1/measure", async (route) => {
-    const captureType = captureTypeFromMultipart(
-      route.request().postDataBuffer(),
-    );
+    const body = route.request().postDataBuffer();
+    const captureType = captureTypeFromMultipart(body);
     expect(captureType).toBeTruthy();
+    expect(body?.toString("latin1")).toContain('filename="nails.webp"');
+    expect(body?.toString("latin1")).toContain("Content-Type: image/webp");
     await route.fulfill({ json: successfulMeasurement(captureType!) });
   });
 

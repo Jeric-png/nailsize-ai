@@ -36,7 +36,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Implement the typed session state machine for preparation, four captures, retakes, processing, completion, and reset.
 - [x] Implement camera capture and file upload with permission-denied fallback.
 - [x] Support JPEG, PNG, WebP, HEIC, and HEIF user flows.
-- [ ] Normalize orientation and downscale oversized images without changing aspect ratio.
+- [x] Normalize orientation and downscale oversized images without changing aspect ratio.
 - [x] Keep selected photos and results only in memory; release object URLs and buffers on replacement, reset, navigation away, and completion.
 - [x] Add placement guidance for a fully visible ISO ID-1 card and required nails.
 - [x] Warn users not to photograph payment or government-ID cards.
