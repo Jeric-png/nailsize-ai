@@ -26,6 +26,10 @@ on:
         description: Enter DEPLOY_PRODUCTION for production; staging may be left blank
         required: false
         type: string
+      staging_run_id:
+        description: Successful staging run ID for this exact commit/model; required for production
+        required: false
+        type: string
 
 permissions:
   actions: read
@@ -52,6 +56,7 @@ jobs:
       EXPECTED_MODEL_VERSION: ${{ inputs.expected_model_version }}
       EXPECTED_MODEL_SHA256: ${{ inputs.expected_model_sha256 }}
       PRODUCTION_CONFIRMATION: ${{ inputs.production_confirmation }}
+      STAGING_RUN_ID: ${{ inputs.staging_run_id }}
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -108,6 +113,10 @@ jobs:
           if [[ "$DEPLOY_ENVIRONMENT" == "production" ]]; then
             [[ "$PRODUCTION_CONFIRMATION" == "DEPLOY_PRODUCTION" ]]
             [[ "$DELETION_PROTECTION" == "true" ]]
+            [[ "$STAGING_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+            [[ "$STAGING_RUN_ID" != "$GITHUB_RUN_ID" ]]
+          else
+            [[ -z "$STAGING_RUN_ID" ]]
           fi
 
       # v5, pinned so release inputs cannot be evaluated by a moving checkout action.
@@ -120,6 +129,33 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+
+      - name: Require exact successful staging evidence before production
+        if: env.DEPLOY_ENVIRONMENT == 'production'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/staging-evidence/deployment work/staging-evidence/smoke
+          gh run view "$STAGING_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --json databaseId,workflowName,event,headBranch,headSha,status,conclusion \
+            > work/staging-evidence/run.json
+          gh run download "$STAGING_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name deployment-evidence-staging \
+            --dir work/staging-evidence/deployment
+          gh run download "$STAGING_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name deployment-smoke-staging \
+            --dir work/staging-evidence/smoke
+          python services/inference/scripts/verify_staging_promotion.py \
+            --run-metadata work/staging-evidence/run.json \
+            --deployment-manifest work/staging-evidence/deployment/deployment-manifest.json \
+            --vercel-deployment work/staging-evidence/deployment/vercel-deployment.json \
+            --smoke-report work/staging-evidence/smoke/deployment-smoke.json \
+            --expected-run-id "$STAGING_RUN_ID" \
+            --expected-commit-sha "$GITHUB_SHA" \
+            --expected-model-release-tag "$MODEL_RELEASE_TAG" \
+            --expected-model-version "$EXPECTED_MODEL_VERSION" \
+            --expected-model-sha256 "$EXPECTED_MODEL_SHA256" \
+            --output work/staging-promotion.json
 
       - name: Download an immutable published model release
         shell: bash
@@ -278,17 +314,19 @@ jobs:
           set -euo pipefail
           api_url="${{ steps.platform.outputs.api_url }}"
           jq -n \
-            --arg schema_version "nailsize-deployment@1" \
+            --arg schema_version "nailsize-deployment@2" \
             --arg environment "$DEPLOY_ENVIRONMENT" \
             --arg git_commit_sha "$GITHUB_SHA" \
             --arg api_url "$api_url" \
             --arg frontend_url "$FRONTEND_ORIGIN" \
             --arg image_uri "${{ steps.image.outputs.image_uri }}" \
+            --arg model_release_tag "$MODEL_RELEASE_TAG" \
             --arg model_version "$EXPECTED_MODEL_VERSION" \
             --arg model_sha256 "$EXPECTED_MODEL_SHA256" \
             '{schema_version: $schema_version, environment: $environment,
               git_commit_sha: $git_commit_sha, api_url: $api_url,
               frontend_url: $frontend_url, image_uri: $image_uri,
+              model_release_tag: $model_release_tag,
               model_version: $model_version, model_sha256: $model_sha256}' \
             > work/deployment-manifest.json
           echo "api_url=$api_url" >> "$GITHUB_OUTPUT"
@@ -303,6 +341,7 @@ jobs:
             work/deployment-manifest.json
             work/model-release-manifest.json
             work/runtime-model-verification.json
+            work/staging-promotion.json
             work/vercel-deployment.json
           if-no-files-found: error
           retention-days: 30

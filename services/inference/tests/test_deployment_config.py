@@ -105,6 +105,10 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "cancel-in-progress: false" in workflow
     assert "PRODUCTION_CONFIRMATION" in workflow
     assert "DEPLOY_PRODUCTION" in workflow
+    assert "STAGING_RUN_ID" in workflow
+    assert "deployment-evidence-staging" in workflow
+    assert "deployment-smoke-staging" in workflow
+    assert "verify_staging_promotion.py" in workflow
     assert 'gh run list --repo "$GITHUB_REPOSITORY" --workflow CI' in workflow
     assert "google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093" in workflow
     assert "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db" in workflow
@@ -113,6 +117,7 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "npm install vercel" not in workflow
     assert "uses: ./.github/workflows/deployment-smoke.yml" in workflow
 
+    staging_gate = workflow.index("verify_staging_promotion.py")
     release_gate = workflow.index("nailsize-release-bundle")
     runtime_gate = workflow.index("verify_runtime_model.py")
     vercel_gate = workflow.index("verify_vercel_deployment.py")
@@ -120,7 +125,13 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     image_build = workflow.index("docker build --tag")
     observability_apply = workflow.index("terraform -chdir=infra/observability apply")
     assert (
-        release_gate < runtime_gate < cloud_auth < image_build < observability_apply < vercel_gate
+        staging_gate
+        < release_gate
+        < runtime_gate
+        < cloud_auth
+        < image_build
+        < observability_apply
+        < vercel_gate
     )
 
 
@@ -128,3 +139,22 @@ def test_every_terraform_root_declares_remote_gcs_state() -> None:
     for root in ("bootstrap", "platform", "observability"):
         versions = (REPOSITORY_ROOT / "infra" / root / "versions.tf").read_text()
         assert 'backend "gcs" {}' in versions
+
+
+def test_ci_runs_current_engine_compatibility_without_replacing_device_certification() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    config = (REPOSITORY_ROOT / "playwright.compat.config.ts").read_text()
+    package = json.loads((REPOSITORY_ROOT / "package.json").read_text())
+
+    assert "browser-engines:" in workflow
+    assert "playwright install --with-deps chromium firefox webkit" in workflow
+    assert "npm run test:compat" in workflow
+    assert package["scripts"]["test:compat"].startswith("NAILSIZE_SKIP_VISUAL_ASSERTIONS=1")
+    for project in (
+        "android-chromium-current",
+        "ios-webkit-current",
+        "desktop-chromium-current",
+        "desktop-firefox-current",
+        "desktop-webkit-current",
+    ):
+        assert project in config

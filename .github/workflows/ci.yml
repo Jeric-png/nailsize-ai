@@ -100,6 +100,25 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  browser-engines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:compat
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: browser-engine-results
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
   security:
     runs-on: ubuntu-latest
     steps:

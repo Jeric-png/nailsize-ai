@@ -12,6 +12,7 @@
     "lint": "npm run lint --workspace @nailsize/web",
     "test": "npm run test --workspace @nailsize/web",
     "test:e2e": "playwright test",
+    "test:compat": "NAILSIZE_SKIP_VISUAL_ASSERTIONS=1 playwright test --config playwright.compat.config.ts",
     "contracts:generate": ".venv/bin/python services/inference/scripts/export_openapi.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/generated.ts",
     "contracts:check": "npm run contracts:generate && git diff --exit-code -- packages/contracts/openapi.json packages/contracts/src/generated.ts",
     "typecheck": "npm run typecheck --workspace @nailsize/web"

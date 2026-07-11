@@ -2,15 +2,15 @@
 
 This ledger links goal claims to current, reproducible evidence. A checkbox is complete only when its evidence exists and passes.
 
-| Area        | Claim                                                                              | Evidence                                                                        | Status                                            |
-| ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Repository  | Source repository and monorepo foundation exist                                    | Git history; root workspace configuration                                       | Complete                                          |
-| Design      | Stitch workflow is implemented at the two required responsive widths                | `DESIGN.md`; Playwright screenshot baselines; `core-flow.spec.ts`               | Frontend workflow complete                        |
-| Privacy     | Current application has no persistent image/result path and log fields fail closed | `docs/privacy-and-threat-model.md`; `test_logging.py`; `session.test.ts`        | Foundation complete; staging verification pending |
-| Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                     |
-| Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                             |
-| Deployment  | Versioned frontend, API, edge-security, and identity contracts pass local checks     | `vercel.json`; `infra/bootstrap`; `infra/platform`; Cloud Run recovery manifest  | Configuration ready; deployment/load tuning pending |
-| Operations  | Observability resources and required inputs fail closed before cloud provisioning   | `infra/observability`; `docs/observability.md`; Terraform test output            | Configuration ready; cloud evidence pending         |
+| Area        | Claim                                                                              | Evidence                                                                        | Status                                              |
+| ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Repository  | Source repository and monorepo foundation exist                                    | Git history; root workspace configuration                                       | Complete                                            |
+| Design      | Stitch workflow is implemented at the two required responsive widths               | `DESIGN.md`; Playwright screenshot baselines; `core-flow.spec.ts`               | Frontend workflow complete                          |
+| Privacy     | Current application has no persistent image/result path and log fields fail closed | `docs/privacy-and-threat-model.md`; `test_logging.py`; `session.test.ts`        | Foundation complete; staging verification pending   |
+| Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                       |
+| Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                               |
+| Deployment  | Versioned frontend, API, edge-security, and identity contracts pass local checks   | `vercel.json`; `infra/bootstrap`; `infra/platform`; Cloud Run recovery manifest | Configuration ready; deployment/load tuning pending |
+| Operations  | Observability resources and required inputs fail closed before cloud provisioning  | `infra/observability`; `docs/observability.md`; Terraform test output           | Configuration ready; cloud evidence pending         |
 
 ## 2026-07-11 foundation verification
 
@@ -267,6 +267,20 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - Final pre-commit verification passed 236 Python/ML tests at 93.34% measured coverage, 24 web tests, contract drift, TypeScript, ESLint, the Vercel-compatible production build, 18 Playwright mobile/desktop scenarios, 16 Terraform tests, workflow lint, and the high-severity npm audit with zero reported vulnerabilities. The local Docker daemon was unavailable, so container construction remains delegated to the existing required Linux CI job and is not claimed from local evidence.
 - GitHub CI run [29165365931](https://github.com/Jeric-png/nailsize-ai/actions/runs/29165365931) passed all nine jobs for release-automation commit `ce274b3`, including Linux release-verifier tests, contract drift, web and E2E checks, security scanning, all three Terraform roots, and the runtime container build plus live readiness smoke.
 - No GitHub protected environment, workload identity binding, state bucket, Vercel project, model release, cloud resource, DNS record, or public deployment was created or changed by these source checks. Real model evidence, authorized deployment, smoke results, device passes, and sign-offs remain open.
+
+## 2026-07-12 staging-to-production promotion contract
+
+- Production now requires the numeric ID of a successful `Deploy verified release` staging run for the exact `main` commit, model release tag, model version, and model checksum. The gate runs before Google OIDC authentication and rejects a different workflow/event/branch/SHA, incomplete or failed run, mutable image reference, mismatched deployment identity, unpromoted Vercel result, or incomplete/failed smoke report.
+- Promotion evidence cross-checks the staging deployment and smoke artifacts: exact HTTPS frontend/API hosts, digest-pinned container, six uniquely named passing endpoint/security checks, and the same immutable model identity. The emitted promotion report retains only bounded identifiers and hostnames.
+- Unit/configuration tests validate successful promotion and fail-closed behavior for run, commit, environment, model, Vercel, and smoke mismatches. These tests validate the gate only; no staging environment or production promotion is claimed.
+- A read-only GitHub API audit returned zero configured repository environments and zero published releases. Remote environment protection, release assets, cloud identity, and deployment evidence therefore remain absent rather than inferred from the source configuration.
+
+## 2026-07-12 current browser-engine compatibility
+
+- A separate required CI job executes the nine functional, recovery, privacy, keyboard, accessibility, and four-capture/ten-result scenarios across five current Playwright profiles: Android Chromium, iOS WebKit, desktop Chromium, desktop Firefox, and desktop WebKit. Visual baselines remain isolated to the approved Chromium mobile/desktop projects.
+- The first 45-test compatibility run exposed two WebKit assumptions. WebKit correctly used the supported original-PNG upload fallback when canvas WebP rewriting was unavailable, and its default link-tab behavior depended on the host full-keyboard-access preference. The suite now verifies PNG fallback plus keyboard focus/activation without weakening Chromium tab-order coverage.
+- The corrected local compatibility run passed all 45 scenarios. This is current engine/emulation evidence only; it does not prove the plan's current-and-previous-two branded versions, physical iOS/Android devices, Edge, VoiceOver, or TalkBack, so those release gates remain open.
+- Final local verification used Playwright 1.61.1 and passed 251 Python/ML tests at 93.34% measured coverage, 24 web tests, 18 Chromium visual/E2E scenarios, all 45 current-engine scenarios, contract drift, Ruff, ESLint, TypeScript, the production build, workflow lint, 16 Terraform tests, and the high-severity npm audit with zero reported vulnerabilities.
 
 ## Evidence rules
 

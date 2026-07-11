@@ -13,7 +13,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Add `docs/decisions.md` for architecture and product deviations.
 - [x] Configure CI to run formatting checks, lint, typecheck, unit tests, API contract tests, build, security scans, and E2E smoke tests.
 - [ ] Configure separate development, staging, and production environments.
-  - GitHub's manual deployment workflow now consumes isolated protected-environment variables/secrets, separate Vercel project IDs, and separate GCS state prefixes. The checkbox remains open until both remote environments, reviewers, OIDC bindings, state buckets, domains, and platform projects are actually configured and inspected.
+  - GitHub's manual deployment workflow now consumes isolated protected-environment variables/secrets, separate Vercel project IDs, and separate GCS state prefixes. Production additionally requires immutable successful staging deployment/smoke artifacts for the exact commit and model. The checkbox remains open until both remote environments, reviewers, OIDC bindings, state buckets, domains, and platform projects are actually configured and inspected.
 - [x] Record secrets only in the deployment secret manager or CI secret store; commit `.env.example` without credentials.
 
 ## 1. Stitch Design Implementation
@@ -119,7 +119,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Add alerts for error rate, p95 latency, instance saturation, malformed-upload spikes, and budget thresholds.
   - Validated, fail-closed Terraform defines all four incident policies and a project-scoped budget. Required thresholds, notification channels, account/currency, and amount have no defaults; authorized plan/apply and notification tests remain pending.
 - [ ] Run staging smoke tests after every deployment and production smoke tests after promotion.
-  - A reusable/manual GitHub workflow emits a privacy-safe, versioned JSON report covering health/readiness, immutable model identity, exact CORS allow/deny behavior, malformed-upload `415` plus `no-store`, and deployed Vercel security headers. The credentialed deployment workflow now invokes it automatically after infrastructure apply. The checkbox remains open until real staging and production revisions pass and artifacts are linked here.
+  - A reusable/manual GitHub workflow emits a privacy-safe, versioned JSON report covering health/readiness, immutable model identity, exact CORS allow/deny behavior, malformed-upload `415` plus `no-store`, and deployed Vercel security headers. The credentialed deployment workflow invokes it automatically after infrastructure apply, and production cannot begin cloud authentication without exact successful staging deployment/smoke artifacts for the same commit and model. The checkbox remains open until real staging and production revisions pass and artifacts are linked here.
 - [x] Document rollback for frontend, container revision, model version, and chart version.
 
 ## 8. Functional and Adversarial QA
@@ -134,6 +134,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Verify zero persistent image and measurement-result writes under success, failure, cancellation, timeout, and process termination.
   - CI forbids filesystem-write paths in the production application and persistent storage/payload beacon APIs in the browser. The API now bounds declared-length and chunked multipart bodies below its configured in-memory spool rollover threshold; regression tests prove uploads above Starlette's former 1 MiB default and oversized requests never roll to disk. Deployed cancellation, timeout, process-termination, and platform-telemetry observation remain pending.
 - [ ] Test current and previous two major browser versions required by `plan.md`.
+  - Required CI now runs the complete functional/accessibility E2E flow on current Playwright Chromium with Android emulation, WebKit with iOS emulation, and desktop Chromium, Firefox, and WebKit. This is early engine-compatibility evidence only; the checkbox remains open until current and previous two branded browser majors pass on the required physical/hosted device matrix, including Edge and real Safari/Chrome builds.
 - [ ] Complete automated accessibility scans and manual keyboard, VoiceOver, and TalkBack tests.
   - Axe scans cover landing, preparation, capture, accepted quality, processing, results, typed upload error, and expired-session recovery at both approved viewports. Automated keyboard focus/activation covers the primary path and excludes the programmatically triggered hidden file input from tab order. Manual keyboard and assistive-technology device passes remain pending.
 - [x] Complete visual regression review against every referenced Stitch screen.
