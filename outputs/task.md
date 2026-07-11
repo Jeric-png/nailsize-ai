@@ -112,6 +112,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Configure sanitized log retention for 30 days.
 - [ ] Add alerts for error rate, p95 latency, instance saturation, malformed-upload spikes, and budget thresholds.
 - [ ] Run staging smoke tests after every deployment and production smoke tests after promotion.
+  - A reusable/manual GitHub workflow now emits a privacy-safe, versioned JSON report covering health/readiness, immutable model identity, exact CORS allow/deny behavior, malformed-upload `415` plus `no-store`, and deployed Vercel security headers. The checkbox remains open until credentialed deployment automation invokes it and real staging/production revisions pass.
 - [x] Document rollback for frontend, container revision, model version, and chart version.
 
 ## 8. Functional and Adversarial QA

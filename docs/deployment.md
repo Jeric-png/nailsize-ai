@@ -91,6 +91,22 @@ curl --head https://FRONTEND_HOST/
 
 The expected origin must receive its exact `Access-Control-Allow-Origin`; the untrusted origin must not. Measurement responses must remain `Cache-Control: no-store`. Confirm the default `run.app` URL is unreachable before promotion.
 
+Use the source-controlled verifier for the reproducible release record:
+
+```sh
+python services/inference/scripts/deployment_smoke.py \
+  --environment staging \
+  --frontend-url https://STAGING_FRONTEND_HOST \
+  --api-url https://STAGING_API_HOST \
+  --expected-origin https://STAGING_FRONTEND_HOST \
+  --expected-model-version MODEL_VERSION \
+  --output work/deployment-smoke.json
+```
+
+The command requires exact HTTPS origins, refuses the bypassable `run.app` hostname, verifies health/readiness and the immutable model version, checks trusted and untrusted CORS, submits only a fixed invalid byte string to prove typed `415` plus `no-store`, and verifies the deployed frontend security headers. Its report contains hostnames, status codes, enumerated outcomes, and the expected model version; it never copies response bodies.
+
+`.github/workflows/deployment-smoke.yml` exposes the same verifier through both `workflow_dispatch` and `workflow_call`. Run it after each staging deployment and after production promotion. A future credentialed deployment workflow must call this reusable workflow before promotion can succeed; until that workflow exists, trigger it manually and link its 30-day JSON artifact in the evidence ledger.
+
 ## Rollback
 
 1. Stop promotion and record the failing revision plus symptom without copying request bodies or results into the incident record.

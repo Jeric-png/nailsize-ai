@@ -232,6 +232,12 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - This closes the known application-level temporary-file path. The release checkbox remains open until cancellation, timeout, forced termination, Cloud Run telemetry, and platform storage behavior are observed in staging.
 - GitHub CI run [29163653051](https://github.com/Jeric-png/nailsize-ai/actions/runs/29163653051) passed all six jobs for commit `b9601d8`, including Linux inference/privacy tests and the live container readiness smoke.
 
+## 2026-07-12 deployment-smoke evidence contract
+
+- The deployment-smoke command validates only exact staging/production HTTPS origins and refuses direct `run.app` targets so release evidence exercises the configured load balancer and edge controls.
+- Six checks cover API health, readiness, immutable model identity, exact trusted CORS, untrusted-origin rejection, a fixed non-image `415` response with `no-store`, and Vercel HTML/security headers. Reports allow-list hostnames, status codes, enumerated results, and the expected model version; response bodies and request payloads are never copied.
+- The GitHub workflow supports both manual dispatch and reusable `workflow_call`, preserves read-only repository permissions, and retains the safe JSON artifact for 30 days. Real staging/production execution remains pending deployment credentials and immutable revision URLs.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.

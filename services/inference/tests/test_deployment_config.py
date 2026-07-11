@@ -70,3 +70,21 @@ def test_environment_profiles_are_explicit_and_non_secret() -> None:
         assert f"ALLOWED_ORIGINS={origin}" in profile
         assert "API_KEY=" not in profile
         assert "TOKEN=" not in profile
+
+
+def test_deployment_smoke_workflow_is_reusable_and_preserves_safe_evidence() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "deployment-smoke.yml").read_text()
+
+    assert "workflow_call:" in workflow
+    assert "workflow_dispatch:" in workflow
+    for required_input in (
+        "environment:",
+        "frontend_url:",
+        "api_url:",
+        "expected_origin:",
+        "expected_model_version:",
+    ):
+        assert workflow.count(required_input) >= 2
+    assert "services/inference/scripts/deployment_smoke.py" in workflow
+    assert "retention-days: 30" in workflow
+    assert "permissions:\n  contents: read" in workflow

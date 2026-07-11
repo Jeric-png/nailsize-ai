@@ -1,0 +1,83 @@
+name: Deployment smoke
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      frontend_url:
+        required: true
+        type: string
+      api_url:
+        required: true
+        type: string
+      expected_origin:
+        required: true
+        type: string
+      expected_model_version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployed environment to verify
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      frontend_url:
+        description: Exact HTTPS frontend origin
+        required: true
+        type: string
+      api_url:
+        description: Exact load-balanced HTTPS API origin
+        required: true
+        type: string
+      expected_origin:
+        description: Exact frontend origin configured in API CORS
+        required: true
+        type: string
+      expected_model_version:
+        description: Immutable model version expected from health and readiness
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ inputs.environment }}
+    env:
+      SMOKE_ENVIRONMENT: ${{ inputs.environment }}
+      SMOKE_FRONTEND_URL: ${{ inputs.frontend_url }}
+      SMOKE_API_URL: ${{ inputs.api_url }}
+      SMOKE_EXPECTED_ORIGIN: ${{ inputs.expected_origin }}
+      SMOKE_MODEL_VERSION: ${{ inputs.expected_model_version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install 'httpx>=0.28,<1'
+      - name: Verify deployed release contracts
+        run: >-
+          python services/inference/scripts/deployment_smoke.py
+          --environment "$SMOKE_ENVIRONMENT"
+          --frontend-url "$SMOKE_FRONTEND_URL"
+          --api-url "$SMOKE_API_URL"
+          --expected-origin "$SMOKE_EXPECTED_ORIGIN"
+          --expected-model-version "$SMOKE_MODEL_VERSION"
+          --output work/deployment-smoke.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: deployment-smoke-${{ inputs.environment }}
+          path: work/deployment-smoke.json
+          if-no-files-found: error
+          retention-days: 30
