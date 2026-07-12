@@ -107,7 +107,7 @@ jobs:
           if [[ "$TARGET_ENVIRONMENT" == "production" ]]; then
             vercel build --prod --no-color
           else
-            vercel build --no-color
+            vercel build --target=preview --no-color
           fi
 
       - name: Verify exact Vercel prebuilt artifact
@@ -125,6 +125,8 @@ jobs:
           args=(deploy --prebuilt --archive=tgz --format=json --no-color --meta "nailsizeCommit=$GITHUB_SHA" --token="$VERCEL_TOKEN")
           if [[ "$TARGET_ENVIRONMENT" == "production" ]]; then
             args+=(--prod --skip-domain)
+          else
+            args+=(--target=preview)
           fi
           deployment_json="$RUNNER_TEMP/vercel-deployment.json"
           vercel "${args[@]}" > "$deployment_json"

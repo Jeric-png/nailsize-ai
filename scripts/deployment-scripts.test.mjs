@@ -209,6 +209,17 @@ test("accepts only a byte-identical static Vercel output", () => {
   assert.match(functionOutput.stderr, /unexpected entries/u);
 });
 
+test("pins Vercel staging to preview and production to a staged target", () => {
+  const workflow = readFileSync(
+    path.join(repositoryRoot, ".github", "workflows", "deploy.yml"),
+    "utf8",
+  );
+  assert.match(workflow, /vercel build --target=preview --no-color/u);
+  assert.match(workflow, /args\+=\(--target=preview\)/u);
+  assert.match(workflow, /vercel build --prod --no-color/u);
+  assert.match(workflow, /args\+=\(--prod --skip-domain\)/u);
+});
+
 test("binds production domains and deployments to project, team, commit, and alias", () => {
   const expected = {
     deploymentId: "dpl_Def456",
