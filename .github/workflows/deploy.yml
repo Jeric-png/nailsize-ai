@@ -157,7 +157,6 @@ jobs:
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
           ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact_digest }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: node scripts/verify-web-deployment.mjs "$DEPLOYMENT_URL" "$ARTIFACT_DIGEST" --vercel-protected
 
       - name: Promote verified production deployment

@@ -3,7 +3,10 @@ import {
   guidedArtifactDigest,
   parseGuidedShell,
 } from "./guided-artifact.mjs";
-import { fetchProtectedDeployment } from "./vercel-protected-fetch.mjs";
+import {
+  fetchProtectedDeployment,
+  loadVercelOidcToken,
+} from "./vercel-protected-fetch.mjs";
 
 const arguments_ = process.argv.slice(2);
 const protectedDeployment = arguments_.includes("--vercel-protected");
@@ -38,6 +41,10 @@ if (!origin.hostname.endsWith(".vercel.app"))
 origin.pathname = "/";
 origin.search = "";
 origin.hash = "";
+
+const vercelOidcToken = protectedDeployment
+  ? await loadVercelOidcToken()
+  : undefined;
 
 const root = await fetchChecked(origin);
 assertSecurityHeaders(root);
@@ -160,7 +167,7 @@ function assertContentType(response, expected) {
 
 async function fetchChecked(url) {
   const response = protectedDeployment
-    ? await fetchProtectedDeployment(url, origin, process.env.VERCEL_TOKEN)
+    ? await fetchProtectedDeployment(url, origin, vercelOidcToken)
     : await fetch(url, {
         redirect: "error",
         signal: AbortSignal.timeout(10_000),

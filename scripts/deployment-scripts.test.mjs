@@ -17,7 +17,7 @@ import {
 } from "./vercel-api-contract.mjs";
 import {
   fetchProtectedDeployment,
-  parseCurlHeaders,
+  loadVercelOidcToken,
 } from "./vercel-protected-fetch.mjs";
 
 const repositoryRoot = path.resolve(
@@ -225,22 +225,37 @@ test("pins Vercel staging to preview and production to a staged target", () => {
   assert.equal(workflow.match(/--vercel-protected/gu)?.length, 1);
 });
 
-test("parses bounded authenticated Vercel responses without following redirects", async () => {
+test("uses only short-lived project OIDC for protected Vercel responses", async () => {
+  const directory = workspace();
+  const vercelDirectory = path.join(directory, ".vercel");
+  mkdirSync(vercelDirectory, { recursive: true });
+  writeFileSync(
+    path.join(vercelDirectory, ".env.preview.local"),
+    'VERCEL_OIDC_TOKEN="header.payload.signature"\n',
+    "utf8",
+  );
+  const token = await loadVercelOidcToken(vercelDirectory);
+  assert.equal(token, "header.payload.signature");
+
   const origin = new URL("https://nailsize-preview.vercel.app");
   const requested = new URL("/assets/index.js", origin);
   const response = await fetchProtectedDeployment(
     requested,
     origin,
-    "test-token",
-    async ({ url, token, headersPath, bodyPath }) => {
+    token,
+    async (url, options) => {
       assert.equal(url.href, requested.href);
-      assert.equal(token, "test-token");
-      writeFileSync(
-        headersPath,
-        "HTTP/1.1 200 Connection established\r\n\r\nHTTP/2 200\r\nContent-Type: application/javascript\r\nContent-Length: 10\r\n\r\n",
-        "utf8",
+      assert.equal(options.redirect, "error");
+      assert.equal(
+        options.headers["x-vercel-trusted-oidc-idp-token"],
+        "header.payload.signature",
       );
-      writeFileSync(bodyPath, "export {};", "utf8");
+      const result = new Response("export {};", {
+        status: 200,
+        headers: { "Content-Type": "application/javascript" },
+      });
+      Object.defineProperty(result, "url", { value: requested.href });
+      return result;
     },
   );
   assert.equal(response.status, 200);
@@ -249,11 +264,11 @@ test("parses bounded authenticated Vercel responses without following redirects"
     response.headers.get("content-type") ?? "",
     /application\/javascript/u,
   );
-  assert.equal(await new Response(response.body).text(), "export {};");
+  assert.equal(await response.text(), "export {};");
 
-  assert.throws(
-    () => parseCurlHeaders("Location: https://vercel.com/sso-api\r\n\r\n"),
-    /malformed HTTP headers/u,
+  await assert.rejects(
+    loadVercelOidcToken(path.join(directory, "missing")),
+    /ENOENT/u,
   );
 });
 

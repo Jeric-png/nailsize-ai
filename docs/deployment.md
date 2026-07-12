@@ -40,7 +40,7 @@ Create a Vercel project for `Jeric-png/nailsize-ai` with the repository root as 
 - security headers for every route; and
 - `git.deploymentEnabled.main=false`, so a push to `main` cannot bypass the protected manual workflow.
 
-The application has **no runtime or build-time application variables**. Do not add `VITE_INFERENCE_API_URL`, GCP credentials, Hugging Face tokens, OpenAI keys, model paths, database URLs, domain variables, capacity settings, monitoring variables, or billing variables. Vercel CLI may manage `VERCEL_OIDC_TOKEN` and `VERCEL_AUTOMATION_BYPASS_SECRET` for platform identity and protected-preview smoke tests. The verifier allows only those two Vercel system keys, the application does not read either, and the byte-identical artifact check proves they did not alter the client output.
+The application has **no runtime or build-time application variables**. Do not add `VITE_INFERENCE_API_URL`, GCP credentials, Hugging Face tokens, OpenAI keys, model paths, database URLs, domain variables, capacity settings, monitoring variables, or billing variables. Vercel CLI may manage `VERCEL_OIDC_TOKEN` and `VERCEL_AUTOMATION_BYPASS_SECRET` as platform-owned system values. The candidate verifier uses only the short-lived project OIDC token, never logs or exports it, and the byte-identical artifact check proves neither value altered the client output.
 
 The protected GitHub environments need only:
 
@@ -69,7 +69,7 @@ The workflow:
 7. proves `.vercel/output/static` is byte-for-byte identical to the already audited `apps/web/dist`, uses Build Output API v3, allows only bounded Vercel-generated `builds.json` and `diagnostics/` metadata beside it, contains no function output, and records a canonical SHA-256 digest of the served HTML, script, and stylesheet;
 8. deploys that exact prebuilt output with an explicit target (`--target=preview` for staging; production uses `--prod --skip-domain` so live aliases do not move yet);
 9. verifies the CLI identity and the authenticated REST metadata, including deployment/project/team IDs, release commit, prebuilt state, target, and readiness;
-10. uses Vercel's authenticated `vercel curl` transport to bypass Standard Protection only for the generated candidate URL, then requires that URL to serve the locally recorded artifact digest; and
+10. presents Vercel's short-lived project OIDC identity to Standard Protection only for the generated candidate URL, then requires that URL to serve the locally recorded artifact digest; and
 11. for production, promotes only that verified deployment, resolves the public production URL directly back to its deployment ID, and confirms it serves the same local artifact digest without an authentication bypass.
 
 The deployment smoke verifier requires:
