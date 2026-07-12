@@ -289,6 +289,26 @@ test("verifies every uploaded Vercel output byte and application digest", async 
   assert.equal(result.files, 4);
   assert.equal(result.artifactDigest, expectedArtifactDigest);
 
+  for (const contentEnvelope of [
+    (content) => content,
+    (content) => ({ data: content }),
+  ]) {
+    const envelopeResult = await verifyVercelDeploymentFiles({
+      deploymentId: "dpl_Test123",
+      teamId: "team_expected",
+      token: "test-token",
+      expectedArtifactDigest,
+      outputRoot: output,
+      fetchImplementation: async (url) =>
+        Response.json(
+          url.pathname.endsWith("/files")
+            ? tree
+            : contentEnvelope(contents.get(url.pathname.split("/").at(-1))),
+        ),
+    });
+    assert.equal(envelopeResult.artifactDigest, expectedArtifactDigest);
+  }
+
   const changedContents = new Map(contents);
   const scriptUid = sha1(Buffer.from(script));
   changedContents.set(
@@ -312,7 +332,7 @@ test("verifies every uploaded Vercel output byte and application digest", async 
               },
         ),
     }),
-    /unexpected size|contents differ/u,
+    /expected canonical base64|contents differ/u,
   );
 });
 

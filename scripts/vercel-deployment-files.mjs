@@ -54,7 +54,7 @@ export async function verifyVercelDeploymentFiles({
         teamId,
         token,
         fetchImplementation,
-        localContent.byteLength,
+        localContent,
       );
       contentByUid.set(remote.uid, remoteContent);
     }
@@ -244,31 +244,66 @@ async function getFileContent(
   teamId,
   token,
   fetchImplementation,
-  expectedBytes,
+  expectedContent,
 ) {
   const payload = await getJson(
     `/v8/deployments/${encodeURIComponent(deploymentId)}/files/${encodeURIComponent(fileId)}`,
     teamId,
     token,
     fetchImplementation,
-    Math.ceil((expectedBytes * 4) / 3) + 4096,
+    Math.ceil((expectedContent.byteLength * 4) / 3) + 4096,
   );
   if (
-    !payload ||
-    typeof payload !== "object" ||
-    Array.isArray(payload) ||
-    typeof payload.content !== "string" ||
-    (payload.encoding !== undefined && payload.encoding !== "base64")
+    payload &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    payload.encoding !== undefined &&
+    payload.encoding !== "base64"
   )
     throw new Error(
-      "Vercel deployment file response did not contain base64 content.",
+      "Vercel deployment file response used a non-base64 encoding.",
     );
-  if (!isCanonicalBase64(payload.content))
-    throw new Error("Vercel deployment file content is not canonical base64.");
-  const content = Buffer.from(payload.content, "base64");
-  if (content.byteLength !== expectedBytes)
-    throw new Error("Vercel deployment file content has an unexpected size.");
-  return content;
+
+  const encodedCandidates = deploymentFileContentCandidates(payload);
+  const matchingContents = encodedCandidates
+    .filter(isCanonicalBase64)
+    .map((candidate) => Buffer.from(candidate, "base64"))
+    .filter(
+      (content) =>
+        content.byteLength === expectedContent.byteLength &&
+        content.equals(expectedContent),
+    );
+  if (matchingContents.length !== 1)
+    throw new Error(
+      `Vercel deployment file response did not contain exactly one expected canonical base64 value (${describeJsonShape(payload)}).`,
+    );
+  return matchingContents[0];
+}
+
+function deploymentFileContentCandidates(payload) {
+  if (typeof payload === "string") return [payload];
+  if (!payload || typeof payload !== "object" || Array.isArray(payload))
+    return [];
+  const entries = Object.entries(payload);
+  if (entries.length > 32)
+    throw new Error("Vercel deployment file response has too many fields.");
+  return [
+    ...new Set(
+      entries.flatMap(([name, value]) =>
+        name !== "encoding" && typeof value === "string" ? [value] : [],
+      ),
+    ),
+  ];
+}
+
+function describeJsonShape(payload) {
+  if (payload === null) return "null";
+  if (Array.isArray(payload)) return "array";
+  if (typeof payload !== "object") return typeof payload;
+  const fields = Object.keys(payload).length;
+  return fields === 0
+    ? "object with no fields"
+    : `object with ${fields} fields`;
 }
 
 function isCanonicalBase64(value) {
