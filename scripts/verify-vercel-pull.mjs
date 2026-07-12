@@ -26,7 +26,7 @@ assertSetting(settings, "framework", [undefined, null, "vite"]);
 assertSetting(settings, "rootDirectory", [undefined, null, ""]);
 assertSetting(settings, "buildCommand", [undefined, null, "npm run build"]);
 assertSetting(settings, "outputDirectory", [undefined, null, "apps/web/dist"]);
-assertSetting(settings, "installCommand", [undefined, null]);
+assertSetting(settings, "installCommand", [undefined, null, "npm ci"]);
 assertSetting(settings, "devCommand", [undefined, null]);
 assertSetting(settings, "nodeVersion", [undefined, null, "22.x"]);
 

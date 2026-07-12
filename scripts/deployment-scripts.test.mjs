@@ -105,19 +105,18 @@ test("binds inspection to the linked project and promoted alias", () => {
   assert.notEqual(wrongId.status, 0);
 });
 
-test("accepts an empty pulled environment and rejects application variables", () => {
+test("accepts the locked install contract and an empty pulled environment", () => {
   const directory = workspace();
-  writeProject(directory, {
-    settings: {
-      framework: "vite",
-      rootDirectory: null,
-      buildCommand: "npm run build",
-      outputDirectory: "apps/web/dist",
-      installCommand: null,
-      devCommand: null,
-      nodeVersion: "22.x",
-    },
-  });
+  const settings = {
+    framework: "vite",
+    rootDirectory: null,
+    buildCommand: "npm run build",
+    outputDirectory: "apps/web/dist",
+    installCommand: "npm ci",
+    devCommand: null,
+    nodeVersion: "22.x",
+  };
+  writeProject(directory, { settings });
   const environmentFile = path.join(directory, ".vercel", ".env.preview.local");
   writeFileSync(environmentFile, "# Created by Vercel CLI\n", "utf8");
   const environment = {
@@ -127,6 +126,20 @@ test("accepts an empty pulled environment and rejects application variables", ()
 
   const empty = run("verify-vercel-pull.mjs", [], directory, environment);
   assert.equal(empty.status, 0, empty.stderr);
+
+  writeProject(directory, {
+    settings: { ...settings, installCommand: "npm install" },
+  });
+  const unlockedInstall = run(
+    "verify-vercel-pull.mjs",
+    [],
+    directory,
+    environment,
+  );
+  assert.notEqual(unlockedInstall.status, 0);
+  assert.match(unlockedInstall.stderr, /installCommand/u);
+
+  writeProject(directory, { settings });
 
   writeFileSync(
     environmentFile,
