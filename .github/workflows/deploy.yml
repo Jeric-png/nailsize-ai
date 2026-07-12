@@ -177,7 +177,6 @@ jobs:
 
       - name: Verify promoted production identity
         if: inputs.environment == 'production'
-        id: promotion
         shell: bash
         env:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
@@ -190,7 +189,7 @@ jobs:
           vercel inspect "$DEPLOYMENT_URL" --wait --format=json --no-color --token="$VERCEL_TOKEN" > "$inspection_json"
           node scripts/verify-vercel-inspect.mjs "$inspection_json" promoted
 
-      - name: Bind protected production URL to promoted deployment
+      - name: Wait for production URL to resolve to promoted deployment
         if: inputs.environment == 'production'
         id: production
         env:
@@ -205,7 +204,7 @@ jobs:
         env:
           PRODUCTION_URL: ${{ steps.production.outputs.production_url }}
           ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact_digest }}
-        run: node scripts/verify-web-deployment.mjs "$PRODUCTION_URL" "$ARTIFACT_DIGEST"
+        run: node scripts/verify-web-deployment.mjs "$PRODUCTION_URL" "$ARTIFACT_DIGEST" --wait-for-convergence
 
       - name: Publish deployment URL
         env:

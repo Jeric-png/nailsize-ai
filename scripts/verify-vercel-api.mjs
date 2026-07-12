@@ -2,6 +2,9 @@ import { appendFile, readFile } from "node:fs/promises";
 import {
   assertDeploymentApiContract,
   assertProjectDomainContract,
+  isRetryablePromotionApiStatus,
+  PromotionConvergencePendingError,
+  waitForPromotedDeploymentContract,
 } from "./vercel-api-contract.mjs";
 
 const mode = process.argv[2];
@@ -61,25 +64,47 @@ if (mode === "domain") {
   const lookup = mode === "promoted" ? productionUrl?.hostname : deploymentId;
   if (!lookup)
     throw new Error("Promoted verification requires production URL.");
-  const payload = await getVercelJson(
-    `/v13/deployments/${encodeURIComponent(lookup)}`,
-    token,
+  const expected = {
+    deploymentId,
+    deploymentHost: deploymentUrl.hostname,
+    projectId,
+    projectName: project.projectName,
     orgId,
-  );
-  assertDeploymentApiContract(
-    payload,
-    {
-      deploymentId,
-      deploymentHost: deploymentUrl.hostname,
-      projectId,
-      projectName: project.projectName,
-      orgId,
-      commitSha,
-      targetEnvironment,
-      productionHost: productionUrl?.hostname,
-    },
-    mode,
-  );
+    commitSha,
+    targetEnvironment,
+    productionHost: productionUrl?.hostname,
+  };
+  const loadDeployment = async ({ timeoutMilliseconds } = {}) => {
+    try {
+      return await getVercelJson(
+        `/v13/deployments/${encodeURIComponent(lookup)}`,
+        token,
+        orgId,
+        timeoutMilliseconds,
+      );
+    } catch (error) {
+      if (
+        mode === "promoted" &&
+        ((error instanceof VercelApiResponseError &&
+          isRetryablePromotionApiStatus(error.status)) ||
+          error instanceof TypeError ||
+          error?.name === "AbortError" ||
+          error?.name === "TimeoutError")
+      )
+        throw new PromotionConvergencePendingError(
+          "Vercel API has not exposed the promoted hostname yet.",
+        );
+      throw error;
+    }
+  };
+  const payload =
+    mode === "promoted"
+      ? await waitForPromotedDeploymentContract({
+          loadDeployment,
+          expected,
+        })
+      : await loadDeployment();
+  if (mode !== "promoted") assertDeploymentApiContract(payload, expected, mode);
 
   if (mode === "promoted") {
     if (!process.env.GITHUB_OUTPUT)
@@ -127,20 +152,26 @@ function parseProductionUrl(raw) {
   return url;
 }
 
-async function getVercelJson(pathname, bearerToken, teamId) {
+async function getVercelJson(
+  pathname,
+  bearerToken,
+  teamId,
+  timeoutMilliseconds = 15_000,
+) {
   const url = new URL(pathname, "https://api.vercel.com");
   url.searchParams.set("teamId", teamId);
   const response = await fetch(url, {
     redirect: "error",
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(
+      Math.max(1, Math.min(15_000, timeoutMilliseconds)),
+    ),
     headers: {
       Authorization: `Bearer ${bearerToken}`,
       Accept: "application/json",
       "User-Agent": "nailsize-guided-release-verifier/1",
     },
   });
-  if (!response.ok)
-    throw new Error(`Vercel API ${pathname} returned HTTP ${response.status}.`);
+  if (!response.ok) throw new VercelApiResponseError(response.status);
   if (
     !(response.headers.get("content-type") ?? "").includes("application/json")
   )
@@ -149,4 +180,11 @@ async function getVercelJson(pathname, bearerToken, teamId) {
   if (Buffer.byteLength(body, "utf8") > 2_000_000)
     throw new Error("Vercel API response exceeded 2 MB.");
   return JSON.parse(body);
+}
+
+class VercelApiResponseError extends Error {
+  constructor(status) {
+    super(`Vercel API returned HTTP ${status}.`);
+    this.status = status;
+  }
 }

@@ -3,22 +3,32 @@ import {
   guidedArtifactDigest,
   parseGuidedShell,
 } from "./guided-artifact.mjs";
+import { waitForPublicDeploymentConvergence } from "./public-deployment-convergence.mjs";
 import { fetchProtectedVercelDeployment } from "./vercel-curl-fetch.mjs";
 
 const [rawUrl, expectedDigest, ...unexpectedArguments] = process.argv.slice(2);
-const useVercelCurl =
-  unexpectedArguments.length === 1 &&
-  unexpectedArguments[0] === "--vercel-curl";
-if (unexpectedArguments.length > 0 && !useVercelCurl)
+const allowedArguments = new Set(["--vercel-curl", "--wait-for-convergence"]);
+if (
+  unexpectedArguments.some((value) => !allowedArguments.has(value)) ||
+  new Set(unexpectedArguments).size !== unexpectedArguments.length
+)
   throw new Error("Deployment verifier received unexpected arguments.");
+const useVercelCurl = unexpectedArguments.includes("--vercel-curl");
+const waitForConvergence = unexpectedArguments.includes(
+  "--wait-for-convergence",
+);
+if (useVercelCurl && waitForConvergence)
+  throw new Error("Protected and public convergence modes cannot be combined.");
 if (!rawUrl)
   throw new Error(
-    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256] [--vercel-curl]",
+    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256] [--vercel-curl|--wait-for-convergence]",
   );
 if (expectedDigest && !/^[a-f0-9]{64}$/u.test(expectedDigest))
   throw new Error(
     "Expected artifact digest must be a lowercase SHA-256 value.",
   );
+if (waitForConvergence && !expectedDigest)
+  throw new Error("Public convergence requires the expected artifact digest.");
 
 const origin = new URL(rawUrl);
 if (origin.protocol !== "https:")
@@ -37,70 +47,81 @@ origin.pathname = "/";
 origin.search = "";
 origin.hash = "";
 
-const root = await fetchChecked(origin, 512_000);
-assertSecurityHeaders(root);
-assertContentType(root, "text/html");
-const rootCsp = assertNoConnectionCsp(root);
+let convergenceDeadline;
+const result = waitForConvergence
+  ? await waitForPublicDeploymentConvergence({
+      verify: async ({ deadline }) => {
+        convergenceDeadline = deadline;
+        return verifyDeployment();
+      },
+    })
+  : await verifyDeployment();
+console.log(JSON.stringify(result));
 
-const html = await readText(root, 512_000);
-const { scripts, styles } = parseGuidedShell(html, origin);
-const scriptArtifacts = [];
-for (const script of scripts) {
-  const response = await fetchChecked(script, 2_000_000);
-  assertContentType(response, "javascript");
-  const content = await readText(response, 2_000_000);
-  scriptArtifacts.push({ pathname: script.pathname, content });
-  for (const value of forbiddenClientBindings)
-    if (content.includes(value))
-      throw new Error(
-        `Deployment bundle contains forbidden dependency ${value}.`,
-      );
-}
-const styleArtifacts = [];
-for (const style of styles) {
-  const response = await fetchChecked(style, 512_000);
-  assertContentType(response, "text/css");
-  const content = await readText(response, 512_000);
-  styleArtifacts.push({ pathname: style.pathname, content });
-  for (const value of forbiddenClientBindings)
-    if (content.includes(value))
-      throw new Error(
-        `Deployment stylesheet contains forbidden dependency ${value}.`,
-      );
-}
+async function verifyDeployment() {
+  const root = await fetchChecked(origin, 512_000);
+  assertSecurityHeaders(root);
+  assertContentType(root, "text/html");
+  const rootCsp = assertNoConnectionCsp(root);
 
-const artifactDigest = guidedArtifactDigest(
-  html,
-  scriptArtifacts,
-  styleArtifacts,
-);
-if (expectedDigest && artifactDigest !== expectedDigest)
-  throw new Error(
-    "Deployment does not serve the locally verified release artifact.",
+  const html = await readText(root, 512_000);
+  const { scripts, styles } = parseGuidedShell(html, origin);
+  const scriptArtifacts = [];
+  for (const script of scripts) {
+    const response = await fetchChecked(script, 2_000_000);
+    assertContentType(response, "javascript");
+    const content = await readText(response, 2_000_000);
+    scriptArtifacts.push({ pathname: script.pathname, content });
+    for (const value of forbiddenClientBindings)
+      if (content.includes(value))
+        throw new Error(
+          `Deployment bundle contains forbidden dependency ${value}.`,
+        );
+  }
+  const styleArtifacts = [];
+  for (const style of styles) {
+    const response = await fetchChecked(style, 512_000);
+    assertContentType(response, "text/css");
+    const content = await readText(response, 512_000);
+    styleArtifacts.push({ pathname: style.pathname, content });
+    for (const value of forbiddenClientBindings)
+      if (content.includes(value))
+        throw new Error(
+          `Deployment stylesheet contains forbidden dependency ${value}.`,
+        );
+  }
+
+  const artifactDigest = guidedArtifactDigest(
+    html,
+    scriptArtifacts,
+    styleArtifacts,
   );
+  if (expectedDigest && artifactDigest !== expectedDigest)
+    throw new Error(
+      "Deployment does not serve the locally verified release artifact.",
+    );
 
-const deepRoute = new URL("/guide/left_fingers/1", origin);
-const deepResponse = await fetchChecked(deepRoute, 512_000);
-assertSecurityHeaders(deepResponse);
-assertContentType(deepResponse, "text/html");
-const deepCsp = assertNoConnectionCsp(deepResponse);
-if (deepCsp !== rootCsp)
-  throw new Error("SPA deep route does not use the root security policy.");
-if ((await readText(deepResponse, 512_000)) !== html)
-  throw new Error(
-    "SPA deep-route rewrite is not serving the exact application shell.",
-  );
+  const deepRoute = new URL("/guide/left_fingers/1", origin);
+  const deepResponse = await fetchChecked(deepRoute, 512_000);
+  assertSecurityHeaders(deepResponse);
+  assertContentType(deepResponse, "text/html");
+  const deepCsp = assertNoConnectionCsp(deepResponse);
+  if (deepCsp !== rootCsp)
+    throw new Error("SPA deep route does not use the root security policy.");
+  if ((await readText(deepResponse, 512_000)) !== html)
+    throw new Error(
+      "SPA deep-route rewrite is not serving the exact application shell.",
+    );
 
-console.log(
-  JSON.stringify({
+  return {
     status: "ok",
     origin: origin.origin,
     scripts: scripts.length,
     styles: styles.length,
     artifactDigest,
     clientOnly: true,
-  }),
-);
+  };
+}
 
 function parseCsp(value) {
   const directives = new Map();
@@ -164,7 +185,7 @@ async function fetchChecked(url, maximumBodyBytes) {
     ? await fetchProtectedVercelDeployment(target, maximumBodyBytes)
     : await fetch(target, {
         redirect: "error",
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(requestTimeoutMilliseconds()),
         headers: { "User-Agent": "nailsize-guided-deployment-smoke/1" },
       });
   if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}.`);
@@ -172,6 +193,16 @@ async function fetchChecked(url, maximumBodyBytes) {
   if (finalUrl.protocol !== "https:" || finalUrl.origin !== origin.origin)
     throw new Error("Deployment request escaped the expected HTTPS origin.");
   return response;
+}
+
+function requestTimeoutMilliseconds() {
+  if (!convergenceDeadline) return 10_000;
+  const remainingMilliseconds = Math.floor(
+    convergenceDeadline - performance.now(),
+  );
+  if (remainingMilliseconds <= 0)
+    throw new Error("Public deployment convergence timed out.");
+  return Math.max(1, Math.min(10_000, remainingMilliseconds));
 }
 
 async function readText(response, maximumBytes) {

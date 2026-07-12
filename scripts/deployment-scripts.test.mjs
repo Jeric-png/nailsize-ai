@@ -16,6 +16,8 @@ import { fileURLToPath } from "node:url";
 import {
   assertDeploymentApiContract,
   assertProjectDomainContract,
+  isRetryablePromotionApiStatus,
+  waitForPromotedDeploymentContract,
 } from "./vercel-api-contract.mjs";
 import {
   flattenDeploymentTree,
@@ -62,16 +64,13 @@ test("records preview and production deployment JSON safely", () => {
   assert.match(mismatch.stderr, /does not match production/u);
 });
 
-test("binds inspection to the linked project and promoted alias", () => {
+test("binds inspection to the linked project and promoted deployment", () => {
   const directory = workspace();
   writeProject(directory);
   const candidate = path.join(directory, "candidate.json");
   const promoted = path.join(directory, "promoted.json");
   writeJson(candidate, inspection());
-  writeJson(promoted, {
-    ...inspection(),
-    aliases: ["nailsize-ai-web.vercel.app"],
-  });
+  writeJson(promoted, inspection());
   const environment = {
     TARGET_ENVIRONMENT: "production",
     DEPLOYMENT_ID: "dpl_Def456",
@@ -87,21 +86,13 @@ test("binds inspection to the linked project and promoted alias", () => {
   );
   assert.equal(candidateResult.status, 0, candidateResult.stderr);
 
-  const output = path.join(directory, "outputs.txt");
   const promotedResult = run(
     "verify-vercel-inspect.mjs",
     [promoted, "promoted"],
     directory,
-    {
-      ...environment,
-      GITHUB_OUTPUT: output,
-    },
+    environment,
   );
   assert.equal(promotedResult.status, 0, promotedResult.stderr);
-  assert.match(
-    readFileSync(output, "utf8"),
-    /production_url=https:\/\/nailsize-ai-web\.vercel\.app/u,
-  );
 
   const wrongId = run(
     "verify-vercel-inspect.mjs",
@@ -229,6 +220,7 @@ test("pins Vercel targets and verifies individual uploaded files", () => {
   assert.doesNotMatch(workflow, /--archive/u);
   assert.doesNotMatch(workflow, /--vercel-protected/u);
   assert.equal(workflow.match(/--vercel-curl/gu)?.length, 1);
+  assert.equal(workflow.match(/--wait-for-convergence/gu)?.length, 1);
   const uploadedVerification = workflow.indexOf(
     "node scripts/verify-vercel-files.mjs",
   );
@@ -236,13 +228,17 @@ test("pins Vercel targets and verifies individual uploaded files", () => {
     'node scripts/verify-web-deployment.mjs "$DEPLOYMENT_URL" "$ARTIFACT_DIGEST" --vercel-curl',
   );
   const promotion = workflow.indexOf('vercel promote "$DEPLOYMENT_URL"');
+  const productionResolution = workflow.indexOf(
+    "Wait for production URL to resolve to promoted deployment",
+  );
   const publicRuntimeVerification = workflow.indexOf(
     'node scripts/verify-web-deployment.mjs "$PRODUCTION_URL" "$ARTIFACT_DIGEST"',
   );
   assert.ok(uploadedVerification >= 0);
   assert.ok(stagedRuntimeVerification > uploadedVerification);
   assert.ok(promotion > stagedRuntimeVerification);
-  assert.ok(publicRuntimeVerification > promotion);
+  assert.ok(productionResolution > promotion);
+  assert.ok(publicRuntimeVerification > productionResolution);
   assert.match(
     workflow.slice(
       workflow.lastIndexOf("- name: Verify staged production runtime"),
@@ -250,6 +246,12 @@ test("pins Vercel targets and verifies individual uploaded files", () => {
     ),
     /VERCEL_TOKEN: \$\{\{ secrets\.VERCEL_TOKEN \}\}/u,
   );
+  const publicSmoke = workflow.slice(
+    workflow.lastIndexOf("- name: Verify promoted production artifact"),
+    workflow.lastIndexOf("- name: Publish deployment URL"),
+  );
+  assert.match(publicSmoke, /--wait-for-convergence/u);
+  assert.doesNotMatch(publicSmoke, /VERCEL_TOKEN|vercel-curl/u);
 });
 
 test("verifies every uploaded Vercel output byte and application digest", async () => {
@@ -431,6 +433,125 @@ test("binds production domains and deployments to project, team, commit, and ali
       ),
     /release commit/u,
   );
+});
+
+test("waits for the production hostname to converge to the promoted deployment", async () => {
+  const expected = {
+    deploymentId: "dpl_Def456",
+    deploymentHost: "nailsize-production.vercel.app",
+    projectId: "prj_expected",
+    projectName: "nailsize-ai-web",
+    orgId: "team_expected",
+    commitSha: "a".repeat(40),
+    targetEnvironment: "production",
+    productionHost: "nailsize-ai-web.vercel.app",
+  };
+  const promoted = {
+    id: expected.deploymentId,
+    url: expected.deploymentHost,
+    projectId: expected.projectId,
+    project: { id: expected.projectId, name: expected.projectName },
+    ownerId: expected.orgId,
+    team: { id: expected.orgId },
+    meta: { nailsizeCommit: expected.commitSha },
+    readyState: "READY",
+    readySubstate: "PROMOTED",
+    prebuilt: true,
+    target: "production",
+    alias: [expected.productionHost],
+  };
+  const staged = { ...promoted, readySubstate: "STAGED", alias: [] };
+  const missingAlias = { ...promoted, alias: [] };
+  const sequence = [
+    { ...promoted, id: "dpl_Previous" },
+    staged,
+    missingAlias,
+    promoted,
+  ];
+  let clock = 0;
+  let loads = 0;
+  const observedTimeouts = [];
+  const result = await waitForPromotedDeploymentContract({
+    loadDeployment: async ({ timeoutMilliseconds }) => {
+      observedTimeouts.push(timeoutMilliseconds);
+      loads += 1;
+      return sequence.shift();
+    },
+    expected,
+    maximumAttempts: 5,
+    intervalMilliseconds: 1_000,
+    timeoutMilliseconds: 120_000,
+    now: () => clock,
+    wait: async (milliseconds) => {
+      clock += milliseconds;
+    },
+  });
+
+  assert.equal(result.id, expected.deploymentId);
+  assert.equal(loads, 4);
+  assert.equal(clock, 3_000);
+  assert.deepEqual(observedTimeouts, [120_000, 119_000, 118_000, 117_000]);
+
+  let invariantWaited = false;
+  await assert.rejects(
+    waitForPromotedDeploymentContract({
+      loadDeployment: async () => ({
+        ...promoted,
+        meta: { nailsizeCommit: "b".repeat(40) },
+      }),
+      expected,
+      wait: async () => {
+        invariantWaited = true;
+      },
+    }),
+    /release commit/u,
+  );
+  assert.equal(invariantWaited, false);
+
+  await assert.rejects(
+    waitForPromotedDeploymentContract({
+      loadDeployment: async () => ({
+        ...promoted,
+        id: "dpl_Previous",
+        projectId: "prj_wrong",
+      }),
+      expected,
+      wait: async () => {
+        invariantWaited = true;
+      },
+    }),
+    /different Vercel project/u,
+  );
+  assert.equal(invariantWaited, false);
+
+  clock = 0;
+  loads = 0;
+  await assert.rejects(
+    waitForPromotedDeploymentContract({
+      loadDeployment: async ({ timeoutMilliseconds }) => {
+        loads += 1;
+        assert.equal(timeoutMilliseconds, 100);
+        clock = 80;
+        return { ...promoted, id: "dpl_Previous" };
+      },
+      expected,
+      maximumAttempts: 5,
+      intervalMilliseconds: 50,
+      timeoutMilliseconds: 100,
+      now: () => clock,
+      wait: async (milliseconds) => {
+        clock += milliseconds;
+      },
+    }),
+    /did not converge/u,
+  );
+  assert.equal(loads, 1);
+  assert.equal(clock, 100);
+
+  for (const status of [404, 429, 500, 503, 599])
+    assert.equal(isRetryablePromotionApiStatus(status), true);
+  for (const status of [400, 401, 403, 422, 499, 600])
+    assert.equal(isRetryablePromotionApiStatus(status), false);
 });
 
 function workspace() {

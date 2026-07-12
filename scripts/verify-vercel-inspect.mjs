@@ -1,4 +1,4 @@
-import { appendFile, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 
 const source = process.argv[2];
 const phase = process.argv[3] ?? "candidate";
@@ -77,17 +77,6 @@ if (phase === "promoted") {
     throw new Error("Only a production deployment can be promoted.");
   if (!productionUrl)
     throw new Error("Production URL validation was not initialized.");
-  if (!aliases.includes(productionUrl.hostname))
-    throw new Error(
-      `Promoted deployment is missing expected alias ${productionUrl.hostname}.`,
-    );
-  if (!process.env.GITHUB_OUTPUT)
-    throw new Error("GITHUB_OUTPUT is required to record the production URL.");
-  await appendFile(
-    process.env.GITHUB_OUTPUT,
-    `production_url=${productionUrl.origin}\n`,
-    "utf8",
-  );
 }
 
 console.log(
