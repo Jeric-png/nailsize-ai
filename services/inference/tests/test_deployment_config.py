@@ -135,6 +135,13 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "deployment-evidence-staging" in workflow
     assert "deployment-smoke-staging" in workflow
     assert "verify_staging_promotion.py" in workflow
+    assert (
+        "--vercel-project-audit work/staging-evidence/deployment/vercel-project-audit.json"
+        in workflow
+    )
+    assert '--expected-vercel-team-id "$VERCEL_TEAM_ID"' in workflow
+    assert '--expected-github-repository "$GITHUB_REPOSITORY"' in workflow
+    assert '--expected-github-repository-id "$VERCEL_GITHUB_REPO_ID"' in workflow
     assert "verify_image_promotion.py" in workflow
     assert "verify_cloud_run_benchmark.py" in workflow
     assert "audit_vercel_projects.py" in workflow

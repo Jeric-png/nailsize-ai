@@ -160,6 +160,7 @@ jobs:
             --run-metadata work/staging-evidence/run.json \
             --deployment-manifest work/staging-evidence/deployment/deployment-manifest.json \
             --benchmark-report work/staging-evidence/deployment/onnx-runtime-benchmark.json \
+            --vercel-project-audit work/staging-evidence/deployment/vercel-project-audit.json \
             --vercel-deployment work/staging-evidence/deployment/vercel-deployment.json \
             --smoke-report work/staging-evidence/smoke/deployment-smoke.json \
             --expected-run-id "$STAGING_RUN_ID" \
@@ -167,6 +168,9 @@ jobs:
             --expected-model-release-tag "$MODEL_RELEASE_TAG" \
             --expected-model-version "$EXPECTED_MODEL_VERSION" \
             --expected-model-sha256 "$EXPECTED_MODEL_SHA256" \
+            --expected-vercel-team-id "$VERCEL_TEAM_ID" \
+            --expected-github-repository "$GITHUB_REPOSITORY" \
+            --expected-github-repository-id "$VERCEL_GITHUB_REPO_ID" \
             --output work/staging-promotion.json
 
       - name: Download an immutable published model release

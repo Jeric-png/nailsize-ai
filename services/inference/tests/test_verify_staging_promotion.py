@@ -9,6 +9,9 @@ COMMIT_SHA = "a" * 40
 MODEL_VERSION = "nailsize-20260712"
 MODEL_RELEASE_TAG = "model-nailsize-20260712"
 MODEL_SHA256 = "b" * 64
+VERCEL_TEAM_ID = "team_Y3lABiHAH20CFfuXAql7s7J1"
+GITHUB_REPOSITORY = "Jeric-png/nailsize-ai"
+GITHUB_REPOSITORY_ID = "1297575199"
 FRONTEND = "https://staging.nailsize.example"
 API = "https://api-staging.nailsize.example"
 IMAGE = (
@@ -76,6 +79,26 @@ def _evidence():
             },
             "passed": True,
         },
+        "vercel_project_audit": {
+            "schema_version": "nailsize-vercel-project-audit@1",
+            "team_id": VERCEL_TEAM_ID,
+            "github_repository": GITHUB_REPOSITORY,
+            "github_repository_id": GITHUB_REPOSITORY_ID,
+            "projects": [
+                {
+                    "project_id": "prj_lbY1CKeNkc7RZU0mphHVHEX8OMXp",
+                    "project_name": "nailsize-ai-staging",
+                    "release_settings_match": True,
+                    "git_settings_match": True,
+                    "privacy_settings_match": True,
+                    "web_analytics_enabled": False,
+                    "integration_count": 0,
+                    "configured_environment_variable_names": [],
+                    "passed": True,
+                }
+            ],
+            "passed": True,
+        },
         "vercel_deployment": {
             "schema_version": "nailsize-vercel-deployment@1",
             "deployment_id": "dpl_staging123",
@@ -108,6 +131,9 @@ def _verify(evidence):
         expected_model_release_tag=MODEL_RELEASE_TAG,
         expected_model_version=MODEL_VERSION,
         expected_model_sha256=MODEL_SHA256,
+        expected_vercel_team_id=VERCEL_TEAM_ID,
+        expected_github_repository=GITHUB_REPOSITORY,
+        expected_github_repository_id=GITHUB_REPOSITORY_ID,
     )
 
 
@@ -132,6 +158,8 @@ def test_accepts_exact_successful_staging_candidate() -> None:
         ("deployment_manifest", "model_sha256", "e" * 64),
         ("benchmark_report", "passed", False),
         ("benchmark_report", "image_uri", "different"),
+        ("vercel_project_audit", "passed", False),
+        ("vercel_project_audit", "team_id", "team_wrong"),
         ("vercel_deployment", "ready_substate", "STAGED"),
         ("smoke_report", "passed", False),
         ("smoke_report", "schema_version", "nailsize-deployment-smoke@1"),
@@ -161,6 +189,35 @@ def test_rejects_missing_duplicate_or_failed_smoke_checks() -> None:
 
 
 @pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("project_name", "nailsize-ai-production"),
+        ("release_settings_match", False),
+        ("git_settings_match", False),
+        ("privacy_settings_match", False),
+        ("web_analytics_enabled", True),
+        ("integration_count", 1),
+        ("configured_environment_variable_names", ["SECRET"]),
+        ("passed", False),
+    ],
+)
+def test_rejects_failed_or_wrong_staging_vercel_project_controls(field, value) -> None:
+    evidence = _evidence()
+    evidence["vercel_project_audit"]["projects"][0][field] = value
+
+    with pytest.raises(ValueError, match="Vercel project"):
+        _verify(evidence)
+
+
+def test_rejects_extra_vercel_project_audit_fields() -> None:
+    evidence = _evidence()
+    evidence["vercel_project_audit"]["unexpected_private_field"] = "unexpected"
+
+    with pytest.raises(ValueError, match="Vercel project audit"):
+        _verify(evidence)
+
+
+@pytest.mark.parametrize(
     "overrides",
     [
         {"expected_run_id": "main"},
@@ -168,6 +225,9 @@ def test_rejects_missing_duplicate_or_failed_smoke_checks() -> None:
         {"expected_model_release_tag": "model release"},
         {"expected_model_version": "synthetic version"},
         {"expected_model_sha256": "not-a-sha"},
+        {"expected_vercel_team_id": "team invalid"},
+        {"expected_github_repository": "repository-only"},
+        {"expected_github_repository_id": "not-numeric"},
     ],
 )
 def test_rejects_ambiguous_expected_identifiers(overrides) -> None:
@@ -178,6 +238,9 @@ def test_rejects_ambiguous_expected_identifiers(overrides) -> None:
         "expected_model_release_tag": MODEL_RELEASE_TAG,
         "expected_model_version": MODEL_VERSION,
         "expected_model_sha256": MODEL_SHA256,
+        "expected_vercel_team_id": VERCEL_TEAM_ID,
+        "expected_github_repository": GITHUB_REPOSITORY,
+        "expected_github_repository_id": GITHUB_REPOSITORY_ID,
     }
     arguments.update(overrides)
     with pytest.raises(ValueError):

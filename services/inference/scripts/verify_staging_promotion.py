@@ -29,6 +29,19 @@ EXPECTED_BENCHMARK_CHECKS = frozenset(
         "necessary_latency_limits",
     }
 )
+EXPECTED_VERCEL_PROJECT_FIELDS = frozenset(
+    {
+        "project_id",
+        "project_name",
+        "release_settings_match",
+        "git_settings_match",
+        "privacy_settings_match",
+        "web_analytics_enabled",
+        "integration_count",
+        "configured_environment_variable_names",
+        "passed",
+    }
+)
 
 
 def verify_staging_promotion(
@@ -36,6 +49,7 @@ def verify_staging_promotion(
     run_metadata: dict[str, Any],
     deployment_manifest: dict[str, Any],
     benchmark_report: dict[str, Any],
+    vercel_project_audit: dict[str, Any],
     vercel_deployment: dict[str, Any],
     smoke_report: dict[str, Any],
     expected_run_id: str,
@@ -43,6 +57,9 @@ def verify_staging_promotion(
     expected_model_release_tag: str,
     expected_model_version: str,
     expected_model_sha256: str,
+    expected_vercel_team_id: str,
+    expected_github_repository: str,
+    expected_github_repository_id: str,
 ) -> dict[str, Any]:
     _validate_identifiers(
         expected_run_id,
@@ -86,6 +103,12 @@ def verify_staging_promotion(
         expected_image_uri=image_uri,
         expected_model_version=expected_model_version,
         expected_model_sha256=expected_model_sha256,
+    )
+    _validate_vercel_project_audit(
+        vercel_project_audit,
+        expected_team_id=expected_vercel_team_id,
+        expected_github_repository=expected_github_repository,
+        expected_github_repository_id=expected_github_repository_id,
     )
 
     if (
@@ -140,6 +163,60 @@ def verify_staging_promotion(
         "smoke_checks_passed": len(observed_names),
         "passed": True,
     }
+
+
+def _validate_vercel_project_audit(
+    report: dict[str, Any],
+    *,
+    expected_team_id: str,
+    expected_github_repository: str,
+    expected_github_repository_id: str,
+) -> None:
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", expected_team_id) is None:
+        raise ValueError("Expected Vercel team ID is invalid")
+    if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", expected_github_repository) is None:
+        raise ValueError("Expected GitHub repository must use OWNER/REPOSITORY form")
+    if not expected_github_repository_id.isdigit():
+        raise ValueError("Expected GitHub repository ID must be numeric")
+    expected_fields = {
+        "schema_version",
+        "team_id",
+        "github_repository",
+        "github_repository_id",
+        "projects",
+        "passed",
+    }
+    projects = report.get("projects")
+    if (
+        set(report) != expected_fields
+        or report.get("schema_version") != "nailsize-vercel-project-audit@1"
+        or report.get("team_id") != expected_team_id
+        or report.get("github_repository") != expected_github_repository
+        or report.get("github_repository_id") != expected_github_repository_id
+        or report.get("passed") is not True
+        or not isinstance(projects, list)
+        or len(projects) != 1
+    ):
+        raise ValueError("Staging Vercel project audit does not match the release boundary")
+
+    project = projects[0]
+    if not isinstance(project, dict) or set(project) != EXPECTED_VERCEL_PROJECT_FIELDS:
+        raise ValueError("Staging Vercel project audit has an invalid project contract")
+    project_id = project.get("project_id")
+    configured_names = project.get("configured_environment_variable_names")
+    if (
+        not isinstance(project_id, str)
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", project_id) is None
+        or project.get("project_name") != "nailsize-ai-staging"
+        or project.get("release_settings_match") is not True
+        or project.get("git_settings_match") is not True
+        or project.get("privacy_settings_match") is not True
+        or project.get("web_analytics_enabled") is not False
+        or project.get("integration_count") != 0
+        or configured_names not in ([], ["VITE_INFERENCE_API_URL"])
+        or project.get("passed") is not True
+    ):
+        raise ValueError("Staging Vercel project controls did not all pass")
 
 
 def _validate_benchmark_report(
@@ -304,6 +381,7 @@ def main() -> None:
     parser.add_argument("--run-metadata", required=True, type=Path)
     parser.add_argument("--deployment-manifest", required=True, type=Path)
     parser.add_argument("--benchmark-report", required=True, type=Path)
+    parser.add_argument("--vercel-project-audit", required=True, type=Path)
     parser.add_argument("--vercel-deployment", required=True, type=Path)
     parser.add_argument("--smoke-report", required=True, type=Path)
     parser.add_argument("--expected-run-id", required=True)
@@ -311,6 +389,9 @@ def main() -> None:
     parser.add_argument("--expected-model-release-tag", required=True)
     parser.add_argument("--expected-model-version", required=True)
     parser.add_argument("--expected-model-sha256", required=True)
+    parser.add_argument("--expected-vercel-team-id", required=True)
+    parser.add_argument("--expected-github-repository", required=True)
+    parser.add_argument("--expected-github-repository-id", required=True)
     parser.add_argument("--output", required=True, type=Path)
     arguments = parser.parse_args()
     try:
@@ -318,6 +399,7 @@ def main() -> None:
             run_metadata=_read_json(arguments.run_metadata),
             deployment_manifest=_read_json(arguments.deployment_manifest),
             benchmark_report=_read_json(arguments.benchmark_report),
+            vercel_project_audit=_read_json(arguments.vercel_project_audit),
             vercel_deployment=_read_json(arguments.vercel_deployment),
             smoke_report=_read_json(arguments.smoke_report),
             expected_run_id=arguments.expected_run_id,
@@ -325,6 +407,9 @@ def main() -> None:
             expected_model_release_tag=arguments.expected_model_release_tag,
             expected_model_version=arguments.expected_model_version,
             expected_model_sha256=arguments.expected_model_sha256,
+            expected_vercel_team_id=arguments.expected_vercel_team_id,
+            expected_github_repository=arguments.expected_github_repository,
+            expected_github_repository_id=arguments.expected_github_repository_id,
         )
     except ValueError as error:
         parser.error(str(error))
