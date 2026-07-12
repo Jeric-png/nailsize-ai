@@ -427,6 +427,15 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - GitHub CI run [29175974059](https://github.com/Jeric-png/nailsize-ai/actions/runs/29175974059) passed all ten jobs for implementation commit `d838196`, including 422 Python/ML tests, the expanded 28-resource/20-type privacy audit, both browser gates, security scans, contracts, all Terraform roots, and the live read-only runtime-container privacy smoke.
 - These checks prove the deployment and promotion mechanism, not target-cloud performance for a real release. The ONNX benchmark checkbox remains open until the approved model image completes a credentialed staging Cloud Run execution and its retained report is linked here.
 
+## 2026-07-12 four-photo feasibility decision gate
+
+- `nailsize-feasibility-report` now accepts the exact private `nailsize-feasibility-study@1` bundle and enforces `production-four-photo@1`, exactly ten correctly mapped nails per participant, positive finite projected and adjudicated physical widths, physical best-fit sizes, the exact skin-tone/curvature/width/device cohort dimensions, and bounded identifiers.
+- The aggregate-only report applies the 100-participant/1,000-nail minimum, every overall measurement and size gate, participant-clustered 95% confidence intervals, required cohort MAE and exact-size parity, plus named feasibility, nail-tech, and adequate-sample reviews. Tests prove the retained report omits participant IDs, image references, and paths.
+- The decision contract distinguishes incomplete evidence from protocol failure: underpowered or incompletely reviewed evidence returns `insufficient_evidence`; a complete passing study returns `four_photo_validated`; a sufficiently powered study that misses an overall or required cohort target returns `oblique_required` and blocks launch. The tool does not invent or authorize an oblique capture design.
+- Fresh local verification passed 432 Python/inference/ML tests at 89.89% measured coverage, 24 web tests, 18 strict E2E scenarios, 45 Chromium/Firefox/WebKit compatibility scenarios, Ruff, ESLint, TypeScript, API contract drift, the Vercel-compatible build, the installed CLI smoke, privacy boundary verification, and the high-severity npm audit with zero reported vulnerabilities.
+- GitHub CI run [29176342076](https://github.com/Jeric-png/nailsize-ai/actions/runs/29176342076) passed all ten jobs for implementation commit `2029475`, including the new feasibility coverage, both browser gates, security scans, contracts, all three Terraform roots, and the live read-only container privacy smoke.
+- These checks prove the fail-closed study evidence mechanism, not the four-photo approach itself. Both feasibility checkboxes remain open until a real reviewed 100-participant/1,000-nail study produces the required decision and, if needed, a separately approved oblique protocol is validated.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
