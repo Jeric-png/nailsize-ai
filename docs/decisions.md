@@ -48,3 +48,9 @@
 - Status: Accepted
 - Decision: An underpowered or incompletely reviewed study remains insufficient evidence. A sufficiently powered four-photo study that misses any measurement, size, or required cohort target blocks launch and requires a separately designed and validated oblique-capture fallback.
 - Reason: Study incompleteness and protocol failure require different actions, and tooling must not silently invent a new capture experience.
+
+## ADR-009 — Keep emulation separate from client certification
+
+- Status: Accepted
+- Decision: Playwright engine and device-emulation runs remain required CI checks, but production client certification requires real branded browser versions, physical iOS/Android devices, and manual keyboard, VoiceOver, and TalkBack evidence.
+- Reason: Engine emulation cannot prove camera behavior, operating-system integration, or assistive-technology usability on the required release matrix.

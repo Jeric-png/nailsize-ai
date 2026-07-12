@@ -167,6 +167,8 @@ Dispatch **Deploy verified release** for staging with the published model tag, e
 
 CI also runs `npm run test:compat` against current Playwright Chromium, Firefox, and WebKit engines with Android, iOS, and desktop profiles. Treat this as an early compatibility gate, not as evidence for branded Safari, Chrome, Edge, or physical-device certification. Before production promotion, record current and previous two major versions from the real device/browser matrix required by `outputs/plan.md`.
 
+Generate the final aggregate browser and accessibility decision with `python services/inference/scripts/client_certification.py /approved-evidence/client-certification-study.json --output /approved-evidence/client-certification-report.json`, following `docs/client-certification.md`. Production promotion is not approved unless the report is bound to the tested release commit and returns `client_validation_passed`. Missing runs or reviews remain insufficient evidence; a complete failing matrix blocks promotion.
+
 Official references: [GitHub deployment environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments), [GitHub OIDC](https://docs.github.com/en/actions/reference/security/oidc), [Google authentication action](https://github.com/google-github-actions/auth), [Artifact Registry authentication](https://docs.cloud.google.com/artifact-registry/docs/docker/authentication), [Artifact Registry push and pull](https://docs.cloud.google.com/artifact-registry/docs/docker/pushing-and-pulling), [Vercel Git deployments](https://vercel.com/docs/git), and [Vercel create deployment API](https://vercel.com/docs/rest-api/deployments/create-a-new-deployment).
 
 ## Release verification
