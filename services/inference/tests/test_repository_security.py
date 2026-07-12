@@ -48,3 +48,22 @@ def test_dependabot_suppresses_unsupported_major_version_noise() -> None:
     assert "- version-update:semver-minor" in config
     assert "dependency-name: python" in config
     assert '- ">= 3.13"' in config
+
+
+def test_ci_scans_the_built_image_before_privacy_smoke() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    container_job = workflow.split("  container:", 1)[1]
+
+    image_build = container_job.index("docker build -t nailsize-inference:contract .")
+    image_scan = container_job.index("- name: Scan the built runtime image")
+    privacy_smoke = container_job.index("- name: Privacy-smoke the scanned runtime image")
+
+    assert image_build < image_scan < privacy_smoke
+    scan_step = container_job[image_scan:privacy_smoke]
+    assert "scan-type: image" in scan_step
+    assert "image-ref: nailsize-inference:contract" in scan_step
+    assert "vuln-type: os,library" in scan_step
+    assert "severity: HIGH,CRITICAL" in scan_step
+    assert 'exit-code: "1"' in scan_step
+    assert "ignore-unfixed: false" in scan_step
+    assert "ignore-unfixed: true" not in workflow

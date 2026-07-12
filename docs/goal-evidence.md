@@ -369,6 +369,13 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - The live Dependabot security-alert endpoint returned an empty list, and the repository has zero open product issues.
 - GitHub still reports code scanning as not enabled and secret scanning as disabled. Those private-repository controls and branch protection require a supported plan or approved compensating control, so the critical/high issue closure task remains open alongside deployed-artifact scanning and accountable sign-off.
 
+## 2026-07-12 immutable runtime-image vulnerability gate
+
+- Normal CI now builds the inference contract image, scans that exact local tag with the commit-pinned Trivy action, and only then runs the read-only runtime/privacy smoke. Both the filesystem and image scans fail on every high or critical finding; neither suppresses findings merely because no upstream fix is published.
+- The credentialed deployment workflow exposes the exact locally tagged staging-built or production-promoted image as a step output and scans it before any `infra/platform` plan or apply. Production still copies the staging-tested digest without rebuilding, so the scan covers the bytes being promoted rather than a substitute image.
+- Source tests require build/promotion → image scan → privacy smoke or platform apply ordering, the exact image references, severity and exit policy, and immutable action pin. This proves the gate wiring and the CI contract image only. The security task remains open until a validated real release image passes the deployment run and unavailable GitHub controls or approved compensating controls receive accountable review.
+- Fresh local verification passed 452 Python/inference/ML tests at 86.12% measured coverage, 24 web tests, Ruff, formatting, ESLint, TypeScript, API contract drift, the Vercel-compatible production build, YAML parsing, and the high-severity npm audit with zero reported vulnerabilities. The local Docker daemon was unavailable, so the required hosted Linux image-scan job remains authoritative for actual container findings.
+
 ## 2026-07-12 bounded dependency maintenance
 
 - All 13 initial Dependabot version-update pull requests were classified rather than treated as vulnerabilities. React Refresh 0.5.3 was adopted after complete repository validation; the remaining proposals were superseded or widened support to unverified major versions of Python, GitHub Actions, Vite, JSDOM, ESLint, Vitest, Pillow, pytest-cov, OpenCV, or pytest and were closed with explicit migration requirements.

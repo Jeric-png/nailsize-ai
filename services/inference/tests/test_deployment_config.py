@@ -60,7 +60,7 @@ def test_container_requires_both_runtime_models_and_native_landmark_dependencies
 def test_container_ci_runs_read_only_and_checks_termination_diff() -> None:
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text()
     dockerfile = (REPOSITORY_ROOT / "services" / "inference" / "Dockerfile").read_text()
-    container_step = workflow.split("- name: Build and privacy-smoke the runtime image", 1)[1]
+    container_step = workflow.split("- name: Privacy-smoke the scanned runtime image", 1)[1]
 
     for contract in (
         "--read-only",
@@ -147,6 +147,7 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     cloud_auth = workflow.index("google-github-actions/auth@")
     image_promotion = workflow.index('docker pull "$source_image"')
     image_build = workflow.index('docker build --tag "$image_tag"')
+    image_scan = workflow.index("- name: Scan the immutable inference image")
     observability_apply = workflow.index("terraform -chdir=infra/observability apply")
     runtime_benchmark = workflow.index("verify_cloud_run_benchmark.py")
     assert (
@@ -155,11 +156,13 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
         < runtime_gate
         < cloud_auth
         < image_promotion
+        < image_scan
         < runtime_benchmark
         < observability_apply
         < vercel_gate
     )
     assert image_promotion < image_build
+    assert image_build < image_scan
     image_step = workflow.split("- name: Build or promote immutable inference image", 1)[1].split(
         "- name: Apply API platform", 1
     )[0]
@@ -170,6 +173,16 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "docker build" not in production_branch
     assert 'docker build --tag "$image_tag" services/inference' in staging_branch
     assert 'docker tag "$source_image" "$image_tag"' in workflow
+    assert 'echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"' in workflow
+    scan_step = workflow.split("- name: Scan the immutable inference image", 1)[1].split(
+        "- name: Apply API platform", 1
+    )[0]
+    assert "scan-type: image" in scan_step
+    assert "image-ref: ${{ steps.image.outputs.image_tag }}" in scan_step
+    assert "vuln-type: os,library" in scan_step
+    assert "severity: HIGH,CRITICAL" in scan_step
+    assert 'exit-code: "1"' in scan_step
+    assert "ignore-unfixed: false" in scan_step
     assert '--source-image-uri "$source_image"' in workflow
     assert "work/image-promotion.json" in workflow
     assert '--arg schema_version "nailsize-deployment@3"' in workflow

@@ -259,8 +259,20 @@ jobs:
               --destination-image-uri "$image_uri" \
               --output work/image-promotion.json
           fi
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
           echo "image_uri=$image_uri" >> "$GITHUB_OUTPUT"
           echo "promoted_from_image_uri=$source_image" >> "$GITHUB_OUTPUT"
+
+      # v0.36.0, pinned to the signed release commit after the 2026 supply-chain incident.
+      - name: Scan the immutable inference image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: image
+          image-ref: ${{ steps.image.outputs.image_tag }}
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
 
       - name: Apply API platform
         id: platform

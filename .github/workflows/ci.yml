@@ -149,9 +149,10 @@ jobs:
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           scan-type: fs
+          vuln-type: os,library
           severity: HIGH,CRITICAL
           exit-code: "1"
-          ignore-unfixed: true
+          ignore-unfixed: false
 
   container:
     runs-on: ubuntu-latest
@@ -169,10 +170,22 @@ jobs:
           PYTHONPATH=services/inference
           python services/inference/tests/generate_container_contract_model.py
           services/inference/models/nail-segmentation.onnx
-      - name: Build and privacy-smoke the runtime image
+      - name: Build the runtime image
+        working-directory: services/inference
+        run: docker build -t nailsize-inference:contract .
+      # v0.36.0, pinned to the signed release commit after the 2026 supply-chain incident.
+      - name: Scan the built runtime image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: image
+          image-ref: nailsize-inference:contract
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+      - name: Privacy-smoke the scanned runtime image
         working-directory: services/inference
         run: |
-          docker build -t nailsize-inference:contract .
           MODEL_SHA256="$(sha256sum models/nail-segmentation.onnx | cut -d ' ' -f 1)"
           docker run --detach --name nailsize-contract --publish 8080:8080 \
             --read-only --cap-drop ALL --security-opt no-new-privileges \

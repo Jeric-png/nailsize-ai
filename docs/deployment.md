@@ -45,8 +45,9 @@ Cloud provisioning is deliberately ordered to avoid a fresh-project dependency c
 
 1. Apply `infra/bootstrap` to enable required APIs and create the environment-specific Artifact Registry repository plus role-less runtime identity.
 2. In staging, build the validated container, push it to that repository, and resolve its immutable repository digest. For production, copy the staging-tested digest into the production repository without rebuilding it.
-3. Apply `infra/platform` with that exact digest-pinned URI. The stack rejects images from another environment or repository.
-4. Apply `infra/observability` after the service and verified notification channels exist.
+3. Scan the exact locally tagged staging-built or production-promoted image with the pinned Trivy action. Any high or critical OS/library finding, including one without a published fix, stops the workflow before Cloud Run changes.
+4. Apply `infra/platform` with that exact digest-pinned URI. The stack rejects images from another environment or repository.
+5. Apply `infra/observability` after the service and verified notification channels exist.
 
 `infra/platform` provisions the Cloud Run service and an isolated ONNX benchmark job, a serverless NEG, a global external HTTPS load balancer, a Google-managed certificate, HTTP-to-HTTPS redirection, full backend request logging, and a Cloud Armor per-IP throttle. Cloud Run uses load-balancer-only ingress, disables its default service URL, and locks concurrency, timeout, CPU, memory, warm capacity, probes, and immutable model metadata. The benchmark job uses the identical digest-pinned image and model, Gen2, 2 vCPU/4 GiB, one task, zero retries, and no network or persistence dependency. Every environment, domain, digest, capacity, and rate-limit value is required; the stack does not invent deployable defaults.
 
