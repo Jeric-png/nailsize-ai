@@ -132,27 +132,27 @@ def _audit_environment(
         return {"name": name, "exists": False, "passed": False}
 
     encoded_name = quote(name, safe="")
-    try:
-        variables_payload = client.get_json(f"/{encoded_name}/variables?per_page=100")
-        secrets_payload = client.get_json(f"/{encoded_name}/secrets?per_page=100")
-    except RuntimeError as error:
-        return {
-            "name": name,
-            "exists": True,
-            "audit_error": str(error),
-            "passed": False,
-        }
-    variable_names = _named_page(variables_payload, "variables")
-    secret_names = _named_page(secrets_payload, "secrets")
+    variable_names, variable_error = _read_named_page(
+        client, f"/environments/{encoded_name}/variables?per_page=100", "variables"
+    )
+    secret_names, secret_error = _read_named_page(
+        client, f"/environments/{encoded_name}/secrets?per_page=100", "secrets"
+    )
+    metadata_errors = [error for error in (variable_error, secret_error) if error]
 
     if name == "development":
-        return {
+        result: dict[str, object] = {
             "name": name,
             "exists": True,
-            "configured_variable_names": sorted(variable_names),
-            "configured_secret_names": sorted(secret_names),
-            "passed": not variable_names and not secret_names,
+            "passed": not metadata_errors and variable_names == set() and secret_names == set(),
         }
+        if variable_names is not None:
+            result["configured_variable_names"] = sorted(variable_names)
+        if secret_names is not None:
+            result["configured_secret_names"] = sorted(secret_names)
+        if metadata_errors:
+            result["metadata_errors"] = metadata_errors
+        return result
 
     rules = _object_list(environment, "protection_rules")
     reviewer_rules = [rule for rule in rules if rule.get("type") == "required_reviewers"]
@@ -170,28 +170,33 @@ def _audit_environment(
         isinstance(deployment_policy, dict)
         and deployment_policy.get("custom_branch_policies") is True
     ):
-        try:
-            policies_payload = client.get_json(
-                f"/{encoded_name}/deployment-branch-policies?per_page=100"
-            )
-        except RuntimeError as error:
-            return {
-                "name": name,
-                "exists": True,
-                "audit_error": str(error),
-                "passed": False,
-            }
-        policy_names = _named_page(policies_payload, "branch_policies")
+        policy_names_result, policy_error = _read_named_page(
+            client,
+            f"/environments/{encoded_name}/deployment-branch-policies?per_page=100",
+            "branch_policies",
+        )
+        if policy_error:
+            metadata_errors.append(policy_error)
+        if policy_names_result is not None:
+            policy_names = policy_names_result
     main_only = (
         isinstance(deployment_policy, dict)
         and deployment_policy.get("protected_branches") is False
         and deployment_policy.get("custom_branch_policies") is True
         and policy_names == {"main"}
     )
-    missing_variables = sorted(REQUIRED_VARIABLE_NAMES - variable_names)
-    unexpected_variables = sorted(variable_names - REQUIRED_VARIABLE_NAMES)
-    missing_secrets = sorted(REQUIRED_SECRET_NAMES - secret_names)
-    unexpected_secrets = sorted(secret_names - REQUIRED_SECRET_NAMES)
+    missing_variables = (
+        sorted(REQUIRED_VARIABLE_NAMES - variable_names) if variable_names is not None else None
+    )
+    unexpected_variables = (
+        sorted(variable_names - REQUIRED_VARIABLE_NAMES) if variable_names is not None else None
+    )
+    missing_secrets = (
+        sorted(REQUIRED_SECRET_NAMES - secret_names) if secret_names is not None else None
+    )
+    unexpected_secrets = (
+        sorted(secret_names - REQUIRED_SECRET_NAMES) if secret_names is not None else None
+    )
     protected = (
         len(reviewer_rules) == 1
         and reviewer_count >= 1
@@ -199,7 +204,8 @@ def _audit_environment(
         and (name != "production" or prevent_self_review)
     )
     passed = (
-        not any(
+        not metadata_errors
+        and not any(
             (
                 missing_variables,
                 unexpected_variables,
@@ -209,20 +215,42 @@ def _audit_environment(
         )
         and protected
     )
-    return {
+    result = {
         "name": name,
         "exists": True,
         "required_reviewer_count": reviewer_count,
         "prevent_self_review": prevent_self_review,
         "deployment_branch_names": sorted(policy_names),
-        "configured_variable_names": sorted(variable_names),
-        "missing_variable_names": missing_variables,
-        "unexpected_variable_names": unexpected_variables,
-        "configured_secret_names": sorted(secret_names),
-        "missing_secret_names": missing_secrets,
-        "unexpected_secret_names": unexpected_secrets,
         "passed": passed,
     }
+    if variable_names is not None:
+        result.update(
+            {
+                "configured_variable_names": sorted(variable_names),
+                "missing_variable_names": missing_variables,
+                "unexpected_variable_names": unexpected_variables,
+            }
+        )
+    if secret_names is not None:
+        result.update(
+            {
+                "configured_secret_names": sorted(secret_names),
+                "missing_secret_names": missing_secrets,
+                "unexpected_secret_names": unexpected_secrets,
+            }
+        )
+    if metadata_errors:
+        result["metadata_errors"] = metadata_errors
+    return result
+
+
+def _read_named_page(
+    client: EnvironmentClient, suffix: str, key: str
+) -> tuple[set[str] | None, str | None]:
+    try:
+        return _named_page(client.get_json(suffix), key), None
+    except RuntimeError as error:
+        return None, str(error)
 
 
 def _named_page(payload: dict[str, object], key: str) -> set[str]:

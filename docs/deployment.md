@@ -112,6 +112,8 @@ A deployable model is a published, non-prerelease GitHub release whose tag resol
 
 `.github/workflows/deploy.yml` is manual-only, runs only from `main`, serializes each environment, and uses the matching GitHub protected environment. Production additionally requires the literal dispatch confirmation `DEPLOY_PRODUCTION` and `DELETION_PROTECTION=true`. Configure required reviewers, prevent self-review for production, and restrict both environments to `main` before adding credentials.
 
+The live repository currently has `development`, `staging`, and `production`, with `main` as the only staging/production deployment branch. The current private-repository billing plan rejects required reviewers. Do not move deployment values into shared repository variables or secrets to bypass that isolation boundary. Upgrade to a supported plan or approve an equivalent external protection control before adding credentials or dispatching this workflow.
+
 Create a dedicated Google deployment service account and GitHub workload identity provider. Bind `roles/iam.workloadIdentityUser` only to the exact environment subjects:
 
 ```text

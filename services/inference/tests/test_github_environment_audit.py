@@ -14,11 +14,14 @@ SPEC.loader.exec_module(AUDIT)
 class FakeClient:
     repository = "Jeric-png/nailsize-ai"
 
-    def __init__(self, responses: dict[str, dict[str, object]]) -> None:
+    def __init__(self, responses: dict[str, dict[str, object] | RuntimeError]) -> None:
         self.responses = responses
 
     def get_json(self, suffix: str) -> dict[str, object]:
-        return self.responses[suffix]
+        response = self.responses[suffix]
+        if isinstance(response, RuntimeError):
+            raise response
+        return response
 
 
 def named_page(key: str, names: set[str]) -> dict[str, object]:
@@ -55,16 +58,16 @@ def valid_responses() -> dict[str, dict[str, object]]:
             "environments": environments,
         }
     }
-    responses["/development/variables?per_page=100"] = named_page("variables", set())
-    responses["/development/secrets?per_page=100"] = named_page("secrets", set())
+    responses["/environments/development/variables?per_page=100"] = named_page("variables", set())
+    responses["/environments/development/secrets?per_page=100"] = named_page("secrets", set())
     for name in AUDIT.DEPLOYMENT_ENVIRONMENTS:
-        responses[f"/{name}/variables?per_page=100"] = named_page(
+        responses[f"/environments/{name}/variables?per_page=100"] = named_page(
             "variables", set(AUDIT.REQUIRED_VARIABLE_NAMES)
         )
-        responses[f"/{name}/secrets?per_page=100"] = named_page(
+        responses[f"/environments/{name}/secrets?per_page=100"] = named_page(
             "secrets", set(AUDIT.REQUIRED_SECRET_NAMES)
         )
-        responses[f"/{name}/deployment-branch-policies?per_page=100"] = named_page(
+        responses[f"/environments/{name}/deployment-branch-policies?per_page=100"] = named_page(
             "branch_policies", {"main"}
         )
     return responses
@@ -103,10 +106,10 @@ def test_environment_audit_fails_closed_for_missing_or_shadow_environments() -> 
 
 def test_environment_audit_rejects_configuration_and_protection_drift() -> None:
     responses = valid_responses()
-    responses["/staging/variables?per_page=100"] = named_page(
+    responses["/environments/staging/variables?per_page=100"] = named_page(
         "variables", set(AUDIT.REQUIRED_VARIABLE_NAMES) - {"API_DOMAIN"} | {"UNREVIEWED_VALUE"}
     )
-    responses["/production/deployment-branch-policies?per_page=100"] = named_page(
+    responses["/environments/production/deployment-branch-policies?per_page=100"] = named_page(
         "branch_policies", {"release-candidate"}
     )
     production = responses["/environments?per_page=100"]["environments"][2]
@@ -124,10 +127,12 @@ def test_environment_audit_rejects_configuration_and_protection_drift() -> None:
 
 def test_environment_audit_rejects_unrestricted_deployment_and_development_secrets() -> None:
     responses = valid_responses()
-    responses["/development/secrets?per_page=100"] = named_page("secrets", {"SHADOW_TOKEN"})
+    responses["/environments/development/secrets?per_page=100"] = named_page(
+        "secrets", {"SHADOW_TOKEN"}
+    )
     staging = responses["/environments?per_page=100"]["environments"][1]
     staging["deployment_branch_policy"] = None
-    del responses["/staging/deployment-branch-policies?per_page=100"]
+    del responses["/environments/staging/deployment-branch-policies?per_page=100"]
 
     report = AUDIT.audit_github_environments(FakeClient(responses))
 
@@ -137,6 +142,27 @@ def test_environment_audit_rejects_unrestricted_deployment_and_development_secre
     assert development["passed"] is False
     assert staging["deployment_branch_names"] == []
     assert staging["passed"] is False
+
+
+def test_environment_audit_preserves_branch_evidence_when_metadata_is_unavailable() -> None:
+    responses = valid_responses()
+    for name in AUDIT.EXPECTED_ENVIRONMENTS:
+        responses[f"/environments/{name}/variables?per_page=100"] = RuntimeError(
+            f"GitHub API returned HTTP 404 for /environments/{name}/variables"
+        )
+
+    report = AUDIT.audit_github_environments(FakeClient(responses))
+
+    development, staging, production = report["environments"]
+    assert report["passed"] is False
+    assert development["metadata_errors"] == [
+        "GitHub API returned HTTP 404 for /environments/development/variables"
+    ]
+    for environment in (staging, production):
+        assert environment["deployment_branch_names"] == ["main"]
+        assert environment["configured_secret_names"] == ["VERCEL_TOKEN"]
+        assert "configured_variable_names" not in environment
+        assert environment["passed"] is False
 
 
 def test_audit_contract_matches_workflow_and_deployment_documentation() -> None:
