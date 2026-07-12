@@ -66,7 +66,7 @@ The workflow:
 4. pulls the selected preview or production project configuration and verifies the protected organization/project IDs, compatible static settings, no application variables, and at most Vercel's managed `VERCEL_OIDC_TOKEN` system key;
 5. for production, preflights the protected hostname against Vercel's project-domain API before any alias can move;
 6. removes the deploy token from the environment used by `vercel build`;
-7. proves `.vercel/output/static` is byte-for-byte identical to the already audited `apps/web/dist`, uses Build Output API v3, contains no function output, and records a canonical SHA-256 digest of the HTML, script, and stylesheet;
+7. proves `.vercel/output/static` is byte-for-byte identical to the already audited `apps/web/dist`, uses Build Output API v3, allows only bounded Vercel-generated `builds.json` and `diagnostics/` metadata beside it, contains no function output, and records a canonical SHA-256 digest of the served HTML, script, and stylesheet;
 8. deploys that exact prebuilt output (production uses `--prod --skip-domain` so live aliases do not move yet);
 9. verifies the CLI identity and the authenticated REST metadata, including deployment/project/team IDs, release commit, prebuilt state, target, and readiness;
 10. requires the generated candidate URL to serve the locally recorded artifact digest; and

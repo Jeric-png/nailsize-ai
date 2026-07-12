@@ -175,6 +175,30 @@ test("accepts only a byte-identical static Vercel output", () => {
   );
   assert.equal(exact.status, 0, exact.stderr);
 
+  writeJson(path.join(output, "builds.json"), {
+    version: 1,
+    cliVersion: "55.0.0",
+  });
+  writeJson(path.join(output, "diagnostics", "build.json"), {
+    status: "ready",
+  });
+  const withVercelMetadata = run(
+    "verify-guided-build.mjs",
+    [".vercel/output/static"],
+    directory,
+  );
+  assert.equal(withVercelMetadata.status, 0, withVercelMetadata.stderr);
+
+  writeFileSync(path.join(output, "builds.json"), "not-json", "utf8");
+  const invalidMetadata = run(
+    "verify-guided-build.mjs",
+    [".vercel/output/static"],
+    directory,
+  );
+  assert.notEqual(invalidMetadata.status, 0);
+  assert.match(invalidMetadata.stderr, /valid JSON metadata/u);
+  writeJson(path.join(output, "builds.json"), { version: 1 });
+
   mkdirSync(path.join(output, "functions"));
   const functionOutput = run(
     "verify-guided-build.mjs",

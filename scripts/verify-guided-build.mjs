@@ -1,4 +1,4 @@
-import { appendFile, readdir, readFile } from "node:fs/promises";
+import { appendFile, readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   forbiddenClientBindings,
@@ -83,13 +83,41 @@ function safeAssetPath(applicationRoot, pathname) {
 async function verifyVercelOutput(staticRoot) {
   const outputRoot = path.dirname(staticRoot);
   const entries = await readdir(outputRoot, { withFileTypes: true });
+  const allowedEntries = new Set([
+    "builds.json",
+    "config.json",
+    "diagnostics",
+    "static",
+  ]);
   const unexpected = entries
     .map((entry) => entry.name)
-    .filter((name) => name !== "config.json" && name !== "static");
+    .filter((name) => !allowedEntries.has(name));
   if (unexpected.length > 0)
     throw new Error(
       `Static Vercel output contains unexpected entries: ${unexpected.join(", ")}.`,
     );
+
+  const byName = new Map(entries.map((entry) => [entry.name, entry]));
+  assertEntryType(byName, "config.json", "file");
+  assertEntryType(byName, "static", "directory");
+
+  if (byName.has("builds.json")) {
+    assertEntryType(byName, "builds.json", "file");
+    const buildsPath = path.join(outputRoot, "builds.json");
+    const buildsStat = await stat(buildsPath);
+    if (buildsStat.size > 2 * 1024 * 1024)
+      throw new Error("Vercel builds.json exceeds the metadata size limit.");
+    try {
+      JSON.parse(await readFile(buildsPath, "utf8"));
+    } catch {
+      throw new Error("Vercel builds.json must contain valid JSON metadata.");
+    }
+  }
+
+  if (byName.has("diagnostics")) {
+    assertEntryType(byName, "diagnostics", "directory");
+    await verifyDiagnostics(path.join(outputRoot, "diagnostics"));
+  }
 
   const config = JSON.parse(
     await readFile(path.join(outputRoot, "config.json"), "utf8"),
@@ -119,6 +147,42 @@ async function verifyVercelOutput(staticRoot) {
     if (!distContent.equals(vercelContent))
       throw new Error(
         `Vercel prebuilt asset ${relative} differs from the audited Vite distribution.`,
+      );
+  }
+}
+
+function assertEntryType(entries, name, expectedType) {
+  const entry = entries.get(name);
+  const matches =
+    expectedType === "file" ? entry?.isFile() : entry?.isDirectory();
+  if (!matches)
+    throw new Error(`Vercel output ${name} must be a regular ${expectedType}.`);
+}
+
+async function verifyDiagnostics(directory) {
+  const limits = { files: 100, bytes: 5 * 1024 * 1024 };
+  const totals = { files: 0, bytes: 0 };
+  await inspectDiagnostics(directory, totals, limits);
+}
+
+async function inspectDiagnostics(directory, totals, limits) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries) {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await inspectDiagnostics(target, totals, limits);
+      continue;
+    }
+    if (!entry.isFile())
+      throw new Error(
+        "Vercel diagnostics metadata may contain only regular files and directories.",
+      );
+
+    totals.files += 1;
+    totals.bytes += (await stat(target)).size;
+    if (totals.files > limits.files || totals.bytes > limits.bytes)
+      throw new Error(
+        "Vercel diagnostics metadata exceeds the allowed limits.",
       );
   }
 }
