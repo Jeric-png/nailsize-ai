@@ -49,22 +49,40 @@ def evidence_payloads():
     return {
         "model-release-manifest.json": {
             "schema_version": "nailsize-model-release@7",
+            "checkpoint_sha256": "d" * 64,
             "model_version": "model-2026-07",
             "model_sha256": MODEL_SHA,
+            "onnx_parity_max_abs_error": 0.00001,
+            "dataset_version": "dataset-2026-07",
+            "dataset_provenance_sha256": "e" * 64,
+            "holdout_lock_sha256": "f" * 64,
+            "segmentation_evaluation_sha256": "1" * 64,
+            "chart_id": "platform-default",
+            "chart_version": "1",
+            "segmentation_boundary_error_px": 1.2,
+            "accuracy_participant_count": 200,
+            "accuracy_nail_count": 2000,
+            "annotation_paired_item_count": 200,
+            "annotation_paired_participant_count": 20,
+            "size_calibration_participant_count": 200,
+            "size_calibration_nail_count": 2000,
+            "operational_participant_count": 200,
             "approved": True,
         },
-        "github-environment-audit.json": {
-            "schema_version": "nailsize-github-environment-audit@1",
-            "repository": "Jeric-png/nailsize-ai",
-            "passed": True,
-        },
+        "github-environment-audit.json": environment_audit(),
         "staging-promotion.json": {
             "schema_version": "nailsize-staging-promotion@1",
+            "staging_run_id": "12345",
             "git_commit_sha": COMMIT,
             "model_release_tag": "model-release-v1",
             "model_version": "model-2026-07",
             "model_sha256": MODEL_SHA,
+            "staging_frontend_host": "staging.nailsize.example",
+            "staging_api_host": "api-staging.nailsize.example",
             "staging_image_uri": SOURCE_IMAGE,
+            "staging_benchmark_execution": "nailsize-staging-onnx-benchmark-abc123",
+            "staging_vercel_deployment_id": "vercel-staging-1",
+            "smoke_checks_passed": 7,
             "passed": True,
         },
         "deployment-manifest.json": {
@@ -82,15 +100,35 @@ def evidence_payloads():
         "onnx-runtime-benchmark.json": {
             "schema_version": "nailsize-cloud-run-onnx-benchmark@1",
             "environment": "production",
+            "cloud_run_job": "nailsize-production-onnx-benchmark",
+            "cloud_run_execution": "nailsize-production-onnx-benchmark-abc123",
+            "image_uri": DESTINATION_IMAGE,
             "model_version": "model-2026-07",
             "model_sha256": MODEL_SHA,
-            "image_uri": DESTINATION_IMAGE,
+            "provider": "CPUExecutionProvider",
+            "iterations": 200,
+            "warmup_iterations": 20,
+            "input_shape": [1, 3, 224, 160],
+            "output_shape": [1, 1, 224, 160],
+            "runtime_contract": {
+                "cpu": "2",
+                "memory": "4Gi",
+                "execution_environment": "gen2",
+                "task_count": 1,
+                "parallelism": 1,
+                "max_retries": 0,
+                "timeout_seconds": 300,
+            },
+            "latency_ms": {"p50": 100.0, "p95": 200.0, "p99": 300.0},
+            "limits_ms": {"p50": 2000.0, "p95": 5000.0, "p99": 10000.0},
+            "checks": {field: True for field in READINESS.BENCHMARK_CHECK_FIELDS},
             "passed": True,
         },
         "runtime-model-verification.json": {
             "schema_version": "nailsize-runtime-model-verification@1",
             "model_version": "model-2026-07",
             "model_sha256": MODEL_SHA,
+            "runtime_provider": "CPUExecutionProvider",
             "status": "ready",
         },
         "image-promotion.json": {
@@ -102,8 +140,11 @@ def evidence_payloads():
         },
         "vercel-deployment.json": {
             "schema_version": "nailsize-vercel-deployment@1",
-            "git_commit_sha": COMMIT,
+            "deployment_id": "vercel-production-1",
+            "generated_url": "https://generated.nailsize.example",
             "frontend_url": "https://nailsize.example",
+            "git_commit_sha": COMMIT,
+            "project_id": "project-production-1",
             "target": "production",
             "ready_state": "READY",
             "ready_substate": "PROMOTED",
@@ -115,20 +156,30 @@ def evidence_payloads():
             "api_host": "api.nailsize.example",
             "expected_model_version": "model-2026-07",
             "checks": [
-                {"name": name, "passed": True} for name in sorted(READINESS.EXPECTED_SMOKE_CHECKS)
+                {
+                    "name": name,
+                    "passed": True,
+                    "status_code": 200,
+                    "result": READINESS.EXPECTED_SMOKE_RESULTS[name],
+                }
+                for name in sorted(READINESS.EXPECTED_SMOKE_CHECKS)
             ],
             "passed": True,
         },
-        "client-certification.json": {
-            "schema_version": "nailsize-client-certification@1",
-            "release_version": "release-2026-07",
-            "tested_commit_sha": COMMIT,
-            "decision": "client_validation_passed",
-            "public_launch_may_continue": True,
-            "passed": True,
-        },
+        "client-certification.json": client_certification(),
         "privacy-release-boundary.json": {
             "schema_version": "nailsize-privacy-release-boundary@1",
+            "scope": "source-managed-runtime-and-infrastructure",
+            "web_runtime_dependency_count": 4,
+            "inference_runtime_dependency_count": 10,
+            "terraform_resource_count": 28,
+            "terraform_resource_type_count": 20,
+            "terraform_log_field_count": 8,
+            "container_access_log_disabled": True,
+            "load_balancer_metadata_logging_only": True,
+            "browser_payload_url_fields": 0,
+            "third_party_browser_script_origins": 0,
+            "persistent_payload_service_types": 0,
             "passed": True,
         },
         "release-attestations.json": {
@@ -140,6 +191,106 @@ def evidence_payloads():
             "security_and_defects": security,
             "signoffs": {field: f"evidence:{field}" for field in READINESS.SIGNOFF_FIELDS},
         },
+    }
+
+
+def environment_audit():
+    deployment_environments = []
+    for name in ("staging", "production"):
+        deployment_environments.append(
+            {
+                "name": name,
+                "exists": True,
+                "required_reviewer_count": 1,
+                "prevent_self_review": name == "production",
+                "deployment_branch_names": ["main"],
+                "configured_variable_names": ["API_DOMAIN"],
+                "missing_variable_names": [],
+                "unexpected_variable_names": [],
+                "configured_secret_names": ["VERCEL_TOKEN"],
+                "missing_secret_names": [],
+                "unexpected_secret_names": [],
+                "passed": True,
+            }
+        )
+    return {
+        "schema_version": "nailsize-github-environment-audit@1",
+        "repository": "Jeric-png/nailsize-ai",
+        "expected_environment_names": ["development", "staging", "production"],
+        "unexpected_environment_names": [],
+        "environments": [
+            {
+                "name": "development",
+                "exists": True,
+                "configured_variable_names": [],
+                "configured_secret_names": [],
+                "passed": True,
+            },
+            *deployment_environments,
+        ],
+        "passed": True,
+    }
+
+
+def client_certification():
+    return {
+        "schema_version": "nailsize-client-certification@1",
+        "release_version": "release-2026-07",
+        "tested_commit_sha": COMMIT,
+        "required_platforms": list(READINESS.BROWSER_PLATFORMS),
+        "required_version_slots": list(READINESS.BROWSER_VERSION_SLOTS),
+        "browser_version_review_ref": "review:browser-versions",
+        "client_certification_review_ref": "review:client-certification",
+        "certification_review_present": True,
+        "browser_matrix": [
+            {
+                "platform": platform,
+                "version_slot": slot,
+                "browser_major": 130 - index,
+                "execution_environment": (
+                    "physical_device"
+                    if platform in {"ios_safari", "android_chrome"}
+                    else "hosted_real_browser"
+                ),
+                "run_ref": f"run:{platform}:{slot}",
+                "passed": True,
+            }
+            for platform in READINESS.BROWSER_PLATFORMS
+            for index, slot in enumerate(READINESS.BROWSER_VERSION_SLOTS)
+        ],
+        "missing_browser_requirements": [],
+        "consecutive_version_coverage": {
+            platform: True for platform in READINESS.BROWSER_PLATFORMS
+        },
+        "browser_evidence_complete": True,
+        "browser_passed": True,
+        "accessibility": {
+            "automated_mobile_scan_ref": "scan:axe-mobile",
+            "automated_mobile_passed": True,
+            "automated_desktop_scan_ref": "scan:axe-desktop",
+            "automated_desktop_passed": True,
+            "keyboard_review_ref": "review:keyboard",
+            "keyboard_passed": True,
+            "voiceover_review_ref": "review:voiceover",
+            "voiceover_passed": True,
+            "talkback_review_ref": "review:talkback",
+            "talkback_passed": True,
+            "blocking_issue_count": 0,
+            "accessibility_review_ref": "review:accessibility",
+            "checks": {
+                "automated_mobile": True,
+                "automated_desktop": True,
+                "keyboard": True,
+                "voiceover": True,
+                "talkback": True,
+                "zero_blocking_issues": True,
+            },
+            "evidence_complete": True,
+            "passed": True,
+        },
+        "decision": "client_validation_passed",
+        "public_launch_may_continue": True,
+        "passed": True,
     }
 
 
@@ -248,9 +399,52 @@ def test_incomplete_smoke_contract_and_bad_production_control_block(tmp_path) ->
 
     report = READINESS.build_release_readiness_report(bundle)
 
-    assert report["decision"] == "release_blocked"
+    assert report["decision"] == "insufficient_evidence"
     assert report["checks"]["production_smoke_passed"] is False
     assert report["checks"]["production_controls_passed"] is False
+
+
+def test_extra_top_level_or_nested_artifact_fields_are_insufficient(tmp_path) -> None:
+    artifact_names = {
+        "model-release-manifest.json": "model_release",
+        "github-environment-audit.json": "environment_audit",
+        "staging-promotion.json": "staging_promotion",
+        "deployment-manifest.json": "production_deployment",
+        "onnx-runtime-benchmark.json": "production_benchmark",
+        "runtime-model-verification.json": "runtime_model",
+        "image-promotion.json": "image_promotion",
+        "vercel-deployment.json": "vercel_deployment",
+        "deployment-smoke.json": "production_smoke",
+        "client-certification.json": "client_certification",
+        "privacy-release-boundary.json": "privacy_boundary",
+    }
+    for index, (filename, schema_name) in enumerate(artifact_names.items()):
+        top_level = evidence_payloads()
+        top_level[filename]["reviewer_email"] = "private@example.com"
+        bundle = tmp_path / f"top-level-{index}"
+        write_bundle(bundle, top_level)
+        report = READINESS.build_release_readiness_report(bundle)
+        assert report["decision"] == "insufficient_evidence"
+        assert report["schema_checks"][schema_name] is False
+
+    nested_mutations = (
+        ("github-environment-audit.json", "environment_audit", "environments"),
+        ("onnx-runtime-benchmark.json", "production_benchmark", "checks"),
+        ("deployment-smoke.json", "production_smoke", "checks"),
+        ("client-certification.json", "client_certification", "browser_matrix"),
+    )
+    for index, (filename, schema_name, field) in enumerate(nested_mutations):
+        nested = evidence_payloads()
+        value = nested[filename][field]
+        if isinstance(value, list):
+            value[0]["private_payload"] = "private"
+        else:
+            value["private_payload"] = True
+        bundle = tmp_path / f"nested-{index}"
+        write_bundle(bundle, nested)
+        report = READINESS.build_release_readiness_report(bundle)
+        assert report["decision"] == "insufficient_evidence"
+        assert report["schema_checks"][schema_name] is False
 
 
 def test_exact_file_and_attestation_schemas_reject_extra_or_private_data(tmp_path) -> None:

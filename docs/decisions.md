@@ -58,5 +58,5 @@
 ## ADR-010 — Require one identity-linked release-readiness decision
 
 - Status: Accepted
-- Decision: Do not infer production readiness from independently green artifacts or checklist prose. The final gate consumes an exact aggregate-only evidence directory, cross-checks commit, model, image, host, and revision identity across the release chain, and separately requires deployed-control reviews, zero priority security/defect counts, and four accountable sign-offs. Missing references produce `insufficient_evidence`; complete failing evidence produces `release_blocked`.
+- Decision: Do not infer production readiness from independently green artifacts or checklist prose. The final gate consumes an exact aggregate-only evidence directory, validates every retained top-level and security-sensitive nested schema rather than trusting version labels, cross-checks commit, model, image, host, and revision identity across the release chain, and separately requires deployed-control reviews, zero priority security/defect counts, and four accountable sign-offs. Missing references or malformed report contracts produce `insufficient_evidence`; complete failing evidence produces `release_blocked`.
 - Reason: Only an identity-consistent `release_ready` report may authorize public launch or goal closure.

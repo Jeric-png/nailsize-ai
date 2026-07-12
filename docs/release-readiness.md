@@ -19,7 +19,7 @@ Create a private working directory containing exactly these aggregate-only files
 - `privacy-release-boundary.json`
 - `release-attestations.json`
 
-The first eleven files are outputs of the existing release tools and deployment workflows. Download the exact production artifacts; do not rewrite them. `release-attestations.json` uses schema `nailsize-release-readiness-attestations@1`. It contains only the repository, immutable release version and commit, boolean/count results, and bounded evidence references—never reviewer names, email addresses, credentials, customer data, free-form notes, or scan payloads.
+The first eleven files are outputs of the existing release tools and deployment workflows. Download the exact production artifacts; do not rewrite them. A matching schema-version label alone is insufficient: the verifier requires every retained top-level field and the exact nested contracts for protected environments, Cloud Run benchmark metrics/checks, live smoke results, branded-browser records, and accessibility evidence. Missing or extra fields therefore cannot smuggle private payloads or impersonate a complete upstream report. `release-attestations.json` uses schema `nailsize-release-readiness-attestations@1`. It contains only the repository, immutable release version and commit, boolean/count results, and bounded evidence references—never reviewer names, email addresses, credentials, customer data, free-form notes, or scan payloads.
 
 The attestation has three exact objects:
 

@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,192 @@ EXPECTED_SMOKE_CHECKS = frozenset(
         "frontend_api_binding",
     }
 )
+EXPECTED_SMOKE_RESULTS = {
+    "api_health": "identity_verified",
+    "api_readiness": "identity_verified",
+    "cors_trusted_origin": "exact_origin_allowed",
+    "cors_untrusted_origin": "untrusted_origin_rejected",
+    "malformed_upload_rejected": "typed_no_store_rejection",
+    "frontend_security_headers": "security_headers_present",
+    "frontend_api_binding": "exact_api_origin_embedded",
+}
+ARTIFACT_FIELDS = {
+    "model_release": frozenset(
+        {
+            "schema_version",
+            "checkpoint_sha256",
+            "model_version",
+            "model_sha256",
+            "onnx_parity_max_abs_error",
+            "dataset_version",
+            "dataset_provenance_sha256",
+            "holdout_lock_sha256",
+            "segmentation_evaluation_sha256",
+            "chart_id",
+            "chart_version",
+            "segmentation_boundary_error_px",
+            "accuracy_participant_count",
+            "accuracy_nail_count",
+            "annotation_paired_item_count",
+            "annotation_paired_participant_count",
+            "size_calibration_participant_count",
+            "size_calibration_nail_count",
+            "operational_participant_count",
+            "approved",
+        }
+    ),
+    "environment_audit": frozenset(
+        {
+            "schema_version",
+            "repository",
+            "expected_environment_names",
+            "unexpected_environment_names",
+            "environments",
+            "passed",
+        }
+    ),
+    "staging_promotion": frozenset(
+        {
+            "schema_version",
+            "staging_run_id",
+            "git_commit_sha",
+            "model_release_tag",
+            "model_version",
+            "model_sha256",
+            "staging_frontend_host",
+            "staging_api_host",
+            "staging_image_uri",
+            "staging_benchmark_execution",
+            "staging_vercel_deployment_id",
+            "smoke_checks_passed",
+            "passed",
+        }
+    ),
+    "production_deployment": frozenset(
+        {
+            "schema_version",
+            "environment",
+            "git_commit_sha",
+            "api_url",
+            "frontend_url",
+            "image_uri",
+            "promoted_from_image_uri",
+            "model_release_tag",
+            "model_version",
+            "model_sha256",
+        }
+    ),
+    "production_benchmark": frozenset(
+        {
+            "schema_version",
+            "environment",
+            "cloud_run_job",
+            "cloud_run_execution",
+            "image_uri",
+            "model_version",
+            "model_sha256",
+            "provider",
+            "iterations",
+            "warmup_iterations",
+            "input_shape",
+            "output_shape",
+            "runtime_contract",
+            "latency_ms",
+            "limits_ms",
+            "checks",
+            "passed",
+        }
+    ),
+    "runtime_model": frozenset(
+        {"schema_version", "model_version", "model_sha256", "runtime_provider", "status"}
+    ),
+    "image_promotion": frozenset(
+        {"schema_version", "source_image_uri", "destination_image_uri", "digest", "passed"}
+    ),
+    "vercel_deployment": frozenset(
+        {
+            "schema_version",
+            "deployment_id",
+            "generated_url",
+            "frontend_url",
+            "git_commit_sha",
+            "project_id",
+            "ready_state",
+            "ready_substate",
+            "target",
+        }
+    ),
+    "production_smoke": frozenset(
+        {
+            "schema_version",
+            "environment",
+            "frontend_host",
+            "api_host",
+            "expected_model_version",
+            "checks",
+            "passed",
+        }
+    ),
+    "client_certification": frozenset(
+        {
+            "schema_version",
+            "release_version",
+            "tested_commit_sha",
+            "required_platforms",
+            "required_version_slots",
+            "browser_version_review_ref",
+            "client_certification_review_ref",
+            "certification_review_present",
+            "browser_matrix",
+            "missing_browser_requirements",
+            "consecutive_version_coverage",
+            "browser_evidence_complete",
+            "browser_passed",
+            "accessibility",
+            "decision",
+            "public_launch_may_continue",
+            "passed",
+        }
+    ),
+    "privacy_boundary": frozenset(
+        {
+            "schema_version",
+            "scope",
+            "web_runtime_dependency_count",
+            "inference_runtime_dependency_count",
+            "terraform_resource_count",
+            "terraform_resource_type_count",
+            "terraform_log_field_count",
+            "container_access_log_disabled",
+            "load_balancer_metadata_logging_only",
+            "browser_payload_url_fields",
+            "third_party_browser_script_origins",
+            "persistent_payload_service_types",
+            "passed",
+        }
+    ),
+}
+BENCHMARK_CHECK_FIELDS = frozenset(
+    {
+        "immutable_image",
+        "selected_model",
+        "cloud_run_job_contract",
+        "successful_single_task",
+        "structured_sample_linked",
+        "cpu_tensor_contract",
+        "finite_outputs",
+        "necessary_latency_limits",
+    }
+)
+BROWSER_PLATFORMS = (
+    "ios_safari",
+    "android_chrome",
+    "desktop_chrome",
+    "desktop_edge",
+    "desktop_firefox",
+    "desktop_safari",
+)
+BROWSER_VERSION_SLOTS = ("current", "previous_1", "previous_2")
 _COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 _MODEL_SHA = re.compile(r"^[0-9a-f]{64}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -131,6 +318,8 @@ def build_release_readiness_report(evidence_directory: Path) -> dict[str, Any]:
     }
     schema_checks = {
         name: report.get("schema_version") == schema
+        and set(report) == ARTIFACT_FIELDS[name]
+        and _nested_artifact_contract_valid(name, report)
         for name, (report, schema) in expected_schemas.items()
     }
 
@@ -292,6 +481,257 @@ def build_release_readiness_report(evidence_directory: Path) -> dict[str, Any]:
     }
 
 
+def _nested_artifact_contract_valid(name: str, report: dict[str, Any]) -> bool:
+    if name == "environment_audit":
+        return _environment_contract_valid(report)
+    if name == "production_benchmark":
+        return _benchmark_contract_valid(report)
+    if name == "production_smoke":
+        return _smoke_contract_shape_valid(report)
+    if name == "client_certification":
+        return _client_contract_valid(report)
+    if name == "privacy_boundary":
+        return _privacy_contract_valid(report)
+    if name == "runtime_model":
+        return report.get("runtime_provider") == "CPUExecutionProvider"
+    return True
+
+
+def _environment_contract_valid(report: dict[str, Any]) -> bool:
+    environments = report.get("environments")
+    if (
+        report.get("expected_environment_names") != ["development", "staging", "production"]
+        or report.get("unexpected_environment_names") != []
+        or not isinstance(environments, list)
+        or len(environments) != 3
+    ):
+        return False
+    by_name = {item.get("name"): item for item in environments if isinstance(item, dict)}
+    if set(by_name) != {"development", "staging", "production"}:
+        return False
+    development = by_name["development"]
+    if set(development) != {
+        "name",
+        "exists",
+        "configured_variable_names",
+        "configured_secret_names",
+        "passed",
+    }:
+        return False
+    deployment_fields = {
+        "name",
+        "exists",
+        "required_reviewer_count",
+        "prevent_self_review",
+        "deployment_branch_names",
+        "configured_variable_names",
+        "missing_variable_names",
+        "unexpected_variable_names",
+        "configured_secret_names",
+        "missing_secret_names",
+        "unexpected_secret_names",
+        "passed",
+    }
+    return bool(
+        development.get("exists") is True
+        and development.get("configured_variable_names") == []
+        and development.get("configured_secret_names") == []
+        and development.get("passed") is True
+        and all(
+            set(by_name[environment]) == deployment_fields
+            and by_name[environment].get("exists") is True
+            and _positive_int(by_name[environment].get("required_reviewer_count"))
+            and by_name[environment].get("deployment_branch_names") == ["main"]
+            and by_name[environment].get("missing_variable_names") == []
+            and by_name[environment].get("unexpected_variable_names") == []
+            and by_name[environment].get("configured_secret_names") == ["VERCEL_TOKEN"]
+            and by_name[environment].get("missing_secret_names") == []
+            and by_name[environment].get("unexpected_secret_names") == []
+            and by_name[environment].get("passed") is True
+            for environment in ("staging", "production")
+        )
+        and by_name["production"].get("prevent_self_review") is True
+    )
+
+
+def _benchmark_contract_valid(report: dict[str, Any]) -> bool:
+    latency = report.get("latency_ms")
+    limits = report.get("limits_ms")
+    checks = report.get("checks")
+    runtime = report.get("runtime_contract")
+    expected_runtime = {
+        "cpu": "2",
+        "memory": "4Gi",
+        "execution_environment": "gen2",
+        "task_count": 1,
+        "parallelism": 1,
+        "max_retries": 0,
+        "timeout_seconds": 300,
+    }
+    return bool(
+        report.get("provider") == "CPUExecutionProvider"
+        and _positive_int(report.get("iterations"))
+        and report["iterations"] >= 200
+        and _positive_int(report.get("warmup_iterations"))
+        and report["warmup_iterations"] >= 20
+        and report.get("input_shape") == [1, 3, 224, 160]
+        and report.get("output_shape") == [1, 1, 224, 160]
+        and runtime == expected_runtime
+        and isinstance(latency, dict)
+        and set(latency) == {"p50", "p95", "p99"}
+        and isinstance(limits, dict)
+        and limits == {"p50": 2000.0, "p95": 5000.0, "p99": 10000.0}
+        and all(_finite_number(latency[key]) and 0 <= latency[key] <= limits[key] for key in limits)
+        and isinstance(checks, dict)
+        and set(checks) == BENCHMARK_CHECK_FIELDS
+        and all(value is True for value in checks.values())
+    )
+
+
+def _smoke_contract_shape_valid(report: dict[str, Any]) -> bool:
+    checks = report.get("checks")
+    if not isinstance(checks, list) or len(checks) != len(EXPECTED_SMOKE_CHECKS):
+        return False
+    by_name: dict[Any, dict[str, Any]] = {}
+    for item in checks:
+        if not isinstance(item, dict) or set(item) != {"name", "passed", "status_code", "result"}:
+            return False
+        name = item.get("name")
+        if name in by_name or item.get("passed") is not True:
+            return False
+        if item.get("result") != EXPECTED_SMOKE_RESULTS.get(name):
+            return False
+        status_code = item.get("status_code")
+        if status_code is not None and not _positive_int(status_code):
+            return False
+        by_name[name] = item
+    return set(by_name) == EXPECTED_SMOKE_CHECKS
+
+
+def _client_contract_valid(report: dict[str, Any]) -> bool:
+    browser_matrix = report.get("browser_matrix")
+    coverage = report.get("consecutive_version_coverage")
+    accessibility = report.get("accessibility")
+    expected_browser_fields = {
+        "platform",
+        "version_slot",
+        "browser_major",
+        "execution_environment",
+        "run_ref",
+        "passed",
+    }
+    expected_accessibility_fields = {
+        "automated_mobile_scan_ref",
+        "automated_mobile_passed",
+        "automated_desktop_scan_ref",
+        "automated_desktop_passed",
+        "keyboard_review_ref",
+        "keyboard_passed",
+        "voiceover_review_ref",
+        "voiceover_passed",
+        "talkback_review_ref",
+        "talkback_passed",
+        "blocking_issue_count",
+        "accessibility_review_ref",
+        "checks",
+        "evidence_complete",
+        "passed",
+    }
+    expected_accessibility_checks = {
+        "automated_mobile",
+        "automated_desktop",
+        "keyboard",
+        "voiceover",
+        "talkback",
+        "zero_blocking_issues",
+    }
+    if (
+        report.get("required_platforms") != list(BROWSER_PLATFORMS)
+        or report.get("required_version_slots") != list(BROWSER_VERSION_SLOTS)
+        or report.get("missing_browser_requirements") != []
+        or not isinstance(browser_matrix, list)
+        or len(browser_matrix) != 18
+        or not isinstance(coverage, dict)
+        or set(coverage) != set(BROWSER_PLATFORMS)
+        or not all(value is True for value in coverage.values())
+        or not isinstance(accessibility, dict)
+        or set(accessibility) != expected_accessibility_fields
+        or not isinstance(accessibility.get("checks"), dict)
+        or set(accessibility["checks"]) != expected_accessibility_checks
+        or not all(value is True for value in accessibility["checks"].values())
+        or accessibility.get("blocking_issue_count") != 0
+        or accessibility.get("evidence_complete") is not True
+        or accessibility.get("passed") is not True
+        or not _review_ref(report.get("browser_version_review_ref"))
+        or not _review_ref(report.get("client_certification_review_ref"))
+        or report.get("certification_review_present") is not True
+        or report.get("browser_evidence_complete") is not True
+        or report.get("browser_passed") is not True
+        or any(
+            not _review_ref(value) for key, value in accessibility.items() if key.endswith("_ref")
+        )
+        or any(value is not True for key, value in accessibility.items() if key.endswith("_passed"))
+    ):
+        return False
+    keys: set[tuple[Any, Any]] = set()
+    for item in browser_matrix:
+        if (
+            not isinstance(item, dict)
+            or set(item) != expected_browser_fields
+            or item.get("platform") not in BROWSER_PLATFORMS
+            or item.get("version_slot") not in BROWSER_VERSION_SLOTS
+            or not _positive_int(item.get("browser_major"))
+            or item.get("passed") is not True
+            or not _review_ref(item.get("run_ref"))
+            or item.get("execution_environment") not in {"physical_device", "hosted_real_browser"}
+            or (
+                item.get("platform") in {"ios_safari", "android_chrome"}
+                and item.get("execution_environment") != "physical_device"
+            )
+        ):
+            return False
+        key = (item["platform"], item["version_slot"])
+        if key in keys:
+            return False
+        keys.add(key)
+    expected_keys = {
+        (platform, slot) for platform in BROWSER_PLATFORMS for slot in BROWSER_VERSION_SLOTS
+    }
+    if keys != expected_keys:
+        return False
+    by_key = {(item["platform"], item["version_slot"]): item for item in browser_matrix}
+    return all(
+        [by_key[(platform, slot)]["browser_major"] for slot in BROWSER_VERSION_SLOTS]
+        == [
+            by_key[(platform, "current")]["browser_major"],
+            by_key[(platform, "current")]["browser_major"] - 1,
+            by_key[(platform, "current")]["browser_major"] - 2,
+        ]
+        for platform in BROWSER_PLATFORMS
+    )
+
+
+def _privacy_contract_valid(report: dict[str, Any]) -> bool:
+    return bool(
+        report.get("scope") == "source-managed-runtime-and-infrastructure"
+        and all(
+            _nonnegative_int(report[field])
+            for field in (
+                "web_runtime_dependency_count",
+                "inference_runtime_dependency_count",
+                "terraform_resource_count",
+                "terraform_resource_type_count",
+                "terraform_log_field_count",
+            )
+        )
+        and report.get("container_access_log_disabled") is True
+        and report.get("load_balancer_metadata_logging_only") is True
+        and report.get("browser_payload_url_fields") == 0
+        and report.get("third_party_browser_script_origins") == 0
+        and report.get("persistent_payload_service_types") == 0
+    )
+
+
 def _load_evidence_directory(path: Path) -> dict[str, dict[str, Any]]:
     if not path.is_dir():
         raise ValueError("Release evidence directory does not exist")
@@ -367,6 +807,14 @@ def _validate_attestations(payload: dict[str, Any]) -> None:
 
 def _nonnegative_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _positive_int(value: Any) -> bool:
+    return _nonnegative_int(value) and value > 0
+
+
+def _finite_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
 def _review_ref(value: Any) -> bool:
