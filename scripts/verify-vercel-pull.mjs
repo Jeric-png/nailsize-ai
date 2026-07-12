@@ -1,7 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-const ALLOWED_VERCEL_SYSTEM_VARIABLES = new Set(["VERCEL_OIDC_TOKEN"]);
+const ALLOWED_VERCEL_SYSTEM_VARIABLES = new Set([
+  "VERCEL_AUTOMATION_BYPASS_SECRET",
+  "VERCEL_OIDC_TOKEN",
+]);
 
 const expectedOrgId = process.env.VERCEL_ORG_ID;
 const expectedProjectId = process.env.VERCEL_PROJECT_ID;

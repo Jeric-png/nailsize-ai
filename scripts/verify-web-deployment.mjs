@@ -3,12 +3,19 @@ import {
   guidedArtifactDigest,
   parseGuidedShell,
 } from "./guided-artifact.mjs";
+import { fetchProtectedDeployment } from "./vercel-protected-fetch.mjs";
 
-const rawUrl = process.argv[2];
-const expectedDigest = process.argv[3];
+const arguments_ = process.argv.slice(2);
+const protectedDeployment = arguments_.includes("--vercel-protected");
+const positionalArguments = arguments_.filter(
+  (argument) => argument !== "--vercel-protected",
+);
+const [rawUrl, expectedDigest] = positionalArguments;
+if (positionalArguments.length > 2)
+  throw new Error("Deployment verifier received unexpected arguments.");
 if (!rawUrl)
   throw new Error(
-    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256]",
+    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256] [--vercel-protected]",
   );
 if (expectedDigest && !/^[a-f0-9]{64}$/u.test(expectedDigest))
   throw new Error(
@@ -152,11 +159,13 @@ function assertContentType(response, expected) {
 }
 
 async function fetchChecked(url) {
-  const response = await fetch(url, {
-    redirect: "error",
-    signal: AbortSignal.timeout(10_000),
-    headers: { "User-Agent": "nailsize-guided-deployment-smoke/1" },
-  });
+  const response = protectedDeployment
+    ? await fetchProtectedDeployment(url, origin, process.env.VERCEL_TOKEN)
+    : await fetch(url, {
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+        headers: { "User-Agent": "nailsize-guided-deployment-smoke/1" },
+      });
   if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}.`);
   const finalUrl = new URL(response.url);
   if (finalUrl.protocol !== "https:" || finalUrl.origin !== origin.origin)

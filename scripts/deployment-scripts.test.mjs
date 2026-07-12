@@ -15,6 +15,10 @@ import {
   assertDeploymentApiContract,
   assertProjectDomainContract,
 } from "./vercel-api-contract.mjs";
+import {
+  fetchProtectedDeployment,
+  parseCurlHeaders,
+} from "./vercel-protected-fetch.mjs";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -105,7 +109,7 @@ test("binds inspection to the linked project and promoted alias", () => {
   assert.notEqual(wrongId.status, 0);
 });
 
-test("accepts the locked install contract and only Vercel's system token", () => {
+test("accepts the locked install contract and only Vercel system tokens", () => {
   const directory = workspace();
   const settings = {
     framework: "vite",
@@ -120,7 +124,7 @@ test("accepts the locked install contract and only Vercel's system token", () =>
   const environmentFile = path.join(directory, ".vercel", ".env.preview.local");
   writeFileSync(
     environmentFile,
-    '# Created by Vercel CLI\nVERCEL_OIDC_TOKEN="header.payload.signature"\n',
+    '# Created by Vercel CLI\nVERCEL_OIDC_TOKEN="header.payload.signature"\nVERCEL_AUTOMATION_BYPASS_SECRET="automation-secret"\n',
     "utf8",
   );
   const environment = {
@@ -130,7 +134,7 @@ test("accepts the locked install contract and only Vercel's system token", () =>
 
   const empty = run("verify-vercel-pull.mjs", [], directory, environment);
   assert.equal(empty.status, 0, empty.stderr);
-  assert.equal(JSON.parse(empty.stdout).systemVariables, 1);
+  assert.equal(JSON.parse(empty.stdout).systemVariables, 2);
 
   writeProject(directory, {
     settings: { ...settings, installCommand: "npm install" },
@@ -218,6 +222,39 @@ test("pins Vercel staging to preview and production to a staged target", () => {
   assert.match(workflow, /args\+=\(--target=preview\)/u);
   assert.match(workflow, /vercel build --prod --no-color/u);
   assert.match(workflow, /args\+=\(--prod --skip-domain\)/u);
+  assert.equal(workflow.match(/--vercel-protected/gu)?.length, 1);
+});
+
+test("parses bounded authenticated Vercel responses without following redirects", async () => {
+  const origin = new URL("https://nailsize-preview.vercel.app");
+  const requested = new URL("/assets/index.js", origin);
+  const response = await fetchProtectedDeployment(
+    requested,
+    origin,
+    "test-token",
+    async ({ url, token, headersPath, bodyPath }) => {
+      assert.equal(url.href, requested.href);
+      assert.equal(token, "test-token");
+      writeFileSync(
+        headersPath,
+        "HTTP/1.1 200 Connection established\r\n\r\nHTTP/2 200\r\nContent-Type: application/javascript\r\nContent-Length: 10\r\n\r\n",
+        "utf8",
+      );
+      writeFileSync(bodyPath, "export {};", "utf8");
+    },
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.url, requested.href);
+  assert.match(
+    response.headers.get("content-type") ?? "",
+    /application\/javascript/u,
+  );
+  assert.equal(await new Response(response.body).text(), "export {};");
+
+  assert.throws(
+    () => parseCurlHeaders("Location: https://vercel.com/sso-api\r\n\r\n"),
+    /malformed HTTP headers/u,
+  );
 });
 
 test("binds production domains and deployments to project, team, commit, and alias", () => {
