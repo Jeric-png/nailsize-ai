@@ -9,6 +9,11 @@ from typing import Any
 import numpy as np
 
 from .dataset import DatasetSplit, assert_no_participant_leakage
+from .dataset_provenance import (
+    ResearchDatasetApproval,
+    validate_research_manifest,
+    verify_research_dataset_report,
+)
 from .modeling import INPUT_HEIGHT, INPUT_WIDTH, build_deeplab_mobilenet, combined_segmentation_loss
 
 _MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -22,6 +27,7 @@ class TrainingExample:
     split: DatasetSplit
     image_path: Path
     mask_path: Path
+    dataset_version: str
 
 
 @dataclass(frozen=True)
@@ -41,38 +47,38 @@ class TrainingConfig:
 
 
 def load_training_manifest(
-    manifest_path: str | Path, dataset_root: str | Path
+    manifest_path: str | Path,
+    dataset_root: str | Path,
+    *,
+    dataset_approval: ResearchDatasetApproval,
 ) -> tuple[TrainingExample, ...]:
     manifest = Path(manifest_path)
     root = Path(dataset_root).resolve()
     if not manifest.is_file() or not root.is_dir():
         raise ValueError("Manifest file and dataset root are required")
 
+    records = validate_research_manifest(
+        manifest, expected_dataset_version=dataset_approval.dataset_version
+    )
     examples: list[TrainingExample] = []
-    seen_image_ids: set[str] = set()
-    with manifest.open(encoding="utf-8") as source:
-        for line_number, line in enumerate(source, 1):
-            if not line.strip():
-                continue
-            try:
-                record = json.loads(line)
-                image_id = str(record["image_id"]).strip()
-                participant_id = str(record["participant_id"]).strip()
-                split = DatasetSplit(str(record["split"]))
-                image_path = _dataset_path(root, record["image_path"])
-                mask_path = _dataset_path(root, record["mask_path"])
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
-                raise ValueError(
-                    f"Invalid training manifest record on line {line_number}"
-                ) from error
-            if not image_id or not participant_id or image_id in seen_image_ids:
-                raise ValueError(f"Invalid or duplicate image ID on line {line_number}")
-            if not image_path.is_file() or not mask_path.is_file():
-                raise ValueError(f"Missing image or mask on line {line_number}")
-            seen_image_ids.add(image_id)
-            examples.append(TrainingExample(image_id, participant_id, split, image_path, mask_path))
-    if not examples:
-        raise ValueError("Training manifest must contain at least one example")
+    for line_number, record in enumerate(records, 1):
+        try:
+            image_path = _dataset_path(root, record["image_path"])
+            mask_path = _dataset_path(root, record["mask_path"])
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"Invalid training manifest record on line {line_number}") from error
+        if not image_path.is_file() or not mask_path.is_file():
+            raise ValueError(f"Missing image or mask on line {line_number}")
+        examples.append(
+            TrainingExample(
+                record["image_id"],
+                record["participant_id"],
+                DatasetSplit(record["split"]),
+                image_path,
+                mask_path,
+                record["dataset_version"],
+            )
+        )
 
     split_records = {
         split: [
@@ -83,6 +89,7 @@ def load_training_manifest(
         for split in DatasetSplit
     }
     assert_no_participant_leakage(split_records)
+    _validate_dataset_approval(examples, dataset_approval)
     return tuple(examples)
 
 
@@ -165,6 +172,7 @@ def train_baseline(
     config: TrainingConfig,
     checkpoint_path: str | Path,
     *,
+    dataset_approval: ResearchDatasetApproval,
     device: str = "cpu",
 ) -> tuple[float, ...]:
     try:
@@ -172,6 +180,7 @@ def train_baseline(
         from torch.utils.data import DataLoader
     except ImportError as error:
         raise RuntimeError("Install nailsize-ml-tooling[training] to train the model") from error
+    _validate_dataset_approval(examples, dataset_approval)
     train_examples = [example for example in examples if example.split == DatasetSplit.TRAIN]
     if not train_examples:
         raise ValueError("Training split is empty")
@@ -196,12 +205,39 @@ def train_baseline(
             "model_state_dict": model.state_dict(),
             "config": asdict(config),
             "training_examples": len(train_examples),
+            "dataset_version": dataset_approval.dataset_version,
+            "dataset_provenance_sha256": dataset_approval.provenance_sha256,
+            "training_manifest_sha256": dataset_approval.manifest_sha256,
             "losses": losses,
             "torch_version": str(torch.__version__),
         },
         destination,
     )
     return losses
+
+
+def _validate_dataset_approval(
+    examples: Sequence[TrainingExample], approval: ResearchDatasetApproval
+) -> None:
+    if not examples:
+        raise ValueError("Training manifest must contain at least one example")
+    if any(example.dataset_version != approval.dataset_version for example in examples):
+        raise ValueError("Training examples do not match the approved dataset version")
+    participants = {example.participant_id for example in examples}
+    split_records = {
+        split.value: sum(example.split == split for example in examples) for split in DatasetSplit
+    }
+    split_participants = {
+        split.value: len({example.participant_id for example in examples if example.split == split})
+        for split in DatasetSplit
+    }
+    if (
+        len(examples) != approval.record_count
+        or len(participants) != approval.participant_count
+        or split_records != approval.split_record_counts
+        or split_participants != approval.split_participant_counts
+    ):
+        raise ValueError("Training examples do not match approved dataset aggregates")
 
 
 def _dataset_path(root: Path, value: Any) -> Path:
@@ -220,6 +256,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Train the NailSize segmentation baseline")
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--dataset-root", required=True, type=Path)
+    parser.add_argument("--dataset-provenance-report", required=True, type=Path)
+    parser.add_argument("--expected-dataset-provenance-sha256", required=True)
     parser.add_argument("--checkpoint", required=True, type=Path)
     parser.add_argument("--model-version", required=True)
     parser.add_argument("--epochs", type=int, default=20)
@@ -229,7 +267,14 @@ def main() -> None:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--no-pretrained-backbone", action="store_true")
     arguments = parser.parse_args()
-    examples = load_training_manifest(arguments.manifest, arguments.dataset_root)
+    approval = verify_research_dataset_report(
+        arguments.dataset_provenance_report,
+        arguments.manifest,
+        expected_provenance_sha256=arguments.expected_dataset_provenance_sha256,
+    )
+    examples = load_training_manifest(
+        arguments.manifest, arguments.dataset_root, dataset_approval=approval
+    )
     config = TrainingConfig(
         model_version=arguments.model_version,
         seed=arguments.seed,
@@ -238,7 +283,13 @@ def main() -> None:
         learning_rate=arguments.learning_rate,
         pretrained_backbone=not arguments.no_pretrained_backbone,
     )
-    losses = train_baseline(examples, config, arguments.checkpoint, device=arguments.device)
+    losses = train_baseline(
+        examples,
+        config,
+        arguments.checkpoint,
+        dataset_approval=approval,
+        device=arguments.device,
+    )
     print(json.dumps({"checkpoint": str(arguments.checkpoint), "losses": losses}))
 
 

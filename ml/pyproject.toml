@@ -19,6 +19,7 @@ training = [
 nailsize-annotation-report = "nailsize_ml.annotation_report:main"
 nailsize-accuracy-report = "nailsize_ml.reporting:main"
 nailsize-benchmark = "nailsize_ml.benchmark:main"
+nailsize-dataset-provenance-report = "nailsize_ml.dataset_provenance:main"
 nailsize-export-checkpoint = "nailsize_ml.selected_export:main"
 nailsize-model-card = "nailsize_ml.model_card:main"
 nailsize-operational-report = "nailsize_ml.operational_validation:main"

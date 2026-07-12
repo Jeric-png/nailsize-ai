@@ -5,6 +5,17 @@ import math
 from pathlib import Path
 from typing import Any
 
+from .dataset_provenance import (
+    COLLECTION_CHANNEL,
+    CONSENT_STATUS,
+    USAGE_SCOPE,
+)
+from .dataset_provenance import (
+    REPORT_FIELDS as DATASET_PROVENANCE_FIELDS,
+)
+from .dataset_provenance import (
+    SCHEMA_VERSION as DATASET_PROVENANCE_SCHEMA,
+)
 from .model_card import render_model_card
 from .operational_validation import OPERATIONAL_METRICS
 from .reporting import METRIC_NAMES, REQUIRED_COHORT_DIMENSIONS
@@ -14,6 +25,7 @@ REQUIRED_FILENAMES = frozenset(
     {
         "accuracy-report.json",
         "annotation-agreement-report.json",
+        "dataset-provenance-report.json",
         "model-card.md",
         "model-metadata.json",
         "nail-segmentation.onnx",
@@ -55,6 +67,8 @@ EXPORT_REPORT_FIELDS = frozenset(
         "architecture",
         "checkpoint_sha256",
         "checkpoint_torch_version",
+        "dataset_provenance_sha256",
+        "dataset_version",
         "final_training_loss",
         "input_shape",
         "model_sha256",
@@ -66,6 +80,7 @@ EXPORT_REPORT_FIELDS = frozenset(
         "schema_version",
         "training_epochs",
         "training_examples",
+        "training_manifest_sha256",
     }
 )
 REJECTED_VERSION_MARKERS = (
@@ -107,6 +122,7 @@ def verify_release_bundle(
     metadata = _read_json(directory / "model-metadata.json")
     accuracy = _read_json(directory / "accuracy-report.json")
     annotation_agreement = _read_json(directory / "annotation-agreement-report.json")
+    dataset_provenance = _read_json(directory / "dataset-provenance-report.json")
     export_report = _read_json(directory / "onnx-export-report.json")
     operational = _read_json(directory / "operational-report.json")
     size_calibration = _read_json(directory / "size-calibration-report.json")
@@ -120,11 +136,26 @@ def verify_release_bundle(
     if actual_sha256 != expected_model_sha256:
         raise ValueError("ONNX file checksum does not match the approved checksum")
 
-    checkpoint_sha256, parity_error = _validate_export_report(
+    (
+        checkpoint_sha256,
+        parity_error,
+        dataset_version,
+        dataset_provenance_sha256,
+        training_manifest_sha256,
+        training_examples,
+    ) = _validate_export_report(
         export_report,
         metadata=metadata,
         expected_model_version=expected_model_version,
         expected_model_sha256=expected_model_sha256,
+    )
+    _validate_dataset_provenance_report(
+        dataset_provenance,
+        actual_report_sha256=_sha256(directory / "dataset-provenance-report.json"),
+        expected_report_sha256=dataset_provenance_sha256,
+        expected_manifest_sha256=training_manifest_sha256,
+        expected_dataset_version=dataset_version,
+        expected_training_examples=training_examples,
     )
 
     rendered_card = render_model_card(metadata, accuracy)
@@ -148,12 +179,13 @@ def verify_release_bundle(
         segmentation.get("p95_boundary_error_px"), "p95_boundary_error_px"
     )
     return {
-        "schema_version": "nailsize-model-release@4",
+        "schema_version": "nailsize-model-release@5",
         "checkpoint_sha256": checkpoint_sha256,
         "model_version": expected_model_version,
         "model_sha256": expected_model_sha256,
         "onnx_parity_max_abs_error": parity_error,
         "dataset_version": metadata["dataset_version"],
+        "dataset_provenance_sha256": dataset_provenance_sha256,
         "chart_id": CHART_ID,
         "chart_version": CHART_VERSION,
         "segmentation_boundary_error_px": boundary_error,
@@ -174,10 +206,10 @@ def _validate_export_report(
     metadata: dict[str, Any],
     expected_model_version: str,
     expected_model_sha256: str,
-) -> tuple[str, float]:
+) -> tuple[str, float, str, str, str, int]:
     if frozenset(report) != EXPORT_REPORT_FIELDS:
         raise ValueError("Selected-checkpoint export report fields do not match contract")
-    if report.get("schema_version") != "nailsize-selected-checkpoint-export@1":
+    if report.get("schema_version") != "nailsize-selected-checkpoint-export@2":
         raise ValueError("Unsupported selected-checkpoint export report schema")
     if report.get("architecture") != "deeplabv3_mobilenet_v3_large":
         raise ValueError("Selected-checkpoint architecture does not match production")
@@ -189,6 +221,17 @@ def _validate_export_report(
         raise ValueError("Export report version does not match the approved version")
     if report.get("model_sha256") != expected_model_sha256:
         raise ValueError("Export report checksum does not match the approved checksum")
+    dataset_version = report.get("dataset_version")
+    if dataset_version != metadata.get("dataset_version"):
+        raise ValueError("Export report dataset does not match model metadata")
+    dataset_provenance_sha256 = report.get("dataset_provenance_sha256")
+    training_manifest_sha256 = report.get("training_manifest_sha256")
+    if not isinstance(dataset_provenance_sha256, str) or not _valid_sha256(
+        dataset_provenance_sha256
+    ):
+        raise ValueError("Export report dataset provenance checksum is invalid")
+    if not isinstance(training_manifest_sha256, str) or not _valid_sha256(training_manifest_sha256):
+        raise ValueError("Export report training manifest checksum is invalid")
     if report.get("provider") != "CPUExecutionProvider":
         raise ValueError("Selected-checkpoint export must use CPUExecutionProvider")
     if report.get("input_shape") != [1, 3, 224, 160]:
@@ -210,7 +253,7 @@ def _validate_export_report(
     if metadata_parity != parity_error:
         raise ValueError("Model metadata parity does not match selected-checkpoint export evidence")
 
-    _positive_integer(report.get("training_examples"), "training_examples")
+    training_examples = _positive_integer(report.get("training_examples"), "training_examples")
     _positive_integer(report.get("training_epochs"), "training_epochs")
     final_loss = _finite(report.get("final_training_loss"), "final_training_loss")
     if final_loss < 0:
@@ -218,7 +261,72 @@ def _validate_export_report(
     torch_version = report.get("checkpoint_torch_version")
     if not isinstance(torch_version, str) or not torch_version.strip():
         raise ValueError("Selected-checkpoint PyTorch version is required")
-    return checkpoint_sha256, parity_error
+    return (
+        checkpoint_sha256,
+        parity_error,
+        dataset_version,
+        dataset_provenance_sha256,
+        training_manifest_sha256,
+        training_examples,
+    )
+
+
+def _validate_dataset_provenance_report(
+    report: dict[str, Any],
+    *,
+    actual_report_sha256: str,
+    expected_report_sha256: str,
+    expected_manifest_sha256: str,
+    expected_dataset_version: str,
+    expected_training_examples: int,
+) -> None:
+    if set(report) != set(DATASET_PROVENANCE_FIELDS):
+        raise ValueError("Dataset provenance report fields do not match the contract")
+    if (
+        report.get("schema_version") != DATASET_PROVENANCE_SCHEMA
+        or report.get("passed") is not True
+    ):
+        raise ValueError("Dataset provenance report must use the supported passing schema")
+    if actual_report_sha256 != expected_report_sha256:
+        raise ValueError("Dataset provenance checksum does not match selected-checkpoint export")
+    if report.get("manifest_sha256") != expected_manifest_sha256:
+        raise ValueError("Dataset manifest checksum does not match selected-checkpoint export")
+    if report.get("dataset_version") != expected_dataset_version:
+        raise ValueError("Dataset provenance version does not match selected-checkpoint export")
+    if (
+        report.get("collection_channel") != COLLECTION_CHANNEL
+        or report.get("consent_status") != CONSENT_STATUS
+        or report.get("usage_scope") != USAGE_SCOPE
+        or report.get("production_data_excluded") is not True
+    ):
+        raise ValueError("Dataset provenance does not enforce the research-only boundary")
+    record_count = _positive_integer(report.get("record_count"), "dataset record_count")
+    participant_count = _positive_integer(
+        report.get("participant_count"), "dataset participant_count"
+    )
+    split_records = _dataset_split_counts(report.get("split_record_counts"), "record")
+    split_participants = _dataset_split_counts(
+        report.get("split_participant_counts"), "participant"
+    )
+    if sum(split_records.values()) != record_count:
+        raise ValueError("Dataset provenance split record counts do not match total")
+    if sum(split_participants.values()) != participant_count:
+        raise ValueError("Dataset provenance split participant counts do not match total")
+    if split_records["train"] != expected_training_examples:
+        raise ValueError("Dataset provenance training count does not match checkpoint")
+    for field in ("research_approval_ref", "production_exclusion_review_ref"):
+        if not isinstance(report.get(field), str) or not report[field].strip():
+            raise ValueError("Dataset provenance requires named research and exclusion reviews")
+
+
+def _dataset_split_counts(value: Any, label: str) -> dict[str, int]:
+    expected = {"train", "validation", "test"}
+    if not isinstance(value, dict) or set(value) != expected:
+        raise ValueError(f"Dataset provenance split {label} counts do not match the contract")
+    for count in value.values():
+        if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
+            raise ValueError(f"Dataset provenance split {label} counts must be positive")
+    return value
 
 
 def _validate_accuracy_report(report: dict[str, Any]) -> None:

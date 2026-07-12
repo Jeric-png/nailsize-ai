@@ -75,13 +75,16 @@ def _accuracy_report() -> dict:
     }
 
 
-def _export_report(checksum: str) -> dict:
+def _export_report(checksum: str, provenance_checksum: str) -> dict:
     return {
-        "schema_version": "nailsize-selected-checkpoint-export@1",
+        "schema_version": "nailsize-selected-checkpoint-export@2",
         "architecture": "deeplabv3_mobilenet_v3_large",
         "checkpoint_sha256": "a" * 64,
         "model_sha256": checksum,
         "model_version": "release-1",
+        "dataset_version": "holdout-1",
+        "dataset_provenance_sha256": provenance_checksum,
+        "training_manifest_sha256": "c" * 64,
         "training_examples": 2400,
         "training_epochs": 12,
         "final_training_loss": 0.08,
@@ -91,6 +94,25 @@ def _export_report(checksum: str) -> dict:
         "output_shape": [1, 1, 224, 160],
         "provider": "CPUExecutionProvider",
         "checkpoint_torch_version": "2.8.0",
+    }
+
+
+def _dataset_provenance_report() -> dict:
+    return {
+        "schema_version": "nailsize-research-dataset-provenance@1",
+        "dataset_version": "holdout-1",
+        "collection_channel": "approved_research_study",
+        "consent_status": "active_research_consent",
+        "usage_scope": "model_development_only",
+        "production_data_excluded": True,
+        "manifest_sha256": "c" * 64,
+        "record_count": 3000,
+        "participant_count": 300,
+        "split_record_counts": {"train": 2400, "validation": 300, "test": 300},
+        "split_participant_counts": {"train": 240, "validation": 30, "test": 30},
+        "research_approval_ref": "research-review-1",
+        "production_exclusion_review_ref": "privacy-review-1",
+        "passed": True,
     }
 
 
@@ -253,7 +275,10 @@ def _write_bundle(directory):
     model.write_bytes(b"release-model-bytes")
     checksum = hashlib.sha256(model.read_bytes()).hexdigest()
     metadata = _metadata(checksum)
-    export = _export_report(checksum)
+    provenance_path = directory / "dataset-provenance-report.json"
+    provenance_path.write_text(json.dumps(_dataset_provenance_report()), encoding="utf-8")
+    provenance_checksum = hashlib.sha256(provenance_path.read_bytes()).hexdigest()
+    export = _export_report(checksum, provenance_checksum)
     accuracy = _accuracy_report()
     annotation_agreement = _annotation_agreement_report()
     operational = _operational_report()
@@ -284,12 +309,15 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
     )
 
     assert manifest == {
-        "schema_version": "nailsize-model-release@4",
+        "schema_version": "nailsize-model-release@5",
         "checkpoint_sha256": "a" * 64,
         "model_version": "release-1",
         "model_sha256": checksum,
         "onnx_parity_max_abs_error": 0.00001,
         "dataset_version": "holdout-1",
+        "dataset_provenance_sha256": hashlib.sha256(
+            (tmp_path / "dataset-provenance-report.json").read_bytes()
+        ).hexdigest(),
         "chart_id": "platform-default",
         "chart_version": "1",
         "segmentation_boundary_error_px": 0.8,
@@ -318,7 +346,12 @@ def test_rejects_missing_unexpected_and_synthetic_release_inputs(tmp_path) -> No
         verify_release_bundle(
             tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
         )
-    export_report.write_text(json.dumps(_export_report(checksum)), encoding="utf-8")
+    provenance_checksum = hashlib.sha256(
+        (tmp_path / "dataset-provenance-report.json").read_bytes()
+    ).hexdigest()
+    export_report.write_text(
+        json.dumps(_export_report(checksum, provenance_checksum)), encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="non-synthetic"):
         verify_release_bundle(
             tmp_path,
@@ -339,6 +372,9 @@ def test_rejects_missing_unexpected_and_synthetic_release_inputs(tmp_path) -> No
         ("checkpoint_sha256", "0", "checkpoint SHA-256"),
         ("model_version", "release-2", "version"),
         ("model_sha256", "b" * 64, "checksum"),
+        ("dataset_version", "other", "dataset does not match"),
+        ("dataset_provenance_sha256", "invalid", "provenance checksum"),
+        ("training_manifest_sha256", "invalid", "manifest checksum"),
         ("provider", "CUDAExecutionProvider", "CPUExecutionProvider"),
         ("input_shape", [1, 3, 160, 224], "input shape"),
         ("output_shape", [1, 1, 160, 224], "output shape"),
@@ -395,6 +431,39 @@ def test_rejects_added_export_report_fields(tmp_path) -> None:
     report["unreviewed"] = True
     report_path.write_text(json.dumps(report), encoding="utf-8")
     with pytest.raises(ValueError, match="fields do not match"):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda report: report.update(passed=False), "passing schema"),
+        (lambda report: report.update(collection_channel="production_upload"), "research-only"),
+        (lambda report: report.update(consent_status="withdrawn"), "research-only"),
+        (lambda report: report.update(production_data_excluded=False), "research-only"),
+        (lambda report: report.update(manifest_sha256="d" * 64), "manifest checksum"),
+        (
+            lambda report: report["split_record_counts"].update(train=2399),
+            "split record counts",
+        ),
+        (lambda report: report.update(research_approval_ref=""), "named research"),
+        (lambda report: report.update(image_ids=["private"]), "fields do not match"),
+    ],
+)
+def test_rejects_tampered_dataset_provenance_evidence(tmp_path, mutation, message: str) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    provenance_path = tmp_path / "dataset-provenance-report.json"
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    mutation(provenance)
+    provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+    export_path = tmp_path / "onnx-export-report.json"
+    export = json.loads(export_path.read_text(encoding="utf-8"))
+    export["dataset_provenance_sha256"] = hashlib.sha256(provenance_path.read_bytes()).hexdigest()
+    export_path.write_text(json.dumps(export), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
         verify_release_bundle(
             tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
         )

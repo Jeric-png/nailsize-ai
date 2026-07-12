@@ -47,7 +47,9 @@ At least 10% of images are double-annotated. Quality tooling checks required fie
 
 ## Split and lock procedure
 
-Assign train/validation/test using the pseudonymous participant ID, a versioned secret split salt, and the deterministic tooling in `ml/nailsize_ml/dataset.py`. Every image and repeat from one participant must remain in one split. Before training, write an immutable manifest containing dataset version, schema version, split salt identifier (not the secret), source checksums, and participant counts.
+Assign train/validation/test using the pseudonymous participant ID, a versioned secret split salt, and the deterministic tooling in `ml/nailsize_ml/dataset.py`. Every image and repeat from one participant must remain in one split. The training manifest uses the exact research-only schema enforced by `dataset_provenance.py`: image and participant pseudonyms, split, relative image and mask paths, dataset version, `approved_research_study` origin, and `active_research_consent` status. Extra fields and any other origin or consent state fail validation.
+
+Before training, generate and independently approve the aggregate-only dataset provenance report. It binds the immutable manifest checksum, dataset version, split counts, participant counts, research approval, and production-exclusion review without exposing participant IDs or paths. Training requires the approved report checksum, and the checkpoint, selected-model export, and final release bundle must carry that provenance and manifest identity unchanged.
 
 Lock the public-release holdout before final model selection. No threshold tuning, architecture selection, or manual relabeling based on holdout model errors is allowed. Corrections require a new dataset version and an independently locked holdout.
 

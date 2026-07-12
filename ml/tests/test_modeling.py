@@ -91,17 +91,25 @@ def test_export_rejects_invalid_contract(tmp_path: Path) -> None:
         )
 
 
-def _write_checkpoint(path: Path, model: nn.Module, *, model_version: str = "candidate-1") -> str:
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "config": {"model_version": model_version, "epochs": 2},
-            "training_examples": 24,
-            "losses": (1.2, 0.8),
-            "torch_version": str(torch.__version__),
-        },
-        path,
-    )
+def _write_checkpoint(
+    path: Path,
+    model: nn.Module,
+    *,
+    model_version: str = "candidate-1",
+    **overrides,
+) -> str:
+    payload = {
+        "model_state_dict": model.state_dict(),
+        "config": {"model_version": model_version, "epochs": 2},
+        "training_examples": 24,
+        "dataset_version": "study-1",
+        "dataset_provenance_sha256": "b" * 64,
+        "training_manifest_sha256": "c" * 64,
+        "losses": (1.2, 0.8),
+        "torch_version": str(torch.__version__),
+    }
+    payload.update(overrides)
+    torch.save(payload, path)
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -131,12 +139,15 @@ def test_exports_checksum_selected_checkpoint_and_machine_readable_evidence(
     assert report.checkpoint_sha256 == checkpoint_sha256
     assert report.model_sha256 == hashlib.sha256(onnx_path.read_bytes()).hexdigest()
     assert report.model_version == "candidate-1"
+    assert report.dataset_version == "study-1"
+    assert report.dataset_provenance_sha256 == "b" * 64
+    assert report.training_manifest_sha256 == "c" * 64
     assert report.training_examples == 24
     assert report.training_epochs == 2
     assert report.final_training_loss == 0.8
     assert report.parity_max_abs_error <= 1e-4
     payload = json.loads(report_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "nailsize-selected-checkpoint-export@1"
+    assert payload["schema_version"] == "nailsize-selected-checkpoint-export@2"
     assert payload["architecture"] == "deeplabv3_mobilenet_v3_large"
     assert payload["input_shape"] == [1, 3, INPUT_HEIGHT, INPUT_WIDTH]
     assert payload["output_shape"] == [1, 1, INPUT_HEIGHT, INPUT_WIDTH]
@@ -171,6 +182,35 @@ def test_selected_checkpoint_rejects_unapproved_identity(
 
     assert not (tmp_path / "candidate.onnx").exists()
     assert not (tmp_path / "candidate-export.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("dataset_version", "", "dataset version"),
+        ("dataset_provenance_sha256", "invalid", "provenance checksum"),
+        ("training_manifest_sha256", "invalid", "manifest checksum"),
+    ],
+)
+def test_selected_checkpoint_rejects_invalid_dataset_provenance(
+    tmp_path: Path, monkeypatch, field: str, value: str, message: str
+) -> None:
+    checkpoint = tmp_path / "selected.pt"
+    checksum = _write_checkpoint(checkpoint, TinySegmentationModel(), **{field: value})
+    monkeypatch.setattr(
+        modeling,
+        "build_deeplab_mobilenet",
+        lambda *, pretrained_backbone: TinySegmentationModel(),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        export_selected_checkpoint(
+            checkpoint,
+            tmp_path / "candidate.onnx",
+            tmp_path / "candidate-export.json",
+            expected_checkpoint_sha256=checksum,
+            expected_model_version="candidate-1",
+        )
 
 
 def test_selected_checkpoint_removes_onnx_when_evidence_write_fails(

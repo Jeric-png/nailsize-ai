@@ -1,4 +1,6 @@
+import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +12,13 @@ from PIL import Image  # noqa: E402
 
 import nailsize_ml.training as training  # noqa: E402
 from nailsize_ml.dataset import DatasetSplit  # noqa: E402
+from nailsize_ml.dataset_provenance import (  # noqa: E402
+    COLLECTION_CHANNEL,
+    CONSENT_STATUS,
+    ResearchDatasetApproval,
+    build_research_dataset_report,
+    verify_research_dataset_report,
+)
 from nailsize_ml.training import (  # noqa: E402
     NailSegmentationDataset,
     TrainingConfig,
@@ -31,23 +40,69 @@ def write_pair(root: Path, name: str) -> tuple[Path, Path]:
     return image_path, mask_path
 
 
+def manifest_record(image_path: Path, mask_path: Path, **overrides) -> dict:
+    record = {
+        "image_id": "image-001",
+        "participant_id": "participant-001",
+        "split": "train",
+        "image_path": image_path.name,
+        "mask_path": mask_path.name,
+        "dataset_version": "study-1",
+        "data_origin": COLLECTION_CHANNEL,
+        "consent_status": CONSENT_STATUS,
+    }
+    record.update(overrides)
+    return record
+
+
+def approve_manifest(manifest: Path) -> ResearchDatasetApproval:
+    report_path = manifest.with_suffix(".provenance.json")
+    report = build_research_dataset_report(
+        manifest,
+        dataset_version="study-1",
+        research_approval_ref="research-review-1",
+        production_exclusion_review_ref="privacy-review-1",
+    )
+    report_path.write_text(json.dumps(report, sort_keys=True) + "\n", encoding="utf-8")
+    checksum = hashlib.sha256(report_path.read_bytes()).hexdigest()
+    return verify_research_dataset_report(
+        report_path, manifest, expected_provenance_sha256=checksum
+    )
+
+
+def approval_for(examples: list[TrainingExample]) -> ResearchDatasetApproval:
+    participants = {example.participant_id for example in examples}
+    return ResearchDatasetApproval(
+        dataset_version="study-1",
+        provenance_sha256="a" * 64,
+        manifest_sha256="b" * 64,
+        record_count=len(examples),
+        participant_count=len(participants),
+        split_record_counts={
+            split.value: sum(example.split == split for example in examples)
+            for split in DatasetSplit
+        },
+        split_participant_counts={
+            split.value: len(
+                {example.participant_id for example in examples if example.split == split}
+            )
+            for split in DatasetSplit
+        },
+        research_approval_ref="research-review-1",
+        production_exclusion_review_ref="privacy-review-1",
+    )
+
+
 def test_loads_participant_safe_manifest_and_fixed_preprocessing(tmp_path: Path) -> None:
     image_path, mask_path = write_pair(tmp_path, "sample")
     manifest = tmp_path / "manifest.jsonl"
     manifest.write_text(
-        json.dumps(
-            {
-                "image_id": "image-001",
-                "participant_id": "participant-001",
-                "split": "train",
-                "image_path": image_path.name,
-                "mask_path": mask_path.name,
-            }
-        )
-        + "\n",
+        json.dumps(manifest_record(image_path, mask_path)) + "\n",
         encoding="utf-8",
     )
-    examples = load_training_manifest(manifest, tmp_path)
+    examples = load_training_manifest(
+        manifest, tmp_path, dataset_approval=approve_manifest(manifest)
+    )
     image, mask = NailSegmentationDataset(examples)[0]
     assert image.shape == (3, 224, 160)
     assert image.dtype == torch.float32
@@ -58,31 +113,50 @@ def test_loads_participant_safe_manifest_and_fixed_preprocessing(tmp_path: Path)
 def test_manifest_rejects_participant_leakage_and_path_escape(tmp_path: Path) -> None:
     image_path, mask_path = write_pair(tmp_path, "sample")
     records = [
-        {
-            "image_id": f"image-{index}",
-            "participant_id": "participant-001",
-            "split": split,
-            "image_path": image_path.name,
-            "mask_path": mask_path.name,
-        }
+        manifest_record(
+            image_path,
+            mask_path,
+            image_id=f"image-{index}",
+            participant_id="participant-001",
+            split=split,
+        )
         for index, split in enumerate(("train", "validation"), 1)
     ]
     manifest = tmp_path / "manifest.jsonl"
     manifest.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
     with pytest.raises(ValueError, match="appears"):
-        load_training_manifest(manifest, tmp_path)
+        approve_manifest(manifest)
 
     records[1]["participant_id"] = "participant-002"
     records[1]["image_path"] = "../outside.png"
     manifest.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
     with pytest.raises(ValueError, match="line 2"):
-        load_training_manifest(manifest, tmp_path)
+        load_training_manifest(manifest, tmp_path, dataset_approval=approve_manifest(manifest))
+
+
+def test_manifest_rejects_approval_with_mismatched_aggregates(tmp_path: Path) -> None:
+    image_path, mask_path = write_pair(tmp_path, "sample")
+    manifest = tmp_path / "manifest.jsonl"
+    manifest.write_text(json.dumps(manifest_record(image_path, mask_path)) + "\n", encoding="utf-8")
+    approval = approve_manifest(manifest)
+
+    with pytest.raises(ValueError, match="approved dataset aggregates"):
+        load_training_manifest(
+            manifest,
+            tmp_path,
+            dataset_approval=replace(approval, record_count=approval.record_count + 1),
+        )
 
 
 def test_seed_and_train_epoch_are_deterministic(tmp_path: Path) -> None:
     image_path, mask_path = write_pair(tmp_path, "sample")
     example = TrainingExample(
-        "image-001", "participant-001", DatasetSplit.TRAIN, image_path, mask_path
+        "image-001",
+        "participant-001",
+        DatasetSplit.TRAIN,
+        image_path,
+        mask_path,
+        "study-1",
     )
     dataset = NailSegmentationDataset([example])
     loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
@@ -103,7 +177,12 @@ def test_seed_and_train_epoch_are_deterministic(tmp_path: Path) -> None:
 def test_training_checkpoint_is_safe_weights_only_data(tmp_path: Path, monkeypatch) -> None:
     image_path, mask_path = write_pair(tmp_path, "sample")
     example = TrainingExample(
-        "image-001", "participant-001", DatasetSplit.TRAIN, image_path, mask_path
+        "image-001",
+        "participant-001",
+        DatasetSplit.TRAIN,
+        image_path,
+        mask_path,
+        "study-1",
     )
     monkeypatch.setattr(
         training,
@@ -121,9 +200,13 @@ def test_training_checkpoint_is_safe_weights_only_data(tmp_path: Path, monkeypat
             pretrained_backbone=False,
         ),
         checkpoint,
+        dataset_approval=approval_for([example]),
     )
 
     payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
     assert payload["config"]["model_version"] == "candidate-1"
     assert payload["torch_version"] == str(torch.__version__)
     assert type(payload["torch_version"]) is str
+    assert payload["dataset_version"] == "study-1"
+    assert payload["dataset_provenance_sha256"] == "a" * 64
+    assert payload["training_manifest_sha256"] == "b" * 64

@@ -38,7 +38,9 @@ The production Python package has no training-framework, object-storage, databas
 
 Dynamic tests install a Python runtime audit hook around accepted measurement, malformed upload, timeout, and cancellation paths. They fail on filesystem opens with write flags or file/directory mutation events and require interrupted upload buffers to close. The Linux image smoke runs the production process with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. MediaPipe's Matplotlib import needs a non-customer font/config cache, so `MPLCONFIGDIR` is confined to a 16 MiB, non-executable `/tmp` tmpfs. After a malformed upload, CI terminates the process and requires `docker diff` to be empty. These controls cover the source-managed process boundary, not out-of-band platform integrations.
 
-This repository boundary prevents the application from exporting uploads into the available training path. Deployment review must still verify that the Cloud Run identity has no write access to research storage and that no platform integration captures request bodies.
+The inbound training boundary is also fail closed: every manifest row must identify the approved research-study origin and active research consent, participant split leakage is rejected, and training requires the exact checksum of an aggregate-only provenance report. The selected checkpoint, ONNX export, and nine-file release bundle preserve and cross-check both the approved provenance checksum and immutable manifest checksum. These controls establish source-managed chain of custody; they cannot prove that a human supplied truthful study metadata or that remote IAM is configured correctly.
+
+Together these repository boundaries prevent the application from exporting uploads into the available training path and prevent the supported training/release workflow from accepting an unapproved manifest. Deployment review must still verify that the Cloud Run identity has no write access to research storage and that no platform integration captures request bodies.
 
 ## Remaining production reviews
 

@@ -62,6 +62,7 @@ jobs:
           --cov=nailsize_ml.annotation_report
           --cov=nailsize_ml.annotation_quality
           --cov=nailsize_ml.dataset
+          --cov=nailsize_ml.dataset_provenance
           --cov=nailsize_ml.evaluation
           --cov=nailsize_ml.size_calibration
           --cov-fail-under=85
