@@ -187,6 +187,58 @@ def _annotation_agreement_report() -> dict:
     }
 
 
+def _size_calibration_report() -> dict:
+    metrics = {
+        "exact_size_rate": 0.92,
+        "exact_or_adjacent_rate": 0.995,
+        "more_than_one_size_miss_rate": 0.005,
+        "unmappable_rate": 0.0,
+        "mean_best_fit_tip_margin_mm": 0.2,
+        "p90_absolute_best_fit_tip_margin_mm": 0.5,
+    }
+    return {
+        "schema_version": "nailsize-size-calibration-report@1",
+        "dataset_version": "holdout-1",
+        "chart_id": "platform-default",
+        "chart_version": "1",
+        "participant_count": 200,
+        "nail_count": 2000,
+        "metrics": metrics,
+        "confidence_intervals_95": {
+            name: {
+                "lower": max(0.0, value - 0.01) if "rate" in name else value - 0.01,
+                "upper": min(1.0, value + 0.01) if "rate" in name else value + 0.01,
+            }
+            for name, value in metrics.items()
+        },
+        "dataset_checks": {
+            "minimum_participants": True,
+            "minimum_nails": True,
+            "all_widths_mappable": True,
+            "curvature_reviews_present": True,
+        },
+        "gate_checks": {
+            "exact_size_rate": True,
+            "exact_or_adjacent_rate": True,
+            "more_than_one_size_miss_rate": True,
+            "calibration_review_present": True,
+        },
+        "adequately_sampled_curvature_cohorts": [
+            {
+                "cohort": "medium",
+                "participant_count": 100,
+                "nail_count": 1000,
+                "metrics": metrics,
+                "checks": {"exact_size_rate_gap": True, "review_present": True},
+                "review_ref": "curvature-review-1",
+                "passed": True,
+            }
+        ],
+        "calibration_review_ref": "calibration-review-1",
+        "passed": True,
+    }
+
+
 def _cohorts() -> tuple[tuple[str, str], ...]:
     return (
         ("skin_tone", "monk-5"),
@@ -205,6 +257,7 @@ def _write_bundle(directory):
     accuracy = _accuracy_report()
     annotation_agreement = _annotation_agreement_report()
     operational = _operational_report()
+    size_calibration = _size_calibration_report()
     (directory / "model-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
     (directory / "onnx-export-report.json").write_text(json.dumps(export), encoding="utf-8")
     (directory / "accuracy-report.json").write_text(json.dumps(accuracy), encoding="utf-8")
@@ -212,6 +265,9 @@ def _write_bundle(directory):
         json.dumps(annotation_agreement), encoding="utf-8"
     )
     (directory / "operational-report.json").write_text(json.dumps(operational), encoding="utf-8")
+    (directory / "size-calibration-report.json").write_text(
+        json.dumps(size_calibration), encoding="utf-8"
+    )
     (directory / "model-card.md").write_text(
         render_model_card(metadata, accuracy), encoding="utf-8"
     )
@@ -228,17 +284,21 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
     )
 
     assert manifest == {
-        "schema_version": "nailsize-model-release@3",
+        "schema_version": "nailsize-model-release@4",
         "checkpoint_sha256": "a" * 64,
         "model_version": "release-1",
         "model_sha256": checksum,
         "onnx_parity_max_abs_error": 0.00001,
         "dataset_version": "holdout-1",
+        "chart_id": "platform-default",
+        "chart_version": "1",
         "segmentation_boundary_error_px": 0.8,
         "accuracy_participant_count": 200,
         "accuracy_nail_count": 2000,
         "annotation_paired_item_count": 200,
         "annotation_paired_participant_count": 40,
+        "size_calibration_participant_count": 200,
+        "size_calibration_nail_count": 2000,
         "operational_participant_count": 200,
         "approved": True,
     }
@@ -391,6 +451,46 @@ def test_rejects_tampered_operational_evidence(tmp_path, mutation, message: str)
 def test_rejects_tampered_annotation_agreement_evidence(tmp_path, mutation, message: str) -> None:
     checksum, _, _, _ = _write_bundle(tmp_path)
     report_path = tmp_path / "annotation-agreement-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    mutation(report)
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda report: report.update(passed=False), "must pass"),
+        (lambda report: report.update(dataset_version="other"), "does not match"),
+        (lambda report: report.update(chart_version="2"), "does not match production"),
+        (lambda report: report.update(nail_count=1999), "do not match the accuracy"),
+        (lambda report: report["metrics"].update(exact_size_rate=0.89), "exact-size"),
+        (lambda report: report["metrics"].update(unmappable_rate=0.01), "unmappable"),
+        (
+            lambda report: report["adequately_sampled_curvature_cohorts"][0]["metrics"].update(
+                exact_size_rate=0.80
+            ),
+            "cohort exact-size gap",
+        ),
+        (lambda report: report.update(calibration_review_ref=""), "review is required"),
+        (
+            lambda report: report["confidence_intervals_95"].update(private_metric={}),
+            "confidence intervals do not match",
+        ),
+        (
+            lambda report: report["confidence_intervals_95"]["exact_size_rate"].update(lower=-0.1),
+            "outside",
+        ),
+        (lambda report: report.update(image_ids=["private"]), "fields do not match"),
+    ],
+)
+def test_rejects_tampered_size_calibration_evidence(tmp_path, mutation, message: str) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    report_path = tmp_path / "size-calibration-report.json"
     report = json.loads(report_path.read_text(encoding="utf-8"))
     mutation(report)
     report_path.write_text(json.dumps(report), encoding="utf-8")

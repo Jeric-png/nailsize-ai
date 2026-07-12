@@ -23,6 +23,7 @@ nailsize-export-checkpoint = "nailsize_ml.selected_export:main"
 nailsize-model-card = "nailsize_ml.model_card:main"
 nailsize-operational-report = "nailsize_ml.operational_validation:main"
 nailsize-release-bundle = "nailsize_ml.release_bundle:main"
+nailsize-size-calibration-report = "nailsize_ml.size_calibration:main"
 nailsize-train = "nailsize_ml.training:main"
 
 [build-system]

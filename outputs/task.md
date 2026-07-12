@@ -87,7 +87,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Train the DeepLabV3-MobileNetV3 baseline on fingertip crops.
 - [ ] Evaluate mask boundary error as well as IoU; do not approve based on IoU alone.
 - [ ] Export the selected model to ONNX and verify output parity with PyTorch.
-  - A fail-closed CLI now requires the selected checkpoint's approved SHA-256 and model version, safely loads its fixed training schema, reconstructs DeepLabV3-MobileNetV3 with strict state compatibility, publishes ONNX only after CPU parity passes, and atomically records checkpoint/model identities, tensor contracts, provider, and measured error. The seven-file release gate requires that original report and cross-checks it against the exact ONNX bytes, reviewed parity metadata, and the released dataset's annotation-agreement evidence before deployment. The checkbox remains open until a real selected checkpoint produces reviewed export evidence at or below `1e-4`.
+  - A fail-closed CLI now requires the selected checkpoint's approved SHA-256 and model version, safely loads its fixed training schema, reconstructs DeepLabV3-MobileNetV3 with strict state compatibility, publishes ONNX only after CPU parity passes, and atomically records checkpoint/model identities, tensor contracts, provider, and measured error. The eight-file release gate requires that original report and cross-checks it against the exact ONNX bytes, reviewed parity metadata, annotation-agreement evidence, and physical best-fit calibration for the same released dataset before deployment. The checkbox remains open until a real selected checkpoint produces reviewed export evidence at or below `1e-4`.
 - [ ] Benchmark ONNX Runtime on the Cloud Run CPU configuration.
 - [x] Add model versioning, checksum validation, startup warmup, and readiness failure when the model cannot load.
 - [ ] Publish a model card with dataset, metrics, subgroup results, limitations, and intended-use restrictions.
@@ -101,6 +101,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [x] Return `OUTSIDE_DEFAULT_CHART` instead of clamping.
 - [x] Keep projected millimetres primary and size numbers secondary in UI and shared text.
 - [ ] Calibrate size recommendations against the physical best-fit labels.
+  - A fail-closed CLI now applies the exact `platform-default@1` mapping to adjudicated physical widths from the locked holdout, requires 200 participants/2,000 nails, enforces exact/exact-or-adjacent/severe-miss gates, rejects unmappable widths, publishes participant-clustered intervals, and reports physical best-fit tip margins by reviewer-declared curvature cohort. Its privacy-safe report must match the accuracy holdout's dataset and counts in the exact release bundle. The checkbox remains open until real physical best-fit observations and accountable curvature/calibration reviews pass.
 - [ ] Add repeatability tests across repeated captures of the same participant.
   - The operational-report CLI now validates exactly two complete ten-nail capture sets per participant and publishes signed, mean-absolute, and p90-absolute repeated-capture differences with clustered intervals. The checkbox remains open until the locked study data and named review are supplied.
 

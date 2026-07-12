@@ -8,6 +8,7 @@ from typing import Any
 from .model_card import render_model_card
 from .operational_validation import OPERATIONAL_METRICS
 from .reporting import METRIC_NAMES, REQUIRED_COHORT_DIMENSIONS
+from .size_calibration import CALIBRATION_METRICS, CHART_ID, CHART_VERSION
 
 REQUIRED_FILENAMES = frozenset(
     {
@@ -18,6 +19,7 @@ REQUIRED_FILENAMES = frozenset(
         "nail-segmentation.onnx",
         "onnx-export-report.json",
         "operational-report.json",
+        "size-calibration-report.json",
     }
 )
 ANNOTATION_METRICS = (
@@ -107,6 +109,7 @@ def verify_release_bundle(
     annotation_agreement = _read_json(directory / "annotation-agreement-report.json")
     export_report = _read_json(directory / "onnx-export-report.json")
     operational = _read_json(directory / "operational-report.json")
+    size_calibration = _read_json(directory / "size-calibration-report.json")
     model_path = directory / "nail-segmentation.onnx"
     actual_sha256 = _sha256(model_path)
 
@@ -134,22 +137,32 @@ def verify_release_bundle(
         annotation_agreement, expected_dataset_version=metadata["dataset_version"]
     )
     _validate_operational_report(operational)
+    _validate_size_calibration_report(
+        size_calibration,
+        expected_dataset_version=metadata["dataset_version"],
+        expected_participant_count=accuracy["participant_count"],
+        expected_nail_count=accuracy["nail_count"],
+    )
     segmentation = metadata["segmentation_metrics"]
     boundary_error = _positive_finite(
         segmentation.get("p95_boundary_error_px"), "p95_boundary_error_px"
     )
     return {
-        "schema_version": "nailsize-model-release@3",
+        "schema_version": "nailsize-model-release@4",
         "checkpoint_sha256": checkpoint_sha256,
         "model_version": expected_model_version,
         "model_sha256": expected_model_sha256,
         "onnx_parity_max_abs_error": parity_error,
         "dataset_version": metadata["dataset_version"],
+        "chart_id": CHART_ID,
+        "chart_version": CHART_VERSION,
         "segmentation_boundary_error_px": boundary_error,
         "accuracy_participant_count": accuracy["participant_count"],
         "accuracy_nail_count": accuracy["nail_count"],
         "annotation_paired_item_count": annotation_agreement["paired_item_count"],
         "annotation_paired_participant_count": annotation_agreement["paired_participant_count"],
+        "size_calibration_participant_count": size_calibration["participant_count"],
+        "size_calibration_nail_count": size_calibration["nail_count"],
         "operational_participant_count": operational["participant_count"],
         "approved": True,
     }
@@ -387,6 +400,167 @@ def _validate_operational_report(report: dict[str, Any]) -> None:
         raise ValueError("Every operational cohort requires a passing parity review")
     if not REQUIRED_COHORT_DIMENSIONS.issubset({item.get("dimension") for item in cohorts}):
         raise ValueError("Operational report requires every planned cohort dimension")
+
+
+def _validate_size_calibration_report(
+    report: dict[str, Any],
+    *,
+    expected_dataset_version: str,
+    expected_participant_count: int,
+    expected_nail_count: int,
+) -> None:
+    expected_fields = {
+        "schema_version",
+        "dataset_version",
+        "chart_id",
+        "chart_version",
+        "participant_count",
+        "nail_count",
+        "metrics",
+        "confidence_intervals_95",
+        "dataset_checks",
+        "gate_checks",
+        "adequately_sampled_curvature_cohorts",
+        "calibration_review_ref",
+        "passed",
+    }
+    if set(report) != expected_fields:
+        raise ValueError("Size calibration report fields do not match the contract")
+    if report.get("schema_version") != "nailsize-size-calibration-report@1":
+        raise ValueError("Unsupported size calibration report schema")
+    if report.get("passed") is not True:
+        raise ValueError("Size calibration report must pass before release")
+    if report.get("dataset_version") != expected_dataset_version:
+        raise ValueError("Size calibration dataset does not match model metadata")
+    if report.get("chart_id") != CHART_ID or report.get("chart_version") != CHART_VERSION:
+        raise ValueError("Size calibration chart does not match production")
+    participant_count = _positive_integer(report.get("participant_count"), "participant_count")
+    nail_count = _positive_integer(report.get("nail_count"), "nail_count")
+    if participant_count != expected_participant_count or nail_count != expected_nail_count:
+        raise ValueError("Size calibration counts do not match the accuracy holdout")
+
+    expected_dataset_checks = {
+        "minimum_participants",
+        "minimum_nails",
+        "all_widths_mappable",
+        "curvature_reviews_present",
+    }
+    expected_gate_checks = {
+        "exact_size_rate",
+        "exact_or_adjacent_rate",
+        "more_than_one_size_miss_rate",
+        "calibration_review_present",
+    }
+    dataset_checks = report.get("dataset_checks")
+    gate_checks = report.get("gate_checks")
+    if not isinstance(dataset_checks, dict) or set(dataset_checks) != expected_dataset_checks:
+        raise ValueError("Size calibration dataset checks do not match the contract")
+    if not isinstance(gate_checks, dict) or set(gate_checks) != expected_gate_checks:
+        raise ValueError("Size calibration gate checks do not match the contract")
+    _all_checks_pass(dataset_checks, "Size calibration dataset checks")
+    _all_checks_pass(gate_checks, "Size calibration gate checks")
+
+    metrics = report.get("metrics")
+    if not isinstance(metrics, dict) or set(metrics) != set(CALIBRATION_METRICS):
+        raise ValueError("Size calibration metrics do not match the contract")
+    values = {name: _finite(metrics.get(name), name) for name in CALIBRATION_METRICS}
+    for name in (
+        "exact_size_rate",
+        "exact_or_adjacent_rate",
+        "more_than_one_size_miss_rate",
+        "unmappable_rate",
+    ):
+        if not 0 <= values[name] <= 1:
+            raise ValueError(f"Size calibration rate is outside [0, 1]: {name}")
+    if values["exact_size_rate"] < 0.90:
+        raise ValueError("Size calibration exact-size gate failed")
+    if values["exact_or_adjacent_rate"] < 0.99:
+        raise ValueError("Size calibration adjacent-size gate failed")
+    if values["more_than_one_size_miss_rate"] > 0.01:
+        raise ValueError("Size calibration severe-miss gate failed")
+    if values["unmappable_rate"] != 0:
+        raise ValueError("Size calibration contains unmappable physical widths")
+    if values["p90_absolute_best_fit_tip_margin_mm"] < 0:
+        raise ValueError("Size calibration absolute margin must not be negative")
+    intervals = report.get("confidence_intervals_95")
+    if not isinstance(intervals, dict) or set(intervals) != set(CALIBRATION_METRICS):
+        raise ValueError("Size calibration confidence intervals do not match the contract")
+    for name, interval in intervals.items():
+        if not isinstance(interval, dict) or set(interval) != {"lower", "upper"}:
+            raise ValueError(
+                "Size calibration confidence interval fields do not match the contract"
+            )
+        if name in {
+            "exact_size_rate",
+            "exact_or_adjacent_rate",
+            "more_than_one_size_miss_rate",
+            "unmappable_rate",
+        } and not (0 <= _finite(interval["lower"], name) <= _finite(interval["upper"], name) <= 1):
+            raise ValueError("Size calibration rate confidence interval is outside [0, 1]")
+    _validate_intervals(intervals, CALIBRATION_METRICS, "size calibration")
+
+    cohorts = report.get("adequately_sampled_curvature_cohorts")
+    expected_cohort_fields = {
+        "cohort",
+        "participant_count",
+        "nail_count",
+        "metrics",
+        "checks",
+        "review_ref",
+        "passed",
+    }
+    if not isinstance(cohorts, list) or not cohorts:
+        raise ValueError("Size calibration requires reviewed curvature cohorts")
+    seen: set[str] = set()
+    for cohort in cohorts:
+        if not isinstance(cohort, dict) or set(cohort) != expected_cohort_fields:
+            raise ValueError("Size calibration cohort fields do not match the contract")
+        cohort_name = cohort.get("cohort")
+        if not isinstance(cohort_name, str) or not cohort_name.strip() or cohort_name in seen:
+            raise ValueError("Size calibration curvature cohorts must be unique")
+        seen.add(cohort_name)
+        if (
+            cohort.get("passed") is not True
+            or _positive_integer(cohort.get("participant_count"), "cohort participant_count")
+            > participant_count
+            or _positive_integer(cohort.get("nail_count"), "cohort nail_count") > nail_count
+        ):
+            raise ValueError("Size calibration cohort counts and gates must pass")
+        cohort_metrics = cohort.get("metrics")
+        if not isinstance(cohort_metrics, dict) or set(cohort_metrics) != set(CALIBRATION_METRICS):
+            raise ValueError("Size calibration cohort metrics do not match the contract")
+        cohort_values = {
+            name: _finite(cohort_metrics.get(name), f"cohort {name}")
+            for name in CALIBRATION_METRICS
+        }
+        for name in (
+            "exact_size_rate",
+            "exact_or_adjacent_rate",
+            "more_than_one_size_miss_rate",
+            "unmappable_rate",
+        ):
+            if not 0 <= cohort_values[name] <= 1:
+                raise ValueError(f"Size calibration cohort rate is outside [0, 1]: {name}")
+        if cohort_values["exact_size_rate"] < values["exact_size_rate"] - 0.05:
+            raise ValueError("Size calibration cohort exact-size gap failed")
+        if cohort_values["unmappable_rate"] != 0:
+            raise ValueError("Size calibration cohort contains unmappable physical widths")
+        if cohort_values["p90_absolute_best_fit_tip_margin_mm"] < 0:
+            raise ValueError("Size calibration cohort absolute margin must not be negative")
+        checks = cohort.get("checks")
+        if not isinstance(checks, dict) or set(checks) != {
+            "exact_size_rate_gap",
+            "review_present",
+        }:
+            raise ValueError("Size calibration cohort checks do not match the contract")
+        _all_checks_pass(checks, "Size calibration cohort checks")
+        if not isinstance(cohort.get("review_ref"), str) or not cohort["review_ref"].strip():
+            raise ValueError("Size calibration cohort review is required")
+    if (
+        not isinstance(report.get("calibration_review_ref"), str)
+        or not report["calibration_review_ref"].strip()
+    ):
+        raise ValueError("Size calibration review is required")
 
 
 def _all_checks_pass(checks: Any, label: str) -> None:

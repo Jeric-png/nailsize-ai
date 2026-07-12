@@ -23,5 +23,6 @@ jobs:
           pytest
           ml/tests/test_modeling.py
           ml/tests/test_release_bundle.py
+          ml/tests/test_size_calibration.py
           ml/tests/test_training.py
           ml/tests/test_benchmark.py
