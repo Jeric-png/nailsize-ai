@@ -105,6 +105,7 @@ def _write_checkpoint(
         "dataset_version": "study-1",
         "dataset_provenance_sha256": "b" * 64,
         "training_manifest_sha256": "c" * 64,
+        "holdout_lock_sha256": "d" * 64,
         "losses": (1.2, 0.8),
         "torch_version": str(torch.__version__),
     }
@@ -142,12 +143,13 @@ def test_exports_checksum_selected_checkpoint_and_machine_readable_evidence(
     assert report.dataset_version == "study-1"
     assert report.dataset_provenance_sha256 == "b" * 64
     assert report.training_manifest_sha256 == "c" * 64
+    assert report.holdout_lock_sha256 == "d" * 64
     assert report.training_examples == 24
     assert report.training_epochs == 2
     assert report.final_training_loss == 0.8
     assert report.parity_max_abs_error <= 1e-4
     payload = json.loads(report_path.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "nailsize-selected-checkpoint-export@2"
+    assert payload["schema_version"] == "nailsize-selected-checkpoint-export@3"
     assert payload["architecture"] == "deeplabv3_mobilenet_v3_large"
     assert payload["input_shape"] == [1, 3, INPUT_HEIGHT, INPUT_WIDTH]
     assert payload["output_shape"] == [1, 1, INPUT_HEIGHT, INPUT_WIDTH]
@@ -190,6 +192,7 @@ def test_selected_checkpoint_rejects_unapproved_identity(
         ("dataset_version", "", "dataset version"),
         ("dataset_provenance_sha256", "invalid", "provenance checksum"),
         ("training_manifest_sha256", "invalid", "manifest checksum"),
+        ("holdout_lock_sha256", "invalid", "holdout lock checksum"),
     ],
 )
 def test_selected_checkpoint_rejects_invalid_dataset_provenance(

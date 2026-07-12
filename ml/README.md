@@ -46,16 +46,28 @@ nailsize-dataset-provenance-report /approved-data/manifest.jsonl \
 
 DATASET_PROVENANCE_SHA256="$(shasum -a 256 /approved-data/dataset-provenance-report.json | cut -d ' ' -f 1)"
 
+nailsize-holdout-lock /approved-data/manifest.jsonl \
+  --dataset-version study-2026-01 \
+  --split-salt-file /approved-secrets/split-salt \
+  --split-salt-id split-salt-2026-01 \
+  --holdout-lock-review-ref HOLDOUT_REVIEW \
+  --output /approved-data/holdout-lock-report.json
+
+HOLDOUT_LOCK_SHA256="$(shasum -a 256 /approved-data/holdout-lock-report.json | cut -d ' ' -f 1)"
+
 nailsize-train \
   --manifest /approved-data/manifest.jsonl \
   --dataset-root /approved-data \
   --dataset-provenance-report /approved-data/dataset-provenance-report.json \
   --expected-dataset-provenance-sha256 "$DATASET_PROVENANCE_SHA256" \
+  --holdout-lock-report /approved-data/holdout-lock-report.json \
+  --expected-holdout-lock-sha256 "$HOLDOUT_LOCK_SHA256" \
+  --split-salt-file /approved-secrets/split-salt \
   --checkpoint /research-artifacts/baseline.pt \
   --model-version baseline-YYYYMMDD
 ```
 
-The aggregate provenance report contains counts, checksums, dataset identity, and named reviews only—never participant IDs, image IDs, paths, or consent records. Training requires the independently approved report checksum, revalidates the manifest against it, fixes preprocessing to the production tensor contract, enables deterministic algorithms, and carries the dataset/report/manifest checksums into the checkpoint. It never writes source images into the repository. A checkpoint is a research artifact, not a releasable model; evaluation, ONNX export, model-card review, and release gates still follow training.
+The aggregate reports contain counts, checksums, dataset identity, and named reviews only—never participant IDs, image IDs, paths, consent records, or the protected split salt. The salt file must contain the exact secret value without trailing whitespace and must remain outside Git and release artifacts. Training requires both independently approved report checksums, revalidates the manifest and every deterministic participant split, fixes preprocessing to the production tensor contract, enables deterministic algorithms, and carries the dataset/provenance/manifest/holdout-lock checksums into the checkpoint. The public test split must not be inspected for architecture selection, threshold tuning, or relabeling. Training never writes source images into the repository. A checkpoint is a research artifact, not a releasable model; evaluation, ONNX export, model-card review, and release gates still follow training.
 
 After the model owner selects a checkpoint using the locked validation protocol, record its SHA-256 and export that exact file into a new empty evidence directory:
 
@@ -67,7 +79,7 @@ nailsize-export-checkpoint /approved/checkpoints/candidate.pt \
   --report /approved/evidence/onnx-export-report.json
 ```
 
-The exporter safely loads only the checksum-approved checkpoint, reconstructs the fixed DeepLabV3-MobileNetV3 architecture without downloading weights, requires strict state-dictionary compatibility, and verifies native/ONNX parity on CPU. It refuses pre-existing or overlapping output paths and emits neither artifact unless both the ONNX model and machine-readable evidence can be published. The report locks checkpoint/model checksums, dataset/provenance/manifest checksums, versions, tensor shapes, training counts/loss, provider, and measured parity. Copy its measured parity and ONNX checksum into the independently reviewed `model-metadata.json`, then preserve the original `onnx-export-report.json` unchanged in the release bundle so the final gate can verify that linkage.
+The exporter safely loads only the checksum-approved checkpoint, reconstructs the fixed DeepLabV3-MobileNetV3 architecture without downloading weights, requires strict state-dictionary compatibility, and verifies native/ONNX parity on CPU. It refuses pre-existing or overlapping output paths and emits neither artifact unless both the ONNX model and machine-readable evidence can be published. The report locks checkpoint/model checksums, dataset/provenance/manifest/holdout-lock checksums, versions, tensor shapes, training counts/loss, provider, and measured parity. Copy its measured parity and ONNX checksum into the independently reviewed `model-metadata.json`, then preserve the original `onnx-export-report.json` unchanged in the release bundle so the final gate can verify that linkage.
 
 ## Accuracy release report
 
@@ -81,7 +93,7 @@ Run `nailsize-operational-report study-bundle.json --output operational-report.j
 
 Run `nailsize-size-calibration-report physical-best-fit.jsonl --dataset-version DATASET_VERSION --calibration-review-ref REVIEW --curvature-review medium=REVIEW --output size-calibration-report.json` on the same locked public holdout. Each exact JSONL row contains only an opaque participant/nail ID, adjudicated physical width, physical best-fit size, and curvature cohort. The report applies the exact immutable `platform-default@1` mapping to physical widths, enforces the 200-participant/2,000-nail and size-agreement gates, rejects unmappable widths, publishes participant-clustered intervals, and measures best-fit tip margin overall and for reviewer-declared adequately sampled curvature cohorts. Cohort exact-size accuracy may not trail overall by more than five percentage points. Named reviews remain mandatory because the plan does not define a universal acceptable curvature-margin threshold.
 
-Before publishing a GitHub model release, place only `nail-segmentation.onnx`, the original `onnx-export-report.json`, the approved `dataset-provenance-report.json`, `model-metadata.json`, `annotation-agreement-report.json`, `size-calibration-report.json`, `accuracy-report.json`, `operational-report.json`, and the generated `model-card.md` in one directory, then run:
+Before publishing a GitHub model release, place only `nail-segmentation.onnx`, the original `onnx-export-report.json`, the approved `dataset-provenance-report.json`, the approved `holdout-lock-report.json`, `model-metadata.json`, `annotation-agreement-report.json`, `size-calibration-report.json`, `accuracy-report.json`, `operational-report.json`, and the generated `model-card.md` in one directory, then run:
 
 ```bash
 nailsize-release-bundle /approved-release \
@@ -90,7 +102,7 @@ nailsize-release-bundle /approved-release \
   --output /reports/model-release-manifest.json
 ```
 
-This final gate independently checks exact contents, selected-checkpoint and ONNX checksum/version identity, fixed architecture/provider/tensor contracts, exporter-to-metadata parity linkage, the checksum-linked research-only dataset provenance and consent boundary, annotation agreement coverage/reviews/adjudication, physical best-fit size calibration against the exact production chart, shared dataset identity/counts, every numeric accuracy and operational threshold, finite clustered intervals, study/cohort counts and reviews, model-card reproducibility, and positive boundary uncertainty. It emits metadata only. Passing it proves the bundle is internally consistent; it does not prove that the submitted study data was representative or honestly collected, so protected human review remains mandatory.
+This final gate independently checks exact ten-file contents, selected-checkpoint and ONNX checksum/version identity, fixed architecture/provider/tensor contracts, exporter-to-metadata parity linkage, the checksum-linked research-only dataset provenance and consent boundary, the approved holdout lock and identifier-free test-set commitment, exact accuracy-to-holdout participant/nail count parity, annotation agreement coverage/reviews/adjudication, physical best-fit size calibration against the exact production chart, shared dataset identity/counts, every numeric accuracy and operational threshold, finite clustered intervals, study/cohort counts and reviews, model-card reproducibility, and positive boundary uncertainty. It emits metadata only. Passing it proves the bundle is internally consistent; it does not prove that the submitted study data was representative or honestly collected, so protected human review remains mandatory.
 
 The default CI suite measures coverage for production and dependency-light ML modules; the heavy PyTorch modules are excluded because their optional dependencies are not installed there. Run the `Model Tooling` GitHub Actions workflow after changes to `modeling.py`, `training.py`, the release chain, or their pinned dependencies. It installs the research extra on Linux and executes the real factory/export/release/training tests.
 

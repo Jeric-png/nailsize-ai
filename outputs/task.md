@@ -87,7 +87,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Train the DeepLabV3-MobileNetV3 baseline on fingertip crops.
 - [ ] Evaluate mask boundary error as well as IoU; do not approve based on IoU alone.
 - [ ] Export the selected model to ONNX and verify output parity with PyTorch.
-  - A fail-closed CLI now requires the selected checkpoint's approved SHA-256 and model version, safely loads its fixed training schema, reconstructs DeepLabV3-MobileNetV3 with strict state compatibility, publishes ONNX only after CPU parity passes, and atomically records checkpoint/model identities, tensor contracts, provider, and measured error. The nine-file release gate requires that original report and cross-checks it against the exact ONNX bytes, reviewed parity metadata, annotation-agreement evidence, physical best-fit calibration, and an aggregate-only approved research-dataset provenance chain for the same released dataset before deployment. The checkbox remains open until a real selected checkpoint produces reviewed export evidence at or below `1e-4`.
+  - A fail-closed CLI now requires the selected checkpoint's approved SHA-256 and model version, safely loads its fixed training schema, reconstructs DeepLabV3-MobileNetV3 with strict state compatibility, publishes ONNX only after CPU parity passes, and atomically records checkpoint/model identities, tensor contracts, provider, and measured error. The ten-file release gate requires that original report and cross-checks it against the exact ONNX bytes, reviewed parity metadata, annotation-agreement evidence, physical best-fit calibration, approved research-dataset provenance, and the locked public holdout for the same released dataset before deployment. The checkbox remains open until a real selected checkpoint produces reviewed export evidence at or below `1e-4`.
 - [ ] Benchmark ONNX Runtime on the Cloud Run CPU configuration.
 - [x] Add model versioning, checksum validation, startup warmup, and readiness failure when the model cannot load.
 - [ ] Publish a model card with dataset, metrics, subgroup results, limitations, and intended-use restrictions.
@@ -147,6 +147,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Complete the 100-participant/1,000-nail feasibility study.
 - [ ] Confirm the four-photo approach can satisfy the measurement gates; otherwise add and validate the oblique-capture fallback before continuing.
 - [ ] Lock the participant-disjoint public-release holdout before final model selection.
+  - A fail-closed CLI now verifies every participant's manifest split against a protected salt file and emits only aggregate test counts plus an identifier-free commitment. Training, checkpoints, selected-model export, and the exact ten-file release bind the approved report checksum; release also requires the accuracy report to match the locked nail and participant counts. The checkbox remains open until a real study manifest is locked before model selection and independently reviewed.
 - [ ] Evaluate at least 200 people and 2,000 held-out nails with adjudicated physical ground truth.
 - [ ] Demonstrate width MAE ≤ 0.6 mm, p90 error ≤ 1.0 mm, and signed bias within ±0.2 mm.
 - [ ] Demonstrate exact size ≥ 90%, exact-or-adjacent ≥ 99%, and more-than-one-size miss ≤ 1%.

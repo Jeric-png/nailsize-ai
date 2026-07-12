@@ -19,6 +19,7 @@ from nailsize_ml.dataset_provenance import (  # noqa: E402
     build_research_dataset_report,
     verify_research_dataset_report,
 )
+from nailsize_ml.holdout_lock import HoldoutLockApproval  # noqa: E402
 from nailsize_ml.training import (  # noqa: E402
     NailSegmentationDataset,
     TrainingConfig,
@@ -93,15 +94,46 @@ def approval_for(examples: list[TrainingExample]) -> ResearchDatasetApproval:
     )
 
 
+def holdout_for(approval: ResearchDatasetApproval) -> HoldoutLockApproval:
+    return HoldoutLockApproval(
+        dataset_version=approval.dataset_version,
+        lock_sha256="d" * 64,
+        manifest_sha256=approval.manifest_sha256,
+        split_salt_id="split-salt-1",
+        test_record_count=approval.split_record_counts[DatasetSplit.TEST],
+        test_participant_count=approval.split_participant_counts[DatasetSplit.TEST],
+        test_set_commitment_sha256="e" * 64,
+        holdout_lock_review_ref="holdout-review-1",
+    )
+
+
 def test_loads_participant_safe_manifest_and_fixed_preprocessing(tmp_path: Path) -> None:
-    image_path, mask_path = write_pair(tmp_path, "sample")
+    pairs = [write_pair(tmp_path, f"sample-{index}") for index in range(3)]
     manifest = tmp_path / "manifest.jsonl"
     manifest.write_text(
-        json.dumps(manifest_record(image_path, mask_path)) + "\n",
+        "".join(
+            json.dumps(
+                manifest_record(
+                    image_path,
+                    mask_path,
+                    image_id=f"image-{index}",
+                    participant_id=f"participant-{index}",
+                    split=split,
+                )
+            )
+            + "\n"
+            for index, ((image_path, mask_path), split) in enumerate(
+                zip(pairs, DatasetSplit, strict=True), 1
+            )
+        ),
         encoding="utf-8",
     )
+    approval = approve_manifest(manifest)
     examples = load_training_manifest(
-        manifest, tmp_path, dataset_approval=approve_manifest(manifest)
+        manifest,
+        tmp_path,
+        dataset_approval=approval,
+        holdout_lock_approval=holdout_for(approval),
     )
     image, mask = NailSegmentationDataset(examples)[0]
     assert image.shape == (3, 224, 160)
@@ -131,7 +163,13 @@ def test_manifest_rejects_participant_leakage_and_path_escape(tmp_path: Path) ->
     records[1]["image_path"] = "../outside.png"
     manifest.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
     with pytest.raises(ValueError, match="line 2"):
-        load_training_manifest(manifest, tmp_path, dataset_approval=approve_manifest(manifest))
+        approval = approve_manifest(manifest)
+        load_training_manifest(
+            manifest,
+            tmp_path,
+            dataset_approval=approval,
+            holdout_lock_approval=holdout_for(approval),
+        )
 
 
 def test_manifest_rejects_approval_with_mismatched_aggregates(tmp_path: Path) -> None:
@@ -141,10 +179,12 @@ def test_manifest_rejects_approval_with_mismatched_aggregates(tmp_path: Path) ->
     approval = approve_manifest(manifest)
 
     with pytest.raises(ValueError, match="approved dataset aggregates"):
+        holdout = holdout_for(approval)
         load_training_manifest(
             manifest,
             tmp_path,
             dataset_approval=replace(approval, record_count=approval.record_count + 1),
+            holdout_lock_approval=holdout,
         )
 
 
@@ -175,15 +215,26 @@ def test_seed_and_train_epoch_are_deterministic(tmp_path: Path) -> None:
 
 
 def test_training_checkpoint_is_safe_weights_only_data(tmp_path: Path, monkeypatch) -> None:
-    image_path, mask_path = write_pair(tmp_path, "sample")
-    example = TrainingExample(
-        "image-001",
-        "participant-001",
-        DatasetSplit.TRAIN,
-        image_path,
-        mask_path,
-        "study-1",
-    )
+    train_image, train_mask = write_pair(tmp_path, "train")
+    test_image, test_mask = write_pair(tmp_path, "test")
+    examples = [
+        TrainingExample(
+            "image-001",
+            "participant-001",
+            DatasetSplit.TRAIN,
+            train_image,
+            train_mask,
+            "study-1",
+        ),
+        TrainingExample(
+            "image-002",
+            "participant-002",
+            DatasetSplit.TEST,
+            test_image,
+            test_mask,
+            "study-1",
+        ),
+    ]
     monkeypatch.setattr(
         training,
         "build_deeplab_mobilenet",
@@ -191,8 +242,9 @@ def test_training_checkpoint_is_safe_weights_only_data(tmp_path: Path, monkeypat
     )
     checkpoint = tmp_path / "candidate.pt"
 
+    approval = approval_for(examples)
     train_baseline(
-        [example],
+        examples,
         TrainingConfig(
             model_version="candidate-1",
             epochs=1,
@@ -200,7 +252,8 @@ def test_training_checkpoint_is_safe_weights_only_data(tmp_path: Path, monkeypat
             pretrained_backbone=False,
         ),
         checkpoint,
-        dataset_approval=approval_for([example]),
+        dataset_approval=approval,
+        holdout_lock_approval=holdout_for(approval),
     )
 
     payload = torch.load(checkpoint, map_location="cpu", weights_only=True)
@@ -210,3 +263,4 @@ def test_training_checkpoint_is_safe_weights_only_data(tmp_path: Path, monkeypat
     assert payload["dataset_version"] == "study-1"
     assert payload["dataset_provenance_sha256"] == "a" * 64
     assert payload["training_manifest_sha256"] == "b" * 64
+    assert payload["holdout_lock_sha256"] == "d" * 64

@@ -75,9 +75,9 @@ def _accuracy_report() -> dict:
     }
 
 
-def _export_report(checksum: str, provenance_checksum: str) -> dict:
+def _export_report(checksum: str, provenance_checksum: str, holdout_checksum: str) -> dict:
     return {
-        "schema_version": "nailsize-selected-checkpoint-export@2",
+        "schema_version": "nailsize-selected-checkpoint-export@3",
         "architecture": "deeplabv3_mobilenet_v3_large",
         "checkpoint_sha256": "a" * 64,
         "model_sha256": checksum,
@@ -85,6 +85,7 @@ def _export_report(checksum: str, provenance_checksum: str) -> dict:
         "dataset_version": "holdout-1",
         "dataset_provenance_sha256": provenance_checksum,
         "training_manifest_sha256": "c" * 64,
+        "holdout_lock_sha256": holdout_checksum,
         "training_examples": 2400,
         "training_epochs": 12,
         "final_training_loss": 0.08,
@@ -106,12 +107,32 @@ def _dataset_provenance_report() -> dict:
         "usage_scope": "model_development_only",
         "production_data_excluded": True,
         "manifest_sha256": "c" * 64,
-        "record_count": 3000,
-        "participant_count": 300,
-        "split_record_counts": {"train": 2400, "validation": 300, "test": 300},
-        "split_participant_counts": {"train": 240, "validation": 30, "test": 30},
+        "record_count": 4700,
+        "participant_count": 470,
+        "split_record_counts": {"train": 2400, "validation": 300, "test": 2000},
+        "split_participant_counts": {"train": 240, "validation": 30, "test": 200},
         "research_approval_ref": "research-review-1",
         "production_exclusion_review_ref": "privacy-review-1",
+        "passed": True,
+    }
+
+
+def _holdout_lock_report() -> dict:
+    return {
+        "schema_version": "nailsize-public-holdout-lock@1",
+        "dataset_version": "holdout-1",
+        "manifest_sha256": "c" * 64,
+        "split_strategy": "sha256_participant_salt_v1",
+        "split_salt_id": "split-salt-2026-01",
+        "split_thresholds": {"train": 0.7, "validation": 0.15, "test": 0.15},
+        "test_record_count": 2000,
+        "test_participant_count": 200,
+        "test_set_commitment_sha256": "f" * 64,
+        "holdout_purpose": "public_release_model_evaluation",
+        "model_selection_access_prohibited": True,
+        "threshold_tuning_access_prohibited": True,
+        "relabeling_requires_new_dataset_version": True,
+        "holdout_lock_review_ref": "holdout-review-1",
         "passed": True,
     }
 
@@ -278,7 +299,10 @@ def _write_bundle(directory):
     provenance_path = directory / "dataset-provenance-report.json"
     provenance_path.write_text(json.dumps(_dataset_provenance_report()), encoding="utf-8")
     provenance_checksum = hashlib.sha256(provenance_path.read_bytes()).hexdigest()
-    export = _export_report(checksum, provenance_checksum)
+    holdout_path = directory / "holdout-lock-report.json"
+    holdout_path.write_text(json.dumps(_holdout_lock_report()), encoding="utf-8")
+    holdout_checksum = hashlib.sha256(holdout_path.read_bytes()).hexdigest()
+    export = _export_report(checksum, provenance_checksum, holdout_checksum)
     accuracy = _accuracy_report()
     annotation_agreement = _annotation_agreement_report()
     operational = _operational_report()
@@ -309,7 +333,7 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
     )
 
     assert manifest == {
-        "schema_version": "nailsize-model-release@5",
+        "schema_version": "nailsize-model-release@6",
         "checkpoint_sha256": "a" * 64,
         "model_version": "release-1",
         "model_sha256": checksum,
@@ -317,6 +341,9 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
         "dataset_version": "holdout-1",
         "dataset_provenance_sha256": hashlib.sha256(
             (tmp_path / "dataset-provenance-report.json").read_bytes()
+        ).hexdigest(),
+        "holdout_lock_sha256": hashlib.sha256(
+            (tmp_path / "holdout-lock-report.json").read_bytes()
         ).hexdigest(),
         "chart_id": "platform-default",
         "chart_version": "1",
@@ -349,8 +376,12 @@ def test_rejects_missing_unexpected_and_synthetic_release_inputs(tmp_path) -> No
     provenance_checksum = hashlib.sha256(
         (tmp_path / "dataset-provenance-report.json").read_bytes()
     ).hexdigest()
+    holdout_checksum = hashlib.sha256(
+        (tmp_path / "holdout-lock-report.json").read_bytes()
+    ).hexdigest()
     export_report.write_text(
-        json.dumps(_export_report(checksum, provenance_checksum)), encoding="utf-8"
+        json.dumps(_export_report(checksum, provenance_checksum, holdout_checksum)),
+        encoding="utf-8",
     )
     with pytest.raises(ValueError, match="non-synthetic"):
         verify_release_bundle(
@@ -375,6 +406,7 @@ def test_rejects_missing_unexpected_and_synthetic_release_inputs(tmp_path) -> No
         ("dataset_version", "other", "dataset does not match"),
         ("dataset_provenance_sha256", "invalid", "provenance checksum"),
         ("training_manifest_sha256", "invalid", "manifest checksum"),
+        ("holdout_lock_sha256", "invalid", "holdout lock checksum"),
         ("provider", "CUDAExecutionProvider", "CPUExecutionProvider"),
         ("input_shape", [1, 3, 160, 224], "input shape"),
         ("output_shape", [1, 1, 160, 224], "output shape"),
@@ -461,6 +493,38 @@ def test_rejects_tampered_dataset_provenance_evidence(tmp_path, mutation, messag
     export_path = tmp_path / "onnx-export-report.json"
     export = json.loads(export_path.read_text(encoding="utf-8"))
     export["dataset_provenance_sha256"] = hashlib.sha256(provenance_path.read_bytes()).hexdigest()
+    export_path.write_text(json.dumps(export), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda report: report.update(passed=False), "passing schema"),
+        (
+            lambda report: report.update(model_selection_access_prohibited=False),
+            "evaluation boundary",
+        ),
+        (lambda report: report.update(manifest_sha256="d" * 64), "manifest checksum"),
+        (lambda report: report.update(test_record_count=1999), "accuracy report"),
+        (lambda report: report.update(test_set_commitment_sha256="invalid"), "commitment"),
+        (lambda report: report.update(holdout_lock_review_ref=""), "named split-salt"),
+        (lambda report: report.update(participant_ids=["private"]), "fields do not match"),
+    ],
+)
+def test_rejects_tampered_public_holdout_lock_evidence(tmp_path, mutation, message: str) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    holdout_path = tmp_path / "holdout-lock-report.json"
+    holdout = json.loads(holdout_path.read_text(encoding="utf-8"))
+    mutation(holdout)
+    holdout_path.write_text(json.dumps(holdout), encoding="utf-8")
+    export_path = tmp_path / "onnx-export-report.json"
+    export = json.loads(export_path.read_text(encoding="utf-8"))
+    export["holdout_lock_sha256"] = hashlib.sha256(holdout_path.read_bytes()).hexdigest()
     export_path.write_text(json.dumps(export), encoding="utf-8")
 
     with pytest.raises(ValueError, match=message):

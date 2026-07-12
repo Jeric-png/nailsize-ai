@@ -34,6 +34,7 @@ class SelectedCheckpointExportReport:
     dataset_version: str
     dataset_provenance_sha256: str
     training_manifest_sha256: str
+    holdout_lock_sha256: str
     training_examples: int
     training_epochs: int
     final_training_loss: float
@@ -214,6 +215,7 @@ def export_selected_checkpoint(
     dataset_version = checkpoint.get("dataset_version")
     dataset_provenance_sha256 = checkpoint.get("dataset_provenance_sha256")
     training_manifest_sha256 = checkpoint.get("training_manifest_sha256")
+    holdout_lock_sha256 = checkpoint.get("holdout_lock_sha256")
     checkpoint_torch_version = checkpoint.get("torch_version")
     if not isinstance(config, dict) or config.get("model_version") != expected_model_version:
         raise ValueError("Checkpoint model version does not match the selected version")
@@ -234,6 +236,8 @@ def export_selected_checkpoint(
         raise ValueError("Checkpoint dataset provenance checksum is invalid")
     if not isinstance(training_manifest_sha256, str) or not _valid_sha256(training_manifest_sha256):
         raise ValueError("Checkpoint training manifest checksum is invalid")
+    if not isinstance(holdout_lock_sha256, str) or not _valid_sha256(holdout_lock_sha256):
+        raise ValueError("Checkpoint public holdout lock checksum is invalid")
     if not isinstance(losses, (list, tuple)) or len(losses) != epochs:
         raise ValueError("Checkpoint loss history does not match its training epochs")
     numeric_losses = tuple(_finite_number(value, "training loss") for value in losses)
@@ -256,7 +260,7 @@ def export_selected_checkpoint(
         parity_atol=parity_atol,
     )
     report = SelectedCheckpointExportReport(
-        schema_version="nailsize-selected-checkpoint-export@2",
+        schema_version="nailsize-selected-checkpoint-export@3",
         architecture="deeplabv3_mobilenet_v3_large",
         checkpoint_sha256=actual_checkpoint_sha256,
         model_sha256=exported.model_sha256,
@@ -264,6 +268,7 @@ def export_selected_checkpoint(
         dataset_version=dataset_version,
         dataset_provenance_sha256=dataset_provenance_sha256,
         training_manifest_sha256=training_manifest_sha256,
+        holdout_lock_sha256=holdout_lock_sha256,
         training_examples=training_examples,
         training_epochs=epochs,
         final_training_loss=numeric_losses[-1],

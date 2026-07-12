@@ -14,6 +14,7 @@ from .dataset_provenance import (
     validate_research_manifest,
     verify_research_dataset_report,
 )
+from .holdout_lock import HoldoutLockApproval, verify_holdout_lock_report
 from .modeling import INPUT_HEIGHT, INPUT_WIDTH, build_deeplab_mobilenet, combined_segmentation_loss
 
 _MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -51,6 +52,7 @@ def load_training_manifest(
     dataset_root: str | Path,
     *,
     dataset_approval: ResearchDatasetApproval,
+    holdout_lock_approval: HoldoutLockApproval,
 ) -> tuple[TrainingExample, ...]:
     manifest = Path(manifest_path)
     root = Path(dataset_root).resolve()
@@ -90,6 +92,7 @@ def load_training_manifest(
     }
     assert_no_participant_leakage(split_records)
     _validate_dataset_approval(examples, dataset_approval)
+    _validate_holdout_lock(examples, dataset_approval, holdout_lock_approval)
     return tuple(examples)
 
 
@@ -173,6 +176,7 @@ def train_baseline(
     checkpoint_path: str | Path,
     *,
     dataset_approval: ResearchDatasetApproval,
+    holdout_lock_approval: HoldoutLockApproval,
     device: str = "cpu",
 ) -> tuple[float, ...]:
     try:
@@ -181,6 +185,7 @@ def train_baseline(
     except ImportError as error:
         raise RuntimeError("Install nailsize-ml-tooling[training] to train the model") from error
     _validate_dataset_approval(examples, dataset_approval)
+    _validate_holdout_lock(examples, dataset_approval, holdout_lock_approval)
     train_examples = [example for example in examples if example.split == DatasetSplit.TRAIN]
     if not train_examples:
         raise ValueError("Training split is empty")
@@ -208,6 +213,7 @@ def train_baseline(
             "dataset_version": dataset_approval.dataset_version,
             "dataset_provenance_sha256": dataset_approval.provenance_sha256,
             "training_manifest_sha256": dataset_approval.manifest_sha256,
+            "holdout_lock_sha256": holdout_lock_approval.lock_sha256,
             "losses": losses,
             "torch_version": str(torch.__version__),
         },
@@ -240,6 +246,36 @@ def _validate_dataset_approval(
         raise ValueError("Training examples do not match approved dataset aggregates")
 
 
+def _validate_holdout_lock(
+    examples: Sequence[TrainingExample],
+    dataset_approval: ResearchDatasetApproval,
+    holdout_lock: HoldoutLockApproval,
+) -> None:
+    if (
+        not _valid_sha256(holdout_lock.lock_sha256)
+        or not _valid_sha256(holdout_lock.test_set_commitment_sha256)
+        or holdout_lock.test_record_count <= 0
+        or holdout_lock.test_participant_count <= 0
+    ):
+        raise ValueError("Public holdout lock approval is invalid")
+    if (
+        holdout_lock.dataset_version != dataset_approval.dataset_version
+        or holdout_lock.manifest_sha256 != dataset_approval.manifest_sha256
+    ):
+        raise ValueError("Holdout lock does not match the approved research dataset")
+    test_examples = [example for example in examples if example.split == DatasetSplit.TEST]
+    test_participants = {example.participant_id for example in test_examples}
+    if (
+        len(test_examples) != holdout_lock.test_record_count
+        or len(test_participants) != holdout_lock.test_participant_count
+    ):
+        raise ValueError("Training manifest does not match the locked public holdout")
+
+
+def _valid_sha256(value: str) -> bool:
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
 def _dataset_path(root: Path, value: Any) -> Path:
     relative = Path(str(value))
     if relative.is_absolute():
@@ -258,6 +294,9 @@ def main() -> None:
     parser.add_argument("--dataset-root", required=True, type=Path)
     parser.add_argument("--dataset-provenance-report", required=True, type=Path)
     parser.add_argument("--expected-dataset-provenance-sha256", required=True)
+    parser.add_argument("--holdout-lock-report", required=True, type=Path)
+    parser.add_argument("--expected-holdout-lock-sha256", required=True)
+    parser.add_argument("--split-salt-file", required=True, type=Path)
     parser.add_argument("--checkpoint", required=True, type=Path)
     parser.add_argument("--model-version", required=True)
     parser.add_argument("--epochs", type=int, default=20)
@@ -272,8 +311,17 @@ def main() -> None:
         arguments.manifest,
         expected_provenance_sha256=arguments.expected_dataset_provenance_sha256,
     )
+    holdout_lock = verify_holdout_lock_report(
+        arguments.holdout_lock_report,
+        arguments.manifest,
+        split_salt_path=arguments.split_salt_file,
+        expected_lock_sha256=arguments.expected_holdout_lock_sha256,
+    )
     examples = load_training_manifest(
-        arguments.manifest, arguments.dataset_root, dataset_approval=approval
+        arguments.manifest,
+        arguments.dataset_root,
+        dataset_approval=approval,
+        holdout_lock_approval=holdout_lock,
     )
     config = TrainingConfig(
         model_version=arguments.model_version,
@@ -288,6 +336,7 @@ def main() -> None:
         config,
         arguments.checkpoint,
         dataset_approval=approval,
+        holdout_lock_approval=holdout_lock,
         device=arguments.device,
     )
     print(json.dumps({"checkpoint": str(arguments.checkpoint), "losses": losses}))

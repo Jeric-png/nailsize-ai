@@ -16,6 +16,17 @@ from .dataset_provenance import (
 from .dataset_provenance import (
     SCHEMA_VERSION as DATASET_PROVENANCE_SCHEMA,
 )
+from .holdout_lock import (
+    HOLDOUT_PURPOSE,
+    SPLIT_STRATEGY,
+    SPLIT_THRESHOLDS,
+)
+from .holdout_lock import (
+    REPORT_FIELDS as HOLDOUT_LOCK_FIELDS,
+)
+from .holdout_lock import (
+    SCHEMA_VERSION as HOLDOUT_LOCK_SCHEMA,
+)
 from .model_card import render_model_card
 from .operational_validation import OPERATIONAL_METRICS
 from .reporting import METRIC_NAMES, REQUIRED_COHORT_DIMENSIONS
@@ -26,6 +37,7 @@ REQUIRED_FILENAMES = frozenset(
         "accuracy-report.json",
         "annotation-agreement-report.json",
         "dataset-provenance-report.json",
+        "holdout-lock-report.json",
         "model-card.md",
         "model-metadata.json",
         "nail-segmentation.onnx",
@@ -70,6 +82,7 @@ EXPORT_REPORT_FIELDS = frozenset(
         "dataset_provenance_sha256",
         "dataset_version",
         "final_training_loss",
+        "holdout_lock_sha256",
         "input_shape",
         "model_sha256",
         "model_version",
@@ -123,6 +136,7 @@ def verify_release_bundle(
     accuracy = _read_json(directory / "accuracy-report.json")
     annotation_agreement = _read_json(directory / "annotation-agreement-report.json")
     dataset_provenance = _read_json(directory / "dataset-provenance-report.json")
+    holdout_lock = _read_json(directory / "holdout-lock-report.json")
     export_report = _read_json(directory / "onnx-export-report.json")
     operational = _read_json(directory / "operational-report.json")
     size_calibration = _read_json(directory / "size-calibration-report.json")
@@ -142,6 +156,7 @@ def verify_release_bundle(
         dataset_version,
         dataset_provenance_sha256,
         training_manifest_sha256,
+        holdout_lock_sha256,
         training_examples,
     ) = _validate_export_report(
         export_report,
@@ -156,6 +171,15 @@ def verify_release_bundle(
         expected_manifest_sha256=training_manifest_sha256,
         expected_dataset_version=dataset_version,
         expected_training_examples=training_examples,
+    )
+    _validate_holdout_lock_report(
+        holdout_lock,
+        actual_report_sha256=_sha256(directory / "holdout-lock-report.json"),
+        expected_report_sha256=holdout_lock_sha256,
+        expected_manifest_sha256=training_manifest_sha256,
+        expected_dataset_version=dataset_version,
+        expected_test_record_count=accuracy.get("nail_count"),
+        expected_test_participant_count=accuracy.get("participant_count"),
     )
 
     rendered_card = render_model_card(metadata, accuracy)
@@ -179,13 +203,14 @@ def verify_release_bundle(
         segmentation.get("p95_boundary_error_px"), "p95_boundary_error_px"
     )
     return {
-        "schema_version": "nailsize-model-release@5",
+        "schema_version": "nailsize-model-release@6",
         "checkpoint_sha256": checkpoint_sha256,
         "model_version": expected_model_version,
         "model_sha256": expected_model_sha256,
         "onnx_parity_max_abs_error": parity_error,
         "dataset_version": metadata["dataset_version"],
         "dataset_provenance_sha256": dataset_provenance_sha256,
+        "holdout_lock_sha256": holdout_lock_sha256,
         "chart_id": CHART_ID,
         "chart_version": CHART_VERSION,
         "segmentation_boundary_error_px": boundary_error,
@@ -206,10 +231,10 @@ def _validate_export_report(
     metadata: dict[str, Any],
     expected_model_version: str,
     expected_model_sha256: str,
-) -> tuple[str, float, str, str, str, int]:
+) -> tuple[str, float, str, str, str, str, int]:
     if frozenset(report) != EXPORT_REPORT_FIELDS:
         raise ValueError("Selected-checkpoint export report fields do not match contract")
-    if report.get("schema_version") != "nailsize-selected-checkpoint-export@2":
+    if report.get("schema_version") != "nailsize-selected-checkpoint-export@3":
         raise ValueError("Unsupported selected-checkpoint export report schema")
     if report.get("architecture") != "deeplabv3_mobilenet_v3_large":
         raise ValueError("Selected-checkpoint architecture does not match production")
@@ -226,12 +251,15 @@ def _validate_export_report(
         raise ValueError("Export report dataset does not match model metadata")
     dataset_provenance_sha256 = report.get("dataset_provenance_sha256")
     training_manifest_sha256 = report.get("training_manifest_sha256")
+    holdout_lock_sha256 = report.get("holdout_lock_sha256")
     if not isinstance(dataset_provenance_sha256, str) or not _valid_sha256(
         dataset_provenance_sha256
     ):
         raise ValueError("Export report dataset provenance checksum is invalid")
     if not isinstance(training_manifest_sha256, str) or not _valid_sha256(training_manifest_sha256):
         raise ValueError("Export report training manifest checksum is invalid")
+    if not isinstance(holdout_lock_sha256, str) or not _valid_sha256(holdout_lock_sha256):
+        raise ValueError("Export report public holdout lock checksum is invalid")
     if report.get("provider") != "CPUExecutionProvider":
         raise ValueError("Selected-checkpoint export must use CPUExecutionProvider")
     if report.get("input_shape") != [1, 3, 224, 160]:
@@ -267,6 +295,7 @@ def _validate_export_report(
         dataset_version,
         dataset_provenance_sha256,
         training_manifest_sha256,
+        holdout_lock_sha256,
         training_examples,
     )
 
@@ -327,6 +356,51 @@ def _dataset_split_counts(value: Any, label: str) -> dict[str, int]:
         if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
             raise ValueError(f"Dataset provenance split {label} counts must be positive")
     return value
+
+
+def _validate_holdout_lock_report(
+    report: dict[str, Any],
+    *,
+    actual_report_sha256: str,
+    expected_report_sha256: str,
+    expected_manifest_sha256: str,
+    expected_dataset_version: str,
+    expected_test_record_count: Any,
+    expected_test_participant_count: Any,
+) -> None:
+    if set(report) != set(HOLDOUT_LOCK_FIELDS):
+        raise ValueError("Holdout lock report fields do not match the contract")
+    if report.get("schema_version") != HOLDOUT_LOCK_SCHEMA or report.get("passed") is not True:
+        raise ValueError("Holdout lock report must use the supported passing schema")
+    if actual_report_sha256 != expected_report_sha256:
+        raise ValueError("Holdout lock checksum does not match selected-checkpoint export")
+    if report.get("manifest_sha256") != expected_manifest_sha256:
+        raise ValueError("Holdout lock manifest checksum does not match selected-checkpoint export")
+    if report.get("dataset_version") != expected_dataset_version:
+        raise ValueError("Holdout lock dataset does not match selected-checkpoint export")
+    if (
+        report.get("split_strategy") != SPLIT_STRATEGY
+        or report.get("split_thresholds") != SPLIT_THRESHOLDS
+        or report.get("holdout_purpose") != HOLDOUT_PURPOSE
+        or report.get("model_selection_access_prohibited") is not True
+        or report.get("threshold_tuning_access_prohibited") is not True
+        or report.get("relabeling_requires_new_dataset_version") is not True
+    ):
+        raise ValueError("Holdout lock does not enforce the public evaluation boundary")
+    record_count = _positive_integer(report.get("test_record_count"), "test_record_count")
+    participant_count = _positive_integer(
+        report.get("test_participant_count"), "test_participant_count"
+    )
+    if (
+        record_count != expected_test_record_count
+        or participant_count != expected_test_participant_count
+    ):
+        raise ValueError("Holdout lock counts do not match the accuracy report")
+    if not _valid_sha256(report.get("test_set_commitment_sha256")):
+        raise ValueError("Holdout lock test-set commitment checksum is invalid")
+    for field in ("split_salt_id", "holdout_lock_review_ref"):
+        if not isinstance(report.get(field), str) or not report[field].strip():
+            raise ValueError("Holdout lock requires named split-salt and review references")
 
 
 def _validate_accuracy_report(report: dict[str, Any]) -> None:
