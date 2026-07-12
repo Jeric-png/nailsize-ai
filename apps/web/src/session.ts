@@ -1,128 +1,243 @@
-import type {
-  CaptureType,
-  MeasureOkResponse,
-  QualityIssue,
-} from "@nailsize/contracts";
+import {
+  captureOrder,
+  compareSamples,
+  isCaptureConsistent,
+  type CaptureResult,
+  type CaptureType,
+  type CoinMarkers,
+  type ImageDimensions,
+  type SampleMeasurement,
+} from "./guidedSizing";
 
-export const captureOrder: CaptureType[] = [
-  "left_fingers",
-  "left_thumb",
-  "right_fingers",
-  "right_thumb",
-];
+export type SampleNumber = 1 | 2;
+
+export interface SampleRecord {
+  previewUrl: string;
+  fingerprint: string;
+  dimensions: ImageDimensions;
+  coinMarkers?: CoinMarkers;
+  measurements?: SampleMeasurement[];
+}
 
 export interface CaptureRecord {
-  file: File;
-  previewUrl: string;
-  result?: MeasureOkResponse;
-  issues?: QualityIssue[];
+  samples: Partial<Record<SampleNumber, SampleRecord>>;
+  result?: CaptureResult;
 }
 
 export interface SessionState {
+  coinConfirmed: boolean;
   captures: Partial<Record<CaptureType, CaptureRecord>>;
   activeCapture: CaptureType;
   correctionCapture?: CaptureType;
-  status: "idle" | "submitting" | "retake" | "complete" | "error";
-  error?: { code: string; message: string };
 }
 
 export type SessionAction =
-  | { type: "select"; captureType: CaptureType; record: CaptureRecord }
-  | { type: "submitting" }
-  | { type: "accepted"; captureType: CaptureType; result: MeasureOkResponse }
-  | { type: "retake"; captureType: CaptureType; issues: QualityIssue[] }
-  | { type: "error"; code: string; message: string }
+  | { type: "confirmCoin"; confirmed: boolean }
+  | {
+      type: "selectPhoto";
+      captureType: CaptureType;
+      sample: SampleNumber;
+      previewUrl: string;
+      fingerprint: string;
+      dimensions: ImageDimensions;
+    }
+  | {
+      type: "saveCalibration";
+      captureType: CaptureType;
+      sample: SampleNumber;
+      coinMarkers: CoinMarkers;
+    }
+  | {
+      type: "completeSample";
+      captureType: CaptureType;
+      sample: SampleNumber;
+      coinMarkers: CoinMarkers;
+      measurements: SampleMeasurement[];
+    }
+  | { type: "accept"; captureType: CaptureType }
+  | { type: "clearSample"; captureType: CaptureType; sample: SampleNumber }
   | { type: "reopen"; captureType: CaptureType }
   | { type: "finishCorrection" }
   | { type: "reset" };
 
 export const initialSession: SessionState = {
+  coinConfirmed: false,
   captures: {},
   activeCapture: "left_fingers",
-  status: "idle",
 };
 
+export function releaseSample(sample: SampleRecord | undefined): void {
+  if (sample) URL.revokeObjectURL(sample.previewUrl);
+}
+
 export function releaseCapture(record: CaptureRecord | undefined): void {
-  if (record) URL.revokeObjectURL(record.previewUrl);
+  if (!record) return;
+  releaseSample(record.samples[1]);
+  releaseSample(record.samples[2]);
+}
+
+export function releaseSession(state: SessionState): void {
+  Object.values(state.captures).forEach(releaseCapture);
 }
 
 export function sessionReducer(
   state: SessionState,
   action: SessionAction,
 ): SessionState {
+  if (
+    !state.coinConfirmed &&
+    action.type !== "confirmCoin" &&
+    action.type !== "reset"
+  ) {
+    if (action.type === "selectPhoto") URL.revokeObjectURL(action.previewUrl);
+    return state;
+  }
+
   switch (action.type) {
-    case "select": {
-      releaseCapture(state.captures[action.captureType]);
+    case "confirmCoin":
+      if (action.confirmed === state.coinConfirmed) return state;
+      if (!action.confirmed) {
+        releaseSession(state);
+        return initialSession;
+      }
+      return { ...state, coinConfirmed: true };
+
+    case "selectPhoto": {
+      const current = state.captures[action.captureType];
+      const retainedFirst = current?.samples[1];
+      if (
+        action.sample === 2 &&
+        (!retainedFirst || retainedFirst.fingerprint === action.fingerprint)
+      ) {
+        URL.revokeObjectURL(action.previewUrl);
+        return state;
+      }
+      if (action.sample === 1) releaseCapture(current);
+      else releaseSample(current?.samples[2]);
+      const retainedSamples =
+        action.sample === 2 && retainedFirst ? { 1: retainedFirst } : {};
       return {
         ...state,
-        status: "idle",
-        error: undefined,
-        captures: { ...state.captures, [action.captureType]: action.record },
-      };
-    }
-    case "submitting":
-      return { ...state, status: "submitting", error: undefined };
-    case "accepted": {
-      const currentIndex = captureOrder.indexOf(action.captureType);
-      const isComplete = currentIndex === captureOrder.length - 1;
-      return {
-        ...state,
-        status: isComplete ? "complete" : "idle",
-        error: undefined,
-        activeCapture: isComplete
-          ? action.captureType
-          : captureOrder[currentIndex + 1],
-        captures: {
-          ...state.captures,
-          [action.captureType]: {
-            ...state.captures[action.captureType]!,
-            result: action.result,
-            issues: undefined,
-          },
-        },
-      };
-    }
-    case "retake":
-      return {
-        ...state,
-        status: "retake",
-        error: undefined,
         activeCapture: action.captureType,
         captures: {
           ...state.captures,
           [action.captureType]: {
-            ...state.captures[action.captureType]!,
-            issues: action.issues,
-            result: undefined,
+            samples: {
+              ...retainedSamples,
+              [action.sample]: {
+                previewUrl: action.previewUrl,
+                fingerprint: action.fingerprint,
+                dimensions: action.dimensions,
+              },
+            },
           },
         },
       };
-    case "finishCorrection":
-      return { ...state, correctionCapture: undefined };
-    case "error":
-      return {
-        ...state,
-        status: "error",
-        error: { code: action.code, message: action.message },
+    }
+
+    case "saveCalibration":
+    case "completeSample": {
+      const current = state.captures[action.captureType];
+      const sample = current?.samples[action.sample];
+      if (!current || !sample) return state;
+      const updatedSample: SampleRecord = {
+        ...sample,
+        coinMarkers: action.coinMarkers,
+        ...(action.type === "completeSample"
+          ? { measurements: action.measurements }
+          : {}),
       };
-    case "reopen":
       return {
         ...state,
-        status: "idle",
-        error: undefined,
+        captures: {
+          ...state.captures,
+          [action.captureType]: {
+            ...current,
+            result: undefined,
+            samples: { ...current.samples, [action.sample]: updatedSample },
+          },
+        },
+      };
+    }
+
+    case "accept": {
+      const current = state.captures[action.captureType];
+      const firstRecord = current?.samples[1];
+      const verificationRecord = current?.samples[2];
+      const first = firstRecord?.measurements;
+      const verification = verificationRecord?.measurements;
+      if (
+        !current ||
+        !first ||
+        !verification ||
+        firstRecord.fingerprint === verificationRecord.fingerprint
+      )
+        return state;
+      let result: CaptureResult;
+      try {
+        result = compareSamples(action.captureType, first, verification);
+      } catch {
+        return state;
+      }
+      if (!isCaptureConsistent(result)) return state;
+      const currentIndex = captureOrder.indexOf(action.captureType);
+      const nextCapture = captureOrder[currentIndex + 1];
+      releaseCapture(current);
+      return {
+        ...state,
+        activeCapture: nextCapture ?? action.captureType,
+        captures: {
+          ...state.captures,
+          [action.captureType]: {
+            samples: {},
+            result,
+          },
+        },
+      };
+    }
+
+    case "clearSample": {
+      const current = state.captures[action.captureType];
+      if (!current) return state;
+      if (action.sample === 1) {
+        releaseCapture(current);
+        return {
+          ...state,
+          captures: {
+            ...state.captures,
+            [action.captureType]: { samples: {} },
+          },
+        };
+      }
+      releaseSample(current.samples[2]);
+      return {
+        ...state,
+        captures: {
+          ...state.captures,
+          [action.captureType]: {
+            samples: current.samples[1] ? { 1: current.samples[1] } : {},
+          },
+        },
+      };
+    }
+
+    case "reopen":
+      releaseCapture(state.captures[action.captureType]);
+      return {
+        ...state,
         activeCapture: action.captureType,
         correctionCapture: action.captureType,
         captures: {
           ...state.captures,
-          [action.captureType]: {
-            ...state.captures[action.captureType]!,
-            result: undefined,
-            issues: undefined,
-          },
+          [action.captureType]: { samples: {} },
         },
       };
+
+    case "finishCorrection":
+      return { ...state, correctionCapture: undefined };
+
     case "reset":
-      Object.values(state.captures).forEach(releaseCapture);
+      releaseSession(state);
       return initialSession;
   }
 }

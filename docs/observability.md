@@ -1,29 +1,25 @@
 # Observability Contract
 
-The inference service emits one JSON object per line through the `nailsize.inference` logger. Its dedicated handler does not add a Uvicorn prefix, so Cloud Run parses fields into `jsonPayload` and recognizes the automatic `severity` field. Fields are fail-closed through `safe_log`; photos, filenames, contours, widths, size recommendations, and result bodies are not accepted.
+## Active browser-only release
 
-## Events and derived metrics
+NailSize Guide deliberately has no application telemetry. It does not send photos, marker coordinates, projected widths, size suggestions, session identifiers, errors, performance traces, analytics events, or usage events to a first- or third-party service.
 
-| Event | Safe dimensions | Metric use |
-| --- | --- | --- |
-| `runtime_initialized` | `ready`, `cold_start`, model/chart version, error code | cold starts and initialization failures |
-| `request_completed` | server request ID, status, total latency, model/chart version | request count, error rate, and latency percentiles |
-| `stage_completed` | server request ID, stage, duration, model/chart version | decode and quality-stage latency |
-| `measurement_retake` | error code, image dimensions/bytes, total latency, versions | retake reason and malformed-input trends |
-| `request_failed` | status and sanitized error code | unexpected service failures |
+Vercel serves only static HTML, CSS, and JavaScript. Platform request logs may contain normal asset-request metadata such as time, URL, IP-derived information, and user agent, but selected photos and sizing results are never request bodies. Keep Vercel Web Analytics, Speed Insights, session replay, injected integrations, and client error-reporting SDKs disabled.
 
-The service generates each request ID; it never copies an untrusted identifier from a header into telemetry. Uvicorn access logging is disabled in the production container.
+## Release evidence
 
-## Provisioning
+Operational verification is privacy-preserving and synthetic:
 
-`infra/observability` provides validated Terraform for:
+- GitHub Actions records build and test status without customer data.
+- `npm run verify:bundle` rejects source maps and legacy API/model-provider bindings.
+- Playwright observes the sizing flow and fails on any non-GET or cross-origin request.
+- `scripts/verify-web-deployment.mjs` checks the generated Vercel URL, security headers, same-origin scripts, forbidden bundle strings, and SPA routing.
+- Manual release review records only commit SHA, deployment URL, browser/device version, pass/fail status, and known product limitations.
 
-- 30-day retention on the project `_Default` log bucket;
-- stage-latency, measurement-outcome, cold-start, and malformed-upload log metrics;
-- request/error counts, p50/p95/p99 total and stage latency, retake reasons, cold starts, saturation, concurrency, CPU/memory utilization, startup latency, billable time, and model/chart-version dashboard panels;
-- 5xx ratio, p95 latency, maximum-instance saturation, and malformed-upload alerts; and
-- a project-scoped billing budget with explicitly supplied thresholds.
+Do not attach real customer photos, marker positions, measurements, copied summaries, or browser recordings containing them to issues, CI artifacts, logs, or support tickets.
 
-Alert thresholds, budget values, notification channels, and the project are required inputs with no production defaults. CI runs `terraform validate` and fail-closed variable tests without credentials. Provisioning still requires authorized staging/production credentials, an approved remote state backend, and post-apply evidence.
+## Incident handling
 
-Cloud Run native metrics use the documented `run.googleapis.com/request_count`, `request_latencies`, `container/instance_count`, and `container/max_request_concurrencies` metric types. Log metrics are deliberately few and use bounded labels to control cardinality and cost.
+Treat any unexpected upload, telemetry SDK, third-party script, source map, API route, or persistent browser storage as a release blocker. Disable or roll back the affected deployment, preserve only non-customer technical evidence, and rerun the privacy, bundle, browser, and deployment checks before promotion.
+
+The retained `infra/observability` and Python logging code document the superseded ML/Cloud Run prototype. They are not provisioned, executed, or required by the active release.

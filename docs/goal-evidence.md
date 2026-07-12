@@ -1,16 +1,50 @@
 # Goal Evidence Ledger
 
+> **Current release note (2026-07-13):** `guided-sg50-coin-v1` supersedes `guided-paper-v1` and the older ML/API/Cloud Run release path. Superseded entries remain historical evidence only and do not describe the active Vercel client.
+
+## 2026-07-13 guided-sg50-coin-v1 implementation contract
+
+- The active React client uses a current Third Series Singapore 50-cent coin at its nominal `23.00 mm` diameter. The legal diameter tolerance is `±0.10 mm`.
+- A mandatory confirmation names the Port of Singapore and large `50`/`CENTS` design. Older Singapore 50-cent coins and other coins are rejected in the user contract because their dimensions differ.
+- Each prepared image uses eight clockwise rim markers. Calibration rejects a median coin diameter under `120 px` in prepared-image/source-coordinate space, opposite-diameter spread over `8%`, opposite-pair centre spread over `6%`, and nails farther than `4.5` coin diameters from the reference. A separate `120 CSS/screen px` rendered-annotation guard protects marker ergonomics and is not physical accuracy evidence.
+- Marker geometry is converted to prepared-image pixel coordinates. The median of four opposite-marker diameters establishes a local scale; this method does not perform a full homography or arbitrary perspective correction.
+- Four capture groups require two independently repositioned photos each, for eight photos and ten projected-width results. Each single-photo nail reading must be `5–25 mm`, and a `0.6 mm` maximum repeat difference blocks unstable groups.
+- The average is displayed and the wider accepted reading drives conservative size selection. This is deterministic repeatability behavior, not proof of physical accuracy, curved-surface width, or tip fit.
+- Selected JPEG, PNG, and WebP files are normalized locally and never uploaded or persisted. Before full decoding, source headers over 20 MP or with either side over 8192 px are rejected; accepted images are bounded to a 4096-pixel edge and 16 MP. Object URLs are released throughout replacement, retake, acceptance, confirmation withdrawal, reset, and teardown paths.
+- Keyboard arrows move focused markers by one rendered CSS pixel, or eight rendered CSS pixels with Shift, rather than using prepared-image source-pixel steps.
+- The active Vercel release is static and needs no model, dataset, OpenAI/Hugging Face/GCP key, API, function, database, or application runtime variable.
+- Authoritative references: [Singapore Currency Act legal specification](https://sso.agc.gov.sg/SL/CA1967-S347-2013?ProvIds=Sc-&ValidDate=20130611); [MAS Third Series coin release](https://www.nas.gov.sg/archivesonline/data/pdfdoc/20130228006/press_release.pdf).
+- Source-of-truth artifacts: [`../PRD.md`](../PRD.md), [`calibration-and-measurement.md`](calibration-and-measurement.md), [`privacy-and-threat-model.md`](privacy-and-threat-model.md), and [`release-readiness.md`](release-readiness.md).
+- Fresh local verification passed on 2026-07-13: ESLint; TypeScript; Prettier; 46 Vitest unit/component tests; 5 Node deployment-script tests; the Vite production build; the client-only bundle audit with artifact digest `63e7262c0ba245ea348eea06a1e5770a4e9d81f4c25b67acbfc9626e19661a4f`; 28 mobile/desktop Chromium E2E checks; 70 Android Chromium, iOS WebKit, desktop Chromium, Firefox, and WebKit compatibility checks; and `npm audit --audit-level=high` with zero vulnerabilities.
+- Protected GitHub CI, real-device certification, staging, production, physical accuracy, and supplier-chart approval remain open until current evidence is recorded.
+
+## Superseded 2026-07-12 guided-paper-v1 evidence
+
+The following evidence was valid for the former paper method when recorded. It is retained for provenance and must not be cited as verification of the current coin method.
+
+- The then-active React client performed four-point paper homography, manual nail-sidewall measurement, two-photo repeat comparison, and provisional chart mapping entirely in browser memory.
+- A4 and US Letter were supported. Four capture groups required two independently repositioned photos each, for eight photos and ten projected-width results.
+- An in-memory SHA-256 fingerprint rejects exact reuse of the first normalized image as the second observation. This does not claim to prove physical repositioning.
+- A `0.6 mm` maximum repeat difference blocks unstable groups. The average is displayed; the wider accepted reading drives conservative size selection. This is repeatability behavior, not proof of accuracy or fit.
+- Selected JPEG, PNG, and WebP files are normalized to JPEG locally and never uploaded or persisted. Object URLs are released throughout replacement, retake, acceptance, reset, and teardown paths.
+- That release path was static and needed no model, dataset, OpenAI/Hugging Face/GCP key, API, function, database, or application runtime variable.
+- Historical local verification passed: ESLint; TypeScript; 28 Vitest unit/component tests; 5 deployment-script tests; the Vite production build and bundle audit; 16 responsive Chromium E2E cases; 40 Android Chromium, iOS WebKit, desktop Chromium, Firefox, and WebKit compatibility cases; actionlint; workflow YAML parsing; Prettier; and `npm audit` with zero vulnerabilities.
+
 This ledger links goal claims to current, reproducible evidence. A checkbox is complete only when its evidence exists and passes.
 
-| Area        | Claim                                                                              | Evidence                                                                        | Status                                              |
-| ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Repository  | Source repository and monorepo foundation exist                                    | Git history; root workspace configuration                                       | Complete                                            |
-| Design      | Stitch workflow is implemented at the two required responsive widths               | `DESIGN.md`; Playwright screenshot baselines; `core-flow.spec.ts`               | Frontend workflow complete                          |
-| Privacy     | Current application has no persistent image/result path and log fields fail closed | `docs/privacy-and-threat-model.md`; `test_logging.py`; `session.test.ts`        | Foundation complete; staging verification pending   |
-| Calibration | Current API cannot return millimetres without validated inference                  | `test_api.py::test_measurement_never_returns_width_without_validated_inference` | Complete for current API path                       |
-| Accuracy    | Required real-world accuracy gates pass                                            | Participant-disjoint validation report                                          | Blocked on study data                               |
-| Deployment  | Versioned frontend, API, edge-security, and identity contracts pass local checks   | `vercel.json`; `infra/bootstrap`; `infra/platform`; Cloud Run recovery manifest | Configuration ready; deployment/load tuning pending |
-| Operations  | Observability resources and required inputs fail closed before cloud provisioning  | `infra/observability`; `docs/observability.md`; Terraform test output           | Configuration ready; cloud evidence pending         |
+| Area               | Current guided-client claim                                                                                     | Evidence                                                                   | Status                                     |
+| ------------------ | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------ |
+| Product            | Eight local photos can produce ten projected-width results with repeat gating                                   | `PRD.md`; `guidedSizing.test.ts`; `core-flow.spec.ts`                      | Locally verified; protected CI open        |
+| Design             | Stitch-derived responsive system supports coin confirmation, calibration, marking, review, and results          | `DESIGN.md`; browser inspection; Playwright                                | Locally verified; real devices open        |
+| Privacy            | Photos and results stay in memory and the sizing flow has no upload path                                        | `privacy-and-threat-model.md`; session/image tests; E2E request assertions | Locally verified; deployed smoke open      |
+| Geometry           | Third Series coin scale, rim/proximity guards, averaging, repeat tolerance, and chart mapping are deterministic | `calibration-and-measurement.md`; `guidedSizing.test.ts`                   | Implemented; physical accuracy unvalidated |
+| Deployment         | Static Vercel output is built, checked, deployed without alias movement, verified, then promoted                | `vercel.json`; protected workflows; deployment verifier                    | Staging/production open                    |
+| Product validation | Projected-width accuracy and supplier-tip agreement meet approved thresholds                                    | `data-protocol.md`; future physical study                                  | Open; no accuracy or fit claim permitted   |
+| Certification      | Current real iOS Safari and Android Chrome complete the release flow                                            | `client-certification.md`; future review record                            | Open                                       |
+
+## Archived ML/API/Cloud Run evidence
+
+The entries below document the superseded research prototype. They are retained for provenance and do not authorize, block, or describe the active browser-only release.
 
 ## 2026-07-11 foundation verification
 

@@ -9,22 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  infrastructure:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        root: [bootstrap, observability, platform]
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      # v4.0.1, pinned so infrastructure validation cannot silently change upstream.
-      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
-        with:
-          terraform_version: "1.15.8"
-      - run: terraform -chdir=infra/${{ matrix.root }} fmt -check -recursive
-      - run: terraform -chdir=infra/${{ matrix.root }} init -backend=false -input=false
-      - run: terraform -chdir=infra/${{ matrix.root }} validate
-      - run: terraform -chdir=infra/${{ matrix.root }} test
-
   web:
     runs-on: ubuntu-latest
     steps:
@@ -38,64 +22,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-
-  inference:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgles2
-      - run: pip install -e 'services/inference[dev,landmarks]' -e ml
-      - run: ruff format --check services/inference
-      - run: ruff check services/inference
-      - run: ruff format --check ml
-      - run: ruff check ml
-      - run: python services/inference/scripts/fetch_hand_landmarker.py
-      - run: python services/inference/scripts/smoke_hand_landmarker.py
-      - name: Test production and dependency-light ML code
-        run: >-
-          pytest services/inference/tests ml/tests
-          --cov=services/inference/app
-          --cov=nailsize_ml.annotation_report
-          --cov=nailsize_ml.annotation_quality
-          --cov=nailsize_ml.dataset
-          --cov=nailsize_ml.dataset_provenance
-          --cov=nailsize_ml.evaluation
-          --cov=nailsize_ml.feasibility
-          --cov=nailsize_ml.holdout_lock
-          --cov=nailsize_ml.segmentation_report
-          --cov=nailsize_ml.size_calibration
-          --cov-fail-under=85
-      - name: Verify source-managed privacy release boundary
-        run: >-
-          python services/inference/scripts/verify_privacy_release_boundary.py
-          --output work/privacy-release-boundary.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: privacy-release-boundary
-          path: work/privacy-release-boundary.json
-          if-no-files-found: error
-          retention-days: 30
-
-  contracts:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: 22
-          cache: npm
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: npm ci
-      - run: python -m venv .venv
-      - run: .venv/bin/pip install -e services/inference
-      - run: npm run contracts:check
+      - run: npm run verify:bundle
 
   e2e:
     runs-on: ubuntu-latest
@@ -109,7 +36,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
+        if: failure()
         with:
           name: playwright-results
           path: test-results
@@ -145,71 +72,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=high
-      # v0.36.0, pinned to the signed release commit after the 2026 supply-chain incident.
-      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           vuln-type: os,library
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: false
-
-  container:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: pip install 'httpx>=0.28,<1' 'onnx>=1.19,<2'
-      - run: python services/inference/scripts/fetch_hand_landmarker.py
-      - name: Generate non-release model contract fixture
-        run: >-
-          PYTHONPATH=services/inference
-          python services/inference/tests/generate_container_contract_model.py
-          services/inference/models/nail-segmentation.onnx
-      - name: Build the runtime image
-        working-directory: services/inference
-        run: docker build --platform linux/amd64 -t nailsize-inference:contract .
-      # v0.36.0, pinned to the signed release commit after the 2026 supply-chain incident.
-      - name: Scan the built runtime image
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
-        with:
-          scan-type: image
-          image-ref: nailsize-inference:contract
-          vuln-type: os,library
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: false
-      - name: Privacy-smoke the scanned runtime image
-        working-directory: services/inference
-        run: |
-          MODEL_SHA256="$(sha256sum models/nail-segmentation.onnx | cut -d ' ' -f 1)"
-          docker run --detach --name nailsize-contract --publish 8080:8080 \
-            --read-only --cap-drop ALL --security-opt no-new-privileges \
-            --tmpfs /tmp:rw,noexec,nosuid,size=16m \
-            --env MODEL_VERSION=container-contract-only \
-            --env MODEL_SHA256="$MODEL_SHA256" \
-            --env SEGMENTATION_BOUNDARY_ERROR_PX=0.5 \
-            nailsize-inference:contract
-          trap 'docker logs nailsize-contract; docker rm --force nailsize-contract' EXIT
-          ready=false
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8080/ready; then
-              ready=true
-              break
-            fi
-            sleep 1
-          done
-          test "$ready" = true
-          status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
-            --request POST \
-            --form 'image=@/dev/null;filename=capture.jpg;type=image/jpeg' \
-            --form 'capture_type=left_thumb' \
-            --form 'reference_type=iso_id1' \
-            http://127.0.0.1:8080/v1/measure)"
-          test "$status" = 415
-          docker stop --time 1 nailsize-contract
-          test -z "$(docker diff nailsize-contract)"

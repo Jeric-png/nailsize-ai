@@ -1,46 +1,10 @@
-name: Deployment smoke
+name: Guided web deployment smoke
 
 on:
-  workflow_call:
-    inputs:
-      environment:
-        required: true
-        type: string
-      frontend_url:
-        required: true
-        type: string
-      api_url:
-        required: true
-        type: string
-      expected_origin:
-        required: true
-        type: string
-      expected_model_version:
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
-      environment:
-        description: Deployed environment to verify
-        required: true
-        type: choice
-        options:
-          - staging
-          - production
       frontend_url:
-        description: Exact HTTPS frontend origin
-        required: true
-        type: string
-      api_url:
-        description: Exact load-balanced HTTPS API origin
-        required: true
-        type: string
-      expected_origin:
-        description: Exact frontend origin configured in API CORS
-        required: true
-        type: string
-      expected_model_version:
-        description: Immutable model version expected from health and readiness
+        description: Exact Vercel-generated or project .vercel.app HTTPS URL
         required: true
         type: string
 
@@ -51,36 +15,11 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: ${{ inputs.environment }}
-    env:
-      SMOKE_ENVIRONMENT: ${{ inputs.environment }}
-      SMOKE_FRONTEND_URL: ${{ inputs.frontend_url }}
-      SMOKE_API_URL: ${{ inputs.api_url }}
-      SMOKE_EXPECTED_ORIGIN: ${{ inputs.expected_origin }}
-      SMOKE_MODEL_VERSION: ${{ inputs.expected_model_version }}
     steps:
-      # v5, pinned for the production verification boundary.
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-      # v6, pinned for the production verification boundary.
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          python-version: "3.12"
-          cache: pip
-      - run: pip install 'httpx>=0.28,<1'
-      - name: Verify deployed release contracts
-        run: >-
-          python services/inference/scripts/deployment_smoke.py
-          --environment "$SMOKE_ENVIRONMENT"
-          --frontend-url "$SMOKE_FRONTEND_URL"
-          --api-url "$SMOKE_API_URL"
-          --expected-origin "$SMOKE_EXPECTED_ORIGIN"
-          --expected-model-version "$SMOKE_MODEL_VERSION"
-          --output work/deployment-smoke.json
-      # v7, pinned; the report contains only bounded deployment metadata.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: deployment-smoke-${{ inputs.environment }}
-          path: work/deployment-smoke.json
-          if-no-files-found: error
-          retention-days: 30
+          node-version: 22
+      - env:
+          FRONTEND_URL: ${{ inputs.frontend_url }}
+        run: node scripts/verify-web-deployment.mjs "$FRONTEND_URL"

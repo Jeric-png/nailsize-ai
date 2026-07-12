@@ -1,59 +1,65 @@
 // @vitest-environment jsdom
 
-import { render, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SessionState } from "./session";
+import { fireEvent, render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { MemoryRouter } from "react-router-dom";
+import { describe, expect, it, vi } from "vitest";
+import { App } from "./App";
 
-const { measureCaptureMock } = vi.hoisted(() => ({
-  measureCaptureMock: vi.fn(),
-}));
-
-vi.mock("./api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./api")>()),
-  measureCapture: measureCaptureMock,
-}));
-
-import { QualityPage } from "./App";
-
-afterEach(() => {
-  measureCaptureMock.mockReset();
-});
-
-describe("QualityPage", () => {
-  it("aborts the transient upload when the quality screen unmounts", async () => {
-    let requestSignal: AbortSignal | undefined;
-    measureCaptureMock.mockImplementation(
-      (_captureType, _file, signal: AbortSignal | undefined) => {
-        requestSignal = signal;
-        return new Promise(() => undefined);
-      },
-    );
-    const file = new File(["image"], "capture.jpg", { type: "image/jpeg" });
-    const state: SessionState = {
-      activeCapture: "left_fingers",
-      status: "submitting",
-      captures: {
-        left_fingers: { file, previewUrl: "blob:capture" },
-      },
-    };
-
-    const view = render(
-      <MemoryRouter initialEntries={["/quality/left_fingers"]}>
-        <Routes>
-          <Route
-            path="/quality/:captureType"
-            element={<QualityPage state={state} dispatch={vi.fn()} />}
-          />
-        </Routes>
+describe("dataset-free application shell", () => {
+  it("describes local guided measurement without an inference service", () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <App />
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(requestSignal).toBeDefined());
-    expect(requestSignal?.aborted).toBe(false);
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: /without an AI training dataset/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/never uploaded/i)).toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
 
-    view.unmount();
+  it("requires confirmation of the current Third Series 50-cent coin", () => {
+    render(
+      <MemoryRouter initialEntries={["/prepare"]}>
+        <App />
+      </MemoryRouter>,
+    );
 
-    expect(requestSignal?.aborted).toBe(true);
+    const ready = screen.getByRole("button", { name: /I’m ready/i });
+    expect(ready).toBeDisabled();
+    expect(screen.getAllByText(/Port of Singapore/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Older Singapore 50-cent coins/i)).toBeVisible();
+
+    const confirmation = screen.getByRole("checkbox", {
+      name: /I have the Third Series/i,
+    });
+    fireEvent.click(confirmation);
+    expect(confirmation).toBeChecked();
+    expect(ready).toBeEnabled();
+  });
+
+  it("states the no-network privacy boundary", () => {
+    render(
+      <MemoryRouter initialEntries={["/privacy"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: /never leave this browser/i,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/does not send selected photos/i)).toBeVisible();
+    expect(screen.getByText(/does not train or run/i)).toBeVisible();
   });
 });

@@ -1,62 +1,77 @@
 # Architecture and Product Decisions
 
-## ADR-001 — Separate static web and inference deployments
+The decisions below define the active dataset-free release. ADR-020 supersedes the full-sheet calibration decision in ADR-012. Earlier Cloud Run, ONNX, segmentation, ISO ID-1, and model-release decisions are superseded and apply only to the retained legacy research prototype.
+
+## ADR-011 — Use browser-local guided geometry
 
 - Status: Accepted
-- Decision: Deploy the Vite frontend on Vercel and the CPU inference container on Cloud Run. The browser uploads each capture directly to the inference origin.
-- Reason: Vercel is appropriate for the static experience, while the computer-vision runtime needs explicit CPU, memory, concurrency, timeout, and model lifecycle controls.
-- Consequence: CORS is allow-listed and the frontend requires `VITE_INFERENCE_API_URL`.
+- Decision: Measure from user-placed calibration-reference and nail-sidewall markers entirely in the React client.
+- Reason: A calibrated geometric method can produce a projected width without inventing an unvalidated nail-recognition model or requiring a training dataset.
+- Consequence: There is no image upload, inference API, model key, server runtime, or automated nail detection.
 
-## ADR-002 — Fail closed before calibrated inference is available
+## ADR-012 — Calibrate with common full sheets
 
-- Status: Accepted
-- Decision: The API returns a typed retake response whenever reference calibration, segmentation, or confidence is unavailable. It cannot manufacture projected widths or sizes.
-- Reason: A plausible number without calibrated evidence is more harmful than a clear retake.
+- Status: Superseded by ADR-020
+- Decision: Support A4 (210 × 297 mm) and US Letter (215.9 × 279.4 mm), portrait only, using an independently marked four-point homography for every photo.
+- Reason: These are accessible reference planes and avoid asking a user for a payment or identity card.
+- Consequence: All four sheet corners and every measured nail edge must be visible and coplanar.
 
-## ADR-003 — No production persistence layer
+This decision is retained as historical rationale only. `guided-paper-v1` is not an active calibration method.
 
-- Status: Accepted
-- Decision: The measurement path has no database, object store, queue, request-body tracing, or image cache.
-- Reason: Images are required only for synchronous inference and must be discarded in every outcome.
-
-## ADR-004 — Accuracy certification is an external release gate
+## ADR-013 — Require two independent observations
 
 - Status: Accepted
-- Decision: Software tests can prove geometry and workflow behavior, but public accuracy claims require the participant-disjoint studies in `outputs/plan.md`.
-- Reason: Synthetic fixtures cannot establish performance on real people, devices, nail shapes, or skin tones.
+- Decision: Require two separately positioned photos for each of four capture groups and block a group when any corresponding width differs by more than 0.6 mm.
+- Reason: Repeat capture detects unstable photography or marker placement.
+- Consequence: The threshold establishes repeatability only. It is not evidence of measurement accuracy or tip fit.
 
-## ADR-005 — Do not show a fake second inference delay
-
-- Status: Accepted
-- Decision: Each capture displays the Stitch quality-analysis state while its real API request runs. After the fourth accepted response, the processing screen reports the completed stages and lets the user review results; it does not replay a decorative progress delay.
-- Reason: The API already performs quality, calibration, segmentation, measurement, and mapping synchronously for each capture. A later animated wait would misrepresent system activity and harm assistive-technology users.
-
-## ADR-006 — Make recovery contextual and account-free
+## ADR-014 — Separate displayed width from sizing width
 
 - Status: Accepted
-- Decision: Network, file-type, payload-size, rate-limit, and service errors appear beside the affected capture. A missing browser-memory session has a dedicated privacy-safe reset screen.
-- Reason: The Stitch recovery concepts are retained, but “sign in again” is inapplicable because the product has no accounts or persistence.
+- Decision: Display the two-photo average, but map the wider agreeing observation to the size chart.
+- Reason: A tip recommendation should not be narrower than either accepted reading.
+- Consequence: The average-based size may appear as an alternate when the readings cross a chart boundary.
 
-## ADR-007 — Preserve Stitch result hierarchy with measurement evidence
-
-- Status: Accepted
-- Decision: Mobile results use left/right hand tabs; desktop results use two five-nail panels beside actions. Projected millimetres, uncertainty, confidence, alternate sizes, and capture-level retakes remain visible even where the wireframe is more compact.
-- Reason: The calibrated measurement evidence and honest correction controls are product safety requirements and take precedence over literal wireframe density.
-
-## ADR-008 — Treat four-photo feasibility as a fail-closed launch gate
+## ADR-015 — Treat the default chart as provisional
 
 - Status: Accepted
-- Decision: An underpowered or incompletely reviewed study remains insufficient evidence. A sufficiently powered four-photo study that misses any measurement, size, or required cohort target blocks launch and requires a separately designed and validated oblique-capture fallback.
-- Reason: Study incompleteness and protocol failure require different actions, and tooling must not silently invent a new capture experience.
+- Decision: `platform-default@1` maps sizes 0–9 to 18–9 mm in 1 mm steps and selects the narrowest tip not narrower than the sizing width.
+- Reason: The application needs deterministic demo behavior before an artist-specific physical tip set is approved.
+- Consequence: The chart is not a fit certification. Production artists must verify or replace it against their actual tips.
 
-## ADR-009 — Keep emulation separate from client certification
-
-- Status: Accepted
-- Decision: Playwright engine and device-emulation runs remain required CI checks, but production client certification requires real branded browser versions, physical iOS/Android devices, and manual keyboard, VoiceOver, and TalkBack evidence.
-- Reason: Engine emulation cannot prove camera behavior, operating-system integration, or assistive-technology usability on the required release matrix.
-
-## ADR-010 — Require one identity-linked release-readiness decision
+## ADR-016 — Keep photos and results ephemeral
 
 - Status: Accepted
-- Decision: Do not infer production readiness from independently green artifacts or checklist prose. The final gate consumes an exact aggregate-only evidence directory, validates every retained top-level and security-sensitive nested schema rather than trusting version labels, cross-checks commit, model, image, host, and revision identity across the release chain, and separately requires deployed-control reviews, zero priority security/defect counts, and four accountable sign-offs. Missing references or malformed report contracts produce `insufficient_evidence`; complete failing evidence produces `release_blocked`.
-- Reason: Only an identity-consistent `release_ready` report may authorize public launch or goal closure.
+- Decision: Hold previews, markers, and results only in the current in-memory React session. Revoke object URLs on replacement, restart, acceptance, reset, and unmount.
+- Reason: The product does not need accounts or persistence to complete a sizing session.
+- Consequence: Reloading or closing the page loses the session. Copy/share exports text only and only after user action.
+
+## ADR-017 — Deploy only the static web client
+
+- Status: Accepted
+- Decision: Build with Vite and deploy the static output to Vercel through a protected manual workflow.
+- Reason: The active application has no server-side processing and can run on free static hosting.
+- Consequence: Deployment requires Vercel project credentials only; it requires no GCP, Hugging Face, OpenAI, model, database, or billing variables.
+
+## ADR-018 — Separate software verification from accuracy claims
+
+- Status: Accepted
+- Decision: CI may establish geometry, workflow, privacy-boundary, compatibility, and deployment behavior, but not real-world nail-width accuracy or press-on fit.
+- Reason: Camera distortion, coin placement and tolerance, human marking, nail curvature, and physical tip geometry are empirical factors.
+- Consequence: Public copy must say “projected width,” retain the curvature disclaimer, and avoid validated-accuracy or guaranteed-fit claims until physical evidence exists.
+
+## ADR-019 — Retain ML/GCP code as inactive legacy work
+
+- Status: Accepted
+- Decision: `services/inference/`, `ml/`, `infra/`, and generated API contracts may remain for historical research, but they are excluded from the active client build, CI release path, and Vercel deployment.
+- Reason: Deleting research work is unnecessary, while mixing it into the current release would recreate unvalidated dependencies and cost.
+- Consequence: New active-product work must not import those modules or restore `VITE_INFERENCE_API_URL`.
+
+## ADR-020 — Use the Third Series Singapore 50-cent coin as the local scale
+
+- Status: Accepted; supersedes ADR-012
+- Decision: `guided-sg50-coin-v1` supports only the current Third Series Singapore 50-cent coin at its nominal `23.00 mm` diameter. The user must confirm the Port of Singapore and large `50`/`CENTS` design, then mark eight rim points clockwise in every prepared image.
+- Reason: A small, familiar physical reference can remain beside each nail and avoids requiring the full sheet in every frame. The legal specification provides a defined `23.00 ± 0.10 mm` diameter, while mandatory design confirmation prevents silent use of older 50-cent coins with different dimensions.
+- Consequence: Calibration rejects a coin under `120 px` in prepared-image/source-coordinate space, diameter spread over `8%`, opposite-centre spread over `6%`, or nails farther than `4.5` coin diameters away. A separate `120 CSS/screen px` annotation-view minimum protects marker ergonomics without serving as accuracy evidence. Readings outside `5–25 mm` also fail closed.
+- Limitation: This is a nearby pixel scale with obvious-tilt rejection, not a full homography or arbitrary perspective correction. It does not establish real-world accuracy, curved-surface width, or press-on fit.
+- Sources: [Singapore Currency Act legal specification](https://sso.agc.gov.sg/SL/CA1967-S347-2013?ProvIds=Sc-&ValidDate=20130611); [MAS Third Series coin release](https://www.nas.gov.sg/archivesonline/data/pdfdoc/20130228006/press_release.pdf).
