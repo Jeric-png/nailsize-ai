@@ -446,6 +446,15 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - GitHub CI run [29176633447](https://github.com/Jeric-png/nailsize-ai/actions/runs/29176633447) passed all ten jobs for implementation commit `e1fa163`, including both browser gates, inference tests, security scans, contracts, all three Terraform roots, and the live read-only container privacy smoke.
 - These checks prove the certification mechanism, not the required external runs. The browser-version and manual-accessibility checkboxes remain open until the deployed release candidate produces a reviewed `client_validation_passed` report.
 
+## 2026-07-12 identity-linked production-readiness gate
+
+- `release_readiness.py` now consumes exactly twelve aggregate-only artifacts: the approved model, protected-environment audit, staging promotion, production deployment/benchmark/runtime/image/Vercel/smoke evidence, client certification, source privacy boundary, and exact release attestations. Extra files, private/free-form attestation fields, invalid references, malformed identifiers, and boolean issue counts fail closed.
+- The `nailsize-release-readiness@1` report binds the repository, release commit, model tag/version/checksum, staging and production image digest, frontend/API hosts, and production revision. It records every input file's SHA-256 so the ledger can identify the exact evidence bytes without retaining payloads.
+- Applied production controls require named infrastructure/environment-isolation, IAM, logging, Vercel-integration, termination, observability, notification, and budget evidence; exactly 30-day log retention; explicit pass results; zero critical/high vulnerabilities and severity-1/2 defects; and product, nail-tech, privacy/security, and engineering sign-offs.
+- Missing schemas or accountable references return `insufficient_evidence`; a complete identity mismatch, failed control, vulnerability, or priority defect returns `release_blocked`; only complete consistent evidence returns `release_ready` and exits zero. Tests cover all three decisions plus missing-image/host null equality, repository drift, incomplete smoke contracts, exact directory/schema enforcement, unsafe private fields, and malformed counts/identifiers.
+- Fresh local verification passed 449 Python/inference/ML tests at 86.12% measured coverage, 24 web tests, 18 strict E2E scenarios, 45 compatibility scenarios, Ruff, formatting, ESLint, TypeScript, API contract drift, the Vercel-compatible production build, and the high-severity npm audit with zero vulnerabilities. The E2E and compatibility suites were run sequentially because both intentionally own the same local preview port.
+- These checks prove the final evidence mechanism, not the absent real model study, credentialed deployment, physical-device matrix, deployed-control reviews, scans, or sign-offs. All associated checkboxes remain open until exact real artifacts produce `release_ready`.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
