@@ -436,6 +436,16 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 - GitHub CI run [29176342076](https://github.com/Jeric-png/nailsize-ai/actions/runs/29176342076) passed all ten jobs for implementation commit `2029475`, including the new feasibility coverage, both browser gates, security scans, contracts, all three Terraform roots, and the live read-only container privacy smoke.
 - These checks prove the fail-closed study evidence mechanism, not the four-photo approach itself. Both feasibility checkboxes remain open until a real reviewed 100-participant/1,000-nail study produces the required decision and, if needed, a separately approved oblique protocol is validated.
 
+## 2026-07-12 client browser and accessibility certification gate
+
+- `client_certification.py` consumes an exact aggregate-only bundle bound to an immutable release version and 40-character commit SHA. It requires current and previous two consecutive major versions for iOS Safari, Android Chrome, and desktop Chrome, Edge, Firefox, and Safari, plus named run references and an accountable browser-version source review.
+- Mobile certification requires physical iOS and Android devices; desktop records may use physical devices or a hosted service running the real branded browser. Playwright engine/emulation coverage remains a required early CI gate but cannot satisfy the release certification contract.
+- The same report requires named mobile and desktop automated scans, manual keyboard, VoiceOver, TalkBack, and overall accessibility reviews, all pass booleans, and zero blocking issues. Safe evidence-reference syntax and exact schemas reject tester emails, extra private fields, and free-form payloads.
+- The decision contract returns `insufficient_evidence` for missing runs, reviews, or version coverage; `client_validation_failed` for complete evidence containing any failure; and `client_validation_passed` only when all 18 browser records and every accessibility check pass for the declared release.
+- Fresh local verification passed 438 Python/inference/ML tests at 89.89% measured coverage, 24 web tests, 18 strict E2E scenarios, 45 Chromium/Firefox/WebKit compatibility scenarios, Ruff, ESLint, TypeScript, API contract drift, the Vercel-compatible build, CLI smoke, privacy verification, and the high-severity npm audit with zero reported vulnerabilities.
+- GitHub CI run [29176633447](https://github.com/Jeric-png/nailsize-ai/actions/runs/29176633447) passed all ten jobs for implementation commit `e1fa163`, including both browser gates, inference tests, security scans, contracts, all three Terraform roots, and the live read-only container privacy smoke.
+- These checks prove the certification mechanism, not the required external runs. The browser-version and manual-accessibility checkboxes remain open until the deployed release candidate produces a reviewed `client_validation_passed` report.
+
 ## Evidence rules
 
 - Record exact commands, dates, immutable report paths, and deployed revision identifiers.
