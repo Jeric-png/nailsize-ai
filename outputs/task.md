@@ -147,7 +147,9 @@ The goal remains open until implementation **and** validation are complete. A wo
 ## 9. Accuracy and Performance Validation
 
 - [ ] Complete the 100-participant/1,000-nail feasibility study.
+  - A fail-closed feasibility CLI now requires the exact private study schema, ten mapped nails per participant, adjudicated physical width and best-fit size, required cohorts, named reviews, and participant-clustered intervals. It retains aggregate evidence only. This checkbox remains open until a real 100-participant/1,000-nail bundle is reviewed and passes.
 - [ ] Confirm the four-photo approach can satisfy the measurement gates; otherwise add and validate the oblique-capture fallback before continuing.
+  - The report returns `four_photo_validated` only when every overall and adequately sampled cohort gate passes. Underpowered evidence returns `insufficient_evidence`; a sufficiently powered failure returns `oblique_required` and blocks launch. An oblique flow is not assumed or invented by the tool and still requires an explicit product decision plus separate validation.
 - [ ] Lock the participant-disjoint public-release holdout before final model selection.
   - A fail-closed CLI now verifies every participant's manifest split against a protected salt file and emits only aggregate test counts plus an identifier-free commitment. Training, checkpoints, selected-model export, and the exact eleven-file release bind the approved report checksum; release also requires the segmentation and accuracy reports to reproduce the commitment and/or match the locked nail and participant counts. The checkbox remains open until a real study manifest is locked before model selection and independently reviewed.
 - [ ] Evaluate at least 200 people and 2,000 held-out nails with adjudicated physical ground truth.
@@ -159,7 +161,7 @@ The goal remains open until implementation **and** validation are complete. A wo
 - [ ] Load-test expected peak plus 20% and prove p50 ≤ 2s, p95 ≤ 5s, and p99 ≤ 10s per capture.
   - A bounded-concurrency staging harness now produces aggregate status/throughput/p50/p95/p99 JSON and fails the documented gates. Running it at the approved traffic target still requires a deployed validated model and staging endpoint.
 - [ ] Publish reproducible accuracy, fairness, rejection, repeatability, and performance reports.
-  - The accuracy-report CLI enforces the public-holdout minimums, overall measurement gates, reviewer-declared adequately sampled cohort gates, and participant-clustered confidence intervals. The operational-report CLI enforces completion and rejection gates and publishes repeatability and subgroup rejection gaps with required review references; the load harness covers performance. Real locked-study exports, completed reviews, and deployment evidence are still required.
+  - The feasibility and accuracy report CLIs enforce their study minimums, overall measurement gates, reviewer-declared adequately sampled cohort gates, and participant-clustered confidence intervals. The operational-report CLI enforces completion and rejection gates and publishes repeatability and subgroup rejection gaps with required review references; the load harness covers performance. Real locked-study exports, completed reviews, and deployment evidence are still required.
 
 ## 10. Privacy, Release, and Goal Closure
 

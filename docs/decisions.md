@@ -42,3 +42,9 @@
 - Status: Accepted
 - Decision: Mobile results use left/right hand tabs; desktop results use two five-nail panels beside actions. Projected millimetres, uncertainty, confidence, alternate sizes, and capture-level retakes remain visible even where the wireframe is more compact.
 - Reason: The calibrated measurement evidence and honest correction controls are product safety requirements and take precedence over literal wireframe density.
+
+## ADR-008 — Treat four-photo feasibility as a fail-closed launch gate
+
+- Status: Accepted
+- Decision: An underpowered or incompletely reviewed study remains insufficient evidence. A sufficiently powered four-photo study that misses any measurement, size, or required cohort target blocks launch and requires a separately designed and validated oblique-capture fallback.
+- Reason: Study incompleteness and protocol failure require different actions, and tooling must not silently invent a new capture experience.
