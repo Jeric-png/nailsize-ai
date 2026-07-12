@@ -48,9 +48,17 @@ def test_container_requires_both_runtime_models_and_native_landmark_dependencies
     dockerfile = (inference_root / "Dockerfile").read_text()
     dockerignore = (inference_root / ".dockerignore").read_text()
 
-    for package in ("libegl1", "libgl1", "libgles2", "libglib2.0-0"):
+    for package in ("glib", "mesa-egl", "mesa-gl", "mesa-gles", "libgomp", "libstdc++"):
         assert package in dockerfile
-    assert "pip install '.[landmarks]'" in dockerfile
+    assert (
+        dockerfile.count(
+            "cgr.dev/chainguard/wolfi-base@sha256:02dab76bd852a70556b5b2002195c8a5fdab77d323c433bf6642aab080489795"
+        )
+        == 2
+    )
+    assert "python-3.12" in dockerfile
+    assert "/opt/venv/bin/pip install --no-cache-dir '.[landmarks]'" in dockerfile
+    assert "USER 65532:65532" in dockerfile
     assert "COPY models/hand_landmarker.task" in dockerfile
     assert "COPY models/nail-segmentation.onnx" in dockerfile
     assert "!models/hand_landmarker.task" in dockerignore
@@ -146,7 +154,7 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     vercel_gate = workflow.index("verify_vercel_deployment.py")
     cloud_auth = workflow.index("google-github-actions/auth@")
     image_promotion = workflow.index('docker pull "$source_image"')
-    image_build = workflow.index('docker build --tag "$image_tag"')
+    image_build = workflow.index('docker build --platform linux/amd64 --tag "$image_tag"')
     image_scan = workflow.index("- name: Scan the immutable inference image")
     observability_apply = workflow.index("terraform -chdir=infra/observability apply")
     runtime_benchmark = workflow.index("verify_cloud_run_benchmark.py")
@@ -171,7 +179,10 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     ].split("          else", 1)[0]
     staging_branch = image_step.split("          else", 1)[1].split("          fi", 1)[0]
     assert "docker build" not in production_branch
-    assert 'docker build --tag "$image_tag" services/inference' in staging_branch
+    assert (
+        'docker build --platform linux/amd64 --tag "$image_tag" services/inference'
+        in staging_branch
+    )
     assert 'docker tag "$source_image" "$image_tag"' in workflow
     assert 'echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"' in workflow
     scan_step = workflow.split("- name: Scan the immutable inference image", 1)[1].split(

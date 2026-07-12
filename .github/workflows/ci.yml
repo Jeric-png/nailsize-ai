@@ -172,7 +172,7 @@ jobs:
           services/inference/models/nail-segmentation.onnx
       - name: Build the runtime image
         working-directory: services/inference
-        run: docker build -t nailsize-inference:contract .
+        run: docker build --platform linux/amd64 -t nailsize-inference:contract .
       # v0.36.0, pinned to the signed release commit after the 2026 supply-chain incident.
       - name: Scan the built runtime image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25

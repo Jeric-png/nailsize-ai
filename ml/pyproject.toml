@@ -10,7 +10,7 @@ training = [
   "onnx>=1.22,<2",
   "onnxruntime>=1.27,<2",
   "onnxscript==0.7.1",
-  "pillow>=11,<12",
+  "pillow>=12.3,<13",
   "torch==2.13.0",
   "torchvision==0.28.0",
 ]

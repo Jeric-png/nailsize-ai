@@ -247,7 +247,7 @@ jobs:
             docker push "$image_tag"
           else
             gcloud auth configure-docker "$registry" --quiet
-            docker build --tag "$image_tag" services/inference
+            docker build --platform linux/amd64 --tag "$image_tag" services/inference
             docker push "$image_tag"
           fi
           digest="$(gcloud artifacts docker images describe "$image_tag" --format='value(image_summary.digest)')"

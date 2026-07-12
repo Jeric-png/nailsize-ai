@@ -54,7 +54,9 @@ def test_ci_scans_the_built_image_before_privacy_smoke() -> None:
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text()
     container_job = workflow.split("  container:", 1)[1]
 
-    image_build = container_job.index("docker build -t nailsize-inference:contract .")
+    image_build = container_job.index(
+        "docker build --platform linux/amd64 -t nailsize-inference:contract ."
+    )
     image_scan = container_job.index("- name: Scan the built runtime image")
     privacy_smoke = container_job.index("- name: Privacy-smoke the scanned runtime image")
 

@@ -143,11 +143,12 @@ def test_runtime_image_copies_only_the_production_package() -> None:
     assert copy_lines == [
         "COPY pyproject.toml ./",
         "COPY app ./app",
+        "COPY --from=builder /opt/venv /opt/venv",
         "COPY models/hand_landmarker.task ./models/hand_landmarker.task",
         "COPY models/nail-segmentation.onnx ./models/nail-segmentation.onnx",
     ]
     assert "COPY ." not in dockerfile
-    assert "pip install '.[landmarks]'" in dockerfile
+    assert "/opt/venv/bin/pip install --no-cache-dir '.[landmarks]'" in dockerfile
     assert "MPLCONFIGDIR=/tmp/matplotlib" in dockerfile
 
 

@@ -44,7 +44,7 @@ Build `services/inference/Dockerfile` only after a verified ONNX model is availa
 Cloud provisioning is deliberately ordered to avoid a fresh-project dependency cycle:
 
 1. Apply `infra/bootstrap` to enable required APIs and create the environment-specific Artifact Registry repository plus role-less runtime identity.
-2. In staging, build the validated container, push it to that repository, and resolve its immutable repository digest. For production, copy the staging-tested digest into the production repository without rebuilding it.
+2. In staging, build the validated Linux AMD64 container, push it to that repository, and resolve its immutable repository digest. MediaPipe 0.10.35 does not publish the required Linux ARM64 wheel, so both CI and deployment fail closed on any accidental architecture change. For production, copy the staging-tested digest into the production repository without rebuilding it.
 3. Scan the exact locally tagged staging-built or production-promoted image with the pinned Trivy action. Any high or critical OS/library finding, including one without a published fix, stops the workflow before Cloud Run changes.
 4. Apply `infra/platform` with that exact digest-pinned URI. The stack rejects images from another environment or repository.
 5. Apply `infra/observability` after the service and verified notification channels exist.
