@@ -35,10 +35,6 @@ export function assertDeploymentApiContract(payload, expected, phase) {
       throw new Error(
         "Only a production deployment can be verified as promoted.",
       );
-    if (!aliases.includes(expected.productionHost))
-      throw new Error(
-        "Production hostname does not point to the verified deployment.",
-      );
     if (payload.readySubstate && payload.readySubstate !== "PROMOTED")
       throw new Error(
         "Production deployment is not in Vercel's promoted state.",
@@ -168,10 +164,9 @@ function assertPromotedDeploymentOrPending(deployment, expected) {
     throw new PromotionConvergencePendingError(
       "Production deployment is still staged.",
     );
-  if (!(deployment.alias ?? []).includes(expected.productionHost))
-    throw new PromotionConvergencePendingError(
-      "Production hostname is not present on the promoted deployment yet.",
-    );
 
+  // The caller queried v13 by the production hostname. Vercel documents
+  // `alias` as optional creation-time metadata, so the exact returned ID is
+  // the binding assertion; the separate public smoke proves served bytes.
   assertDeploymentApiContract(deployment, expected, "promoted");
 }

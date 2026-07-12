@@ -371,7 +371,7 @@ test("rejects non-file entries in a Vercel deployment tree", () => {
   );
 });
 
-test("binds production domains and deployments to project, team, commit, and alias", () => {
+test("binds production domains and deployments to project, team, commit, and promoted state", () => {
   const expected = {
     deploymentId: "dpl_Def456",
     deploymentHost: "nailsize-production.vercel.app",
@@ -409,7 +409,6 @@ test("binds production domains and deployments to project, team, commit, and ali
   assertDeploymentApiContract(
     {
       ...deployment,
-      alias: [expected.productionHost],
       readySubstate: "PROMOTED",
     },
     expected,
@@ -458,16 +457,10 @@ test("waits for the production hostname to converge to the promoted deployment",
     readySubstate: "PROMOTED",
     prebuilt: true,
     target: "production",
-    alias: [expected.productionHost],
+    alias: [],
   };
   const staged = { ...promoted, readySubstate: "STAGED", alias: [] };
-  const missingAlias = { ...promoted, alias: [] };
-  const sequence = [
-    { ...promoted, id: "dpl_Previous" },
-    staged,
-    missingAlias,
-    promoted,
-  ];
+  const sequence = [{ ...promoted, id: "dpl_Previous" }, staged, promoted];
   let clock = 0;
   let loads = 0;
   const observedTimeouts = [];
@@ -488,9 +481,9 @@ test("waits for the production hostname to converge to the promoted deployment",
   });
 
   assert.equal(result.id, expected.deploymentId);
-  assert.equal(loads, 4);
-  assert.equal(clock, 3_000);
-  assert.deepEqual(observedTimeouts, [120_000, 119_000, 118_000, 117_000]);
+  assert.equal(loads, 3);
+  assert.equal(clock, 2_000);
+  assert.deepEqual(observedTimeouts, [120_000, 119_000, 118_000]);
 
   let invariantWaited = false;
   await assert.rejects(
