@@ -147,6 +147,46 @@ def _operational_report() -> dict:
     }
 
 
+def _annotation_agreement_report() -> dict:
+    return {
+        "schema_version": "nailsize-annotation-agreement-report@1",
+        "dataset_version": "holdout-1",
+        "total_annotated_item_count": 2000,
+        "paired_item_count": 200,
+        "paired_participant_count": 40,
+        "double_annotation_rate": 0.1,
+        "metrics": {
+            "item_count": 200,
+            "mean_mask_dice": 0.94,
+            "mean_boundary_distance_normalized": 0.01,
+            "digit_agreement": 0.99,
+            "quality_code_agreement": 0.95,
+            "best_fit_agreement": 0.91,
+            "best_fit_kappa": 0.89,
+            "mean_width_difference_mm": 0.2,
+        },
+        "disagreement_counts": {
+            "digit": 2,
+            "quality_codes": 10,
+            "best_fit_size": 18,
+            "physical_width_over_0_5_mm": 4,
+            "disputed_boundary": 3,
+        },
+        "required_adjudication_count": 25,
+        "completed_adjudication_count": 25,
+        "dataset_checks": {
+            "minimum_double_annotation_rate": True,
+            "two_independent_technicians": True,
+            "agreement_review_present": True,
+            "adjudication_review_present": True,
+            "material_disagreements_adjudicated": True,
+        },
+        "agreement_review_ref": "agreement-review-1",
+        "adjudication_review_ref": "adjudication-review-1",
+        "passed": True,
+    }
+
+
 def _cohorts() -> tuple[tuple[str, str], ...]:
     return (
         ("skin_tone", "monk-5"),
@@ -163,10 +203,14 @@ def _write_bundle(directory):
     metadata = _metadata(checksum)
     export = _export_report(checksum)
     accuracy = _accuracy_report()
+    annotation_agreement = _annotation_agreement_report()
     operational = _operational_report()
     (directory / "model-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
     (directory / "onnx-export-report.json").write_text(json.dumps(export), encoding="utf-8")
     (directory / "accuracy-report.json").write_text(json.dumps(accuracy), encoding="utf-8")
+    (directory / "annotation-agreement-report.json").write_text(
+        json.dumps(annotation_agreement), encoding="utf-8"
+    )
     (directory / "operational-report.json").write_text(json.dumps(operational), encoding="utf-8")
     (directory / "model-card.md").write_text(
         render_model_card(metadata, accuracy), encoding="utf-8"
@@ -184,7 +228,7 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
     )
 
     assert manifest == {
-        "schema_version": "nailsize-model-release@2",
+        "schema_version": "nailsize-model-release@3",
         "checkpoint_sha256": "a" * 64,
         "model_version": "release-1",
         "model_sha256": checksum,
@@ -193,6 +237,8 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
         "segmentation_boundary_error_px": 0.8,
         "accuracy_participant_count": 200,
         "accuracy_nail_count": 2000,
+        "annotation_paired_item_count": 200,
+        "annotation_paired_participant_count": 40,
         "operational_participant_count": 200,
         "approved": True,
     }
@@ -324,6 +370,30 @@ def test_rejects_tampered_operational_evidence(tmp_path, mutation, message: str)
     tampered = deepcopy(operational)
     mutation(tampered)
     (tmp_path / "operational-report.json").write_text(json.dumps(tampered), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda report: report.update(passed=False), "must pass"),
+        (lambda report: report.update(dataset_version="other"), "does not match"),
+        (lambda report: report.update(double_annotation_rate=0.099), "at least 10%"),
+        (lambda report: report.update(completed_adjudication_count=24), "fully adjudicated"),
+        (lambda report: report.update(agreement_review_ref=""), "named review"),
+        (lambda report: report.update(image_ids=["private-image"]), "fields do not match"),
+    ],
+)
+def test_rejects_tampered_annotation_agreement_evidence(tmp_path, mutation, message: str) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    report_path = tmp_path / "annotation-agreement-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    mutation(report)
+    report_path.write_text(json.dumps(report), encoding="utf-8")
 
     with pytest.raises(ValueError, match=message):
         verify_release_bundle(

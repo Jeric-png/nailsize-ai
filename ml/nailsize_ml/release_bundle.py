@@ -12,11 +12,40 @@ from .reporting import METRIC_NAMES, REQUIRED_COHORT_DIMENSIONS
 REQUIRED_FILENAMES = frozenset(
     {
         "accuracy-report.json",
+        "annotation-agreement-report.json",
         "model-card.md",
         "model-metadata.json",
         "nail-segmentation.onnx",
         "onnx-export-report.json",
         "operational-report.json",
+    }
+)
+ANNOTATION_METRICS = (
+    "item_count",
+    "mean_mask_dice",
+    "mean_boundary_distance_normalized",
+    "digit_agreement",
+    "quality_code_agreement",
+    "best_fit_agreement",
+    "best_fit_kappa",
+    "mean_width_difference_mm",
+)
+ANNOTATION_REPORT_FIELDS = frozenset(
+    {
+        "schema_version",
+        "dataset_version",
+        "total_annotated_item_count",
+        "paired_item_count",
+        "paired_participant_count",
+        "double_annotation_rate",
+        "metrics",
+        "disagreement_counts",
+        "required_adjudication_count",
+        "completed_adjudication_count",
+        "dataset_checks",
+        "agreement_review_ref",
+        "adjudication_review_ref",
+        "passed",
     }
 )
 EXPORT_REPORT_FIELDS = frozenset(
@@ -75,6 +104,7 @@ def verify_release_bundle(
 
     metadata = _read_json(directory / "model-metadata.json")
     accuracy = _read_json(directory / "accuracy-report.json")
+    annotation_agreement = _read_json(directory / "annotation-agreement-report.json")
     export_report = _read_json(directory / "onnx-export-report.json")
     operational = _read_json(directory / "operational-report.json")
     model_path = directory / "nail-segmentation.onnx"
@@ -100,13 +130,16 @@ def verify_release_bundle(
         raise ValueError("Model card does not exactly match the validated release evidence")
 
     _validate_accuracy_report(accuracy)
+    _validate_annotation_agreement_report(
+        annotation_agreement, expected_dataset_version=metadata["dataset_version"]
+    )
     _validate_operational_report(operational)
     segmentation = metadata["segmentation_metrics"]
     boundary_error = _positive_finite(
         segmentation.get("p95_boundary_error_px"), "p95_boundary_error_px"
     )
     return {
-        "schema_version": "nailsize-model-release@2",
+        "schema_version": "nailsize-model-release@3",
         "checkpoint_sha256": checkpoint_sha256,
         "model_version": expected_model_version,
         "model_sha256": expected_model_sha256,
@@ -115,6 +148,8 @@ def verify_release_bundle(
         "segmentation_boundary_error_px": boundary_error,
         "accuracy_participant_count": accuracy["participant_count"],
         "accuracy_nail_count": accuracy["nail_count"],
+        "annotation_paired_item_count": annotation_agreement["paired_item_count"],
+        "annotation_paired_participant_count": annotation_agreement["paired_participant_count"],
         "operational_participant_count": operational["participant_count"],
         "approved": True,
     }
@@ -221,6 +256,92 @@ def _validate_accuracy_report(report: dict[str, Any]) -> None:
             raise ValueError("Accuracy cohort numeric gate failed")
     if not REQUIRED_COHORT_DIMENSIONS.issubset({item.get("dimension") for item in cohorts}):
         raise ValueError("Accuracy report requires every planned cohort dimension")
+
+
+def _validate_annotation_agreement_report(
+    report: dict[str, Any], *, expected_dataset_version: str
+) -> None:
+    if frozenset(report) != ANNOTATION_REPORT_FIELDS:
+        raise ValueError("Annotation agreement report fields do not match the contract")
+    if report.get("schema_version") != "nailsize-annotation-agreement-report@1":
+        raise ValueError("Unsupported annotation agreement report schema")
+    if report.get("passed") is not True:
+        raise ValueError("Annotation agreement report must pass before release")
+    if report.get("dataset_version") != expected_dataset_version:
+        raise ValueError("Annotation agreement dataset does not match model metadata")
+    total = _positive_integer(
+        report.get("total_annotated_item_count"), "total_annotated_item_count"
+    )
+    paired = _positive_integer(report.get("paired_item_count"), "paired_item_count")
+    paired_participants = _positive_integer(
+        report.get("paired_participant_count"), "paired_participant_count"
+    )
+    if paired > total or paired_participants > paired:
+        raise ValueError("Annotation paired counts exceed the dataset item counts")
+    double_annotation_rate = _finite(report.get("double_annotation_rate"), "double_annotation_rate")
+    if not 0.10 <= double_annotation_rate <= 1 or double_annotation_rate != paired / total:
+        raise ValueError("Annotation double-annotation coverage must be at least 10% and exact")
+    dataset_checks = report.get("dataset_checks")
+    expected_checks = {
+        "minimum_double_annotation_rate",
+        "two_independent_technicians",
+        "agreement_review_present",
+        "adjudication_review_present",
+        "material_disagreements_adjudicated",
+    }
+    if not isinstance(dataset_checks, dict) or set(dataset_checks) != expected_checks:
+        raise ValueError("Annotation agreement dataset checks do not match the contract")
+    _all_checks_pass(dataset_checks, "Annotation agreement dataset checks")
+    metrics = report.get("metrics")
+    if not isinstance(metrics, dict) or set(metrics) != set(ANNOTATION_METRICS):
+        raise ValueError("Annotation agreement metrics do not match the contract")
+    values = {name: _finite(metrics.get(name), name) for name in ANNOTATION_METRICS}
+    if values["item_count"] != paired:
+        raise ValueError("Annotation metric item count does not match paired item count")
+    for name in (
+        "mean_mask_dice",
+        "digit_agreement",
+        "quality_code_agreement",
+        "best_fit_agreement",
+    ):
+        if not 0 <= values[name] <= 1:
+            raise ValueError(f"Annotation agreement metric is outside [0, 1]: {name}")
+    if not -1 <= values["best_fit_kappa"] <= 1:
+        raise ValueError("Annotation best-fit kappa is outside [-1, 1]")
+    if values["mean_boundary_distance_normalized"] < 0 or values["mean_width_difference_mm"] < 0:
+        raise ValueError("Annotation distance metrics must not be negative")
+    required = report.get("required_adjudication_count")
+    completed = report.get("completed_adjudication_count")
+    if (
+        isinstance(required, bool)
+        or not isinstance(required, int)
+        or required < 0
+        or isinstance(completed, bool)
+        or not isinstance(completed, int)
+        or completed < required
+        or completed > paired
+    ):
+        raise ValueError("Annotation material disagreements must be fully adjudicated")
+    disagreements = report.get("disagreement_counts")
+    expected_disagreements = {
+        "digit",
+        "quality_codes",
+        "best_fit_size",
+        "physical_width_over_0_5_mm",
+        "disputed_boundary",
+    }
+    if (
+        not isinstance(disagreements, dict)
+        or set(disagreements) != expected_disagreements
+        or any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in disagreements.values()
+        )
+    ):
+        raise ValueError("Annotation disagreement counts do not match the contract")
+    for field in ("agreement_review_ref", "adjudication_review_ref"):
+        if not isinstance(report.get(field), str) or not report[field].strip():
+            raise ValueError("Annotation agreement requires named review references")
 
 
 def _validate_operational_report(report: dict[str, Any]) -> None:

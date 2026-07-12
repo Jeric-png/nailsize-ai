@@ -16,6 +16,7 @@ training = [
 ]
 
 [project.scripts]
+nailsize-annotation-report = "nailsize_ml.annotation_report:main"
 nailsize-accuracy-report = "nailsize_ml.reporting:main"
 nailsize-benchmark = "nailsize_ml.benchmark:main"
 nailsize-export-checkpoint = "nailsize_ml.selected_export:main"

@@ -59,6 +59,7 @@ jobs:
         run: >-
           pytest services/inference/tests ml/tests
           --cov=services/inference/app
+          --cov=nailsize_ml.annotation_report
           --cov=nailsize_ml.annotation_quality
           --cov=nailsize_ml.dataset
           --cov=nailsize_ml.evaluation
