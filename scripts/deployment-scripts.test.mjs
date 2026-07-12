@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -16,9 +18,10 @@ import {
   assertProjectDomainContract,
 } from "./vercel-api-contract.mjs";
 import {
-  fetchProtectedDeployment,
-  loadVercelOidcToken,
-} from "./vercel-protected-fetch.mjs";
+  flattenDeploymentTree,
+  verifyVercelDeploymentFiles,
+} from "./vercel-deployment-files.mjs";
+import { guidedArtifactDigest } from "./guided-artifact.mjs";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -213,7 +216,7 @@ test("accepts only a byte-identical static Vercel output", () => {
   assert.match(functionOutput.stderr, /unexpected entries/u);
 });
 
-test("pins Vercel staging to preview and production to a staged target", () => {
+test("pins Vercel targets and verifies individual uploaded files", () => {
   const workflow = readFileSync(
     path.join(repositoryRoot, ".github", "workflows", "deploy.yml"),
     "utf8",
@@ -222,53 +225,115 @@ test("pins Vercel staging to preview and production to a staged target", () => {
   assert.match(workflow, /args\+=\(--target=preview\)/u);
   assert.match(workflow, /vercel build --prod --no-color/u);
   assert.match(workflow, /args\+=\(--prod --skip-domain\)/u);
-  assert.equal(workflow.match(/--vercel-protected/gu)?.length, 1);
+  assert.match(workflow, /node scripts\/verify-vercel-files\.mjs/u);
+  assert.doesNotMatch(workflow, /--archive/u);
+  assert.doesNotMatch(workflow, /--vercel-protected/u);
+  const uploadedVerification = workflow.indexOf(
+    "node scripts/verify-vercel-files.mjs",
+  );
+  const stagedRuntimeVerification = workflow.indexOf(
+    'node scripts/verify-web-deployment.mjs "$DEPLOYMENT_URL" "$ARTIFACT_DIGEST"',
+  );
+  const promotion = workflow.indexOf('vercel promote "$DEPLOYMENT_URL"');
+  assert.ok(uploadedVerification >= 0);
+  assert.ok(stagedRuntimeVerification > uploadedVerification);
+  assert.ok(promotion > stagedRuntimeVerification);
 });
 
-test("uses only short-lived project OIDC for protected Vercel responses", async () => {
+test("verifies every uploaded Vercel output byte and application digest", async () => {
   const directory = workspace();
-  const vercelDirectory = path.join(directory, ".vercel");
-  mkdirSync(vercelDirectory, { recursive: true });
-  writeFileSync(
-    path.join(vercelDirectory, ".env.preview.local"),
-    'VERCEL_OIDC_TOKEN="header.payload.signature"\n',
+  const output = path.join(directory, ".vercel", "output");
+  const staticRoot = path.join(output, "static");
+  mkdirSync(staticRoot, { recursive: true });
+  writeGuidedArtifact(staticRoot);
+  writeJson(path.join(output, "config.json"), { version: 3 });
+
+  const html = readFileSync(path.join(staticRoot, "index.html"), "utf8");
+  const script = readFileSync(
+    path.join(staticRoot, "assets", "index-test.js"),
     "utf8",
   );
-  const token = await loadVercelOidcToken(vercelDirectory);
-  assert.equal(token, "header.payload.signature");
-
-  const origin = new URL("https://nailsize-preview.vercel.app");
-  const requested = new URL("/assets/index.js", origin);
-  const response = await fetchProtectedDeployment(
-    requested,
-    origin,
-    token,
-    async (url, options) => {
-      assert.equal(url.href, requested.href);
-      assert.equal(options.redirect, "error");
-      assert.equal(
-        options.headers["x-vercel-trusted-oidc-idp-token"],
-        "header.payload.signature",
-      );
-      const result = new Response("export {};", {
-        status: 200,
-        headers: { "Content-Type": "application/javascript" },
-      });
-      Object.defineProperty(result, "url", { value: requested.href });
-      return result;
-    },
+  const style = readFileSync(
+    path.join(staticRoot, "assets", "index-test.css"),
+    "utf8",
   );
-  assert.equal(response.status, 200);
-  assert.equal(response.url, requested.href);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /application\/javascript/u,
+  const expectedArtifactDigest = guidedArtifactDigest(
+    html,
+    [{ pathname: "/assets/index-test.js", content: script }],
+    [{ pathname: "/assets/index-test.css", content: style }],
   );
-  assert.equal(await response.text(), "export {};");
+  const tree = deploymentTree(output);
+  const contents = deploymentContents(output);
+  const fetchImplementation = async (url, options) => {
+    assert.equal(url.origin, "https://api.vercel.com");
+    assert.equal(url.searchParams.get("teamId"), "team_expected");
+    assert.equal(options.redirect, "error");
+    assert.equal(options.headers.Authorization, "Bearer test-token");
+    const payload = url.pathname.endsWith("/files")
+      ? tree
+      : {
+          content: contents.get(url.pathname.split("/").at(-1)),
+          encoding: "base64",
+        };
+    return Response.json(payload);
+  };
 
+  const result = await verifyVercelDeploymentFiles({
+    deploymentId: "dpl_Test123",
+    teamId: "team_expected",
+    token: "test-token",
+    expectedArtifactDigest,
+    outputRoot: output,
+    fetchImplementation,
+  });
+  assert.equal(result.files, 4);
+  assert.equal(result.artifactDigest, expectedArtifactDigest);
+
+  const changedContents = new Map(contents);
+  const scriptUid = sha1(Buffer.from(script));
+  changedContents.set(
+    scriptUid,
+    Buffer.from("export { bad: true };", "utf8").toString("base64"),
+  );
   await assert.rejects(
-    loadVercelOidcToken(path.join(directory, "missing")),
-    /ENOENT/u,
+    verifyVercelDeploymentFiles({
+      deploymentId: "dpl_Test123",
+      teamId: "team_expected",
+      token: "test-token",
+      expectedArtifactDigest,
+      outputRoot: output,
+      fetchImplementation: async (url) =>
+        Response.json(
+          url.pathname.endsWith("/files")
+            ? tree
+            : {
+                content: changedContents.get(url.pathname.split("/").at(-1)),
+                encoding: "base64",
+              },
+        ),
+    }),
+    /unexpected size|contents differ/u,
+  );
+});
+
+test("rejects non-file entries in a Vercel deployment tree", () => {
+  assert.throws(
+    () =>
+      flattenDeploymentTree([
+        {
+          name: ".vercel",
+          type: "directory",
+          mode: 16_877,
+          children: [
+            {
+              name: "handler",
+              type: "lambda",
+              mode: 33_188,
+            },
+          ],
+        },
+      ]),
+    /forbidden lambda/u,
   );
 });
 
@@ -379,6 +444,61 @@ function writeGuidedArtifact(directory) {
   );
   writeFileSync(path.join(assets, "index-test.js"), "export {};", "utf8");
   writeFileSync(path.join(assets, "index-test.css"), "body{}", "utf8");
+}
+
+function deploymentTree(output) {
+  const entries = [];
+  const visit = (directory) =>
+    readdirSync(directory, { withFileTypes: true }).map((entry) => {
+      const target = path.join(directory, entry.name);
+      if (entry.isDirectory())
+        return {
+          name: entry.name,
+          type: "directory",
+          mode: 16_877,
+          children: visit(target),
+        };
+      return {
+        name: entry.name,
+        type: "file",
+        mode: 33_188,
+        uid: sha1(readFileSync(target)),
+      };
+    });
+  entries.push({
+    name: ".vercel",
+    type: "directory",
+    mode: 16_877,
+    children: [
+      {
+        name: "output",
+        type: "directory",
+        mode: 16_877,
+        children: visit(output),
+      },
+    ],
+  });
+  return entries;
+}
+
+function deploymentContents(output) {
+  const contents = new Map();
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const target = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(target);
+      else {
+        const content = readFileSync(target);
+        contents.set(sha1(content), content.toString("base64"));
+      }
+    }
+  };
+  visit(output);
+  return contents;
+}
+
+function sha1(content) {
+  return createHash("sha1").update(content).digest("hex");
 }
 
 function run(script, arguments_, cwd, environment = {}) {

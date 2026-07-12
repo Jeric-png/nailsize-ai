@@ -3,22 +3,13 @@ import {
   guidedArtifactDigest,
   parseGuidedShell,
 } from "./guided-artifact.mjs";
-import {
-  fetchProtectedDeployment,
-  loadVercelOidcToken,
-} from "./vercel-protected-fetch.mjs";
 
-const arguments_ = process.argv.slice(2);
-const protectedDeployment = arguments_.includes("--vercel-protected");
-const positionalArguments = arguments_.filter(
-  (argument) => argument !== "--vercel-protected",
-);
-const [rawUrl, expectedDigest] = positionalArguments;
-if (positionalArguments.length > 2)
+const [rawUrl, expectedDigest, ...unexpectedArguments] = process.argv.slice(2);
+if (unexpectedArguments.length > 0)
   throw new Error("Deployment verifier received unexpected arguments.");
 if (!rawUrl)
   throw new Error(
-    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256] [--vercel-protected]",
+    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256]",
   );
 if (expectedDigest && !/^[a-f0-9]{64}$/u.test(expectedDigest))
   throw new Error(
@@ -41,10 +32,6 @@ if (!origin.hostname.endsWith(".vercel.app"))
 origin.pathname = "/";
 origin.search = "";
 origin.hash = "";
-
-const vercelOidcToken = protectedDeployment
-  ? await loadVercelOidcToken()
-  : undefined;
 
 const root = await fetchChecked(origin);
 assertSecurityHeaders(root);
@@ -166,13 +153,11 @@ function assertContentType(response, expected) {
 }
 
 async function fetchChecked(url) {
-  const response = protectedDeployment
-    ? await fetchProtectedDeployment(url, origin, vercelOidcToken)
-    : await fetch(url, {
-        redirect: "error",
-        signal: AbortSignal.timeout(10_000),
-        headers: { "User-Agent": "nailsize-guided-deployment-smoke/1" },
-      });
+  const response = await fetch(url, {
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+    headers: { "User-Agent": "nailsize-guided-deployment-smoke/1" },
+  });
   if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}.`);
   const finalUrl = new URL(response.url);
   if (finalUrl.protocol !== "https:" || finalUrl.origin !== origin.origin)
