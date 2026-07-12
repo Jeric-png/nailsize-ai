@@ -105,7 +105,7 @@ test("binds inspection to the linked project and promoted alias", () => {
   assert.notEqual(wrongId.status, 0);
 });
 
-test("accepts the locked install contract and an empty pulled environment", () => {
+test("accepts the locked install contract and only Vercel's system token", () => {
   const directory = workspace();
   const settings = {
     framework: "vite",
@@ -118,7 +118,11 @@ test("accepts the locked install contract and an empty pulled environment", () =
   };
   writeProject(directory, { settings });
   const environmentFile = path.join(directory, ".vercel", ".env.preview.local");
-  writeFileSync(environmentFile, "# Created by Vercel CLI\n", "utf8");
+  writeFileSync(
+    environmentFile,
+    '# Created by Vercel CLI\nVERCEL_OIDC_TOKEN="header.payload.signature"\n',
+    "utf8",
+  );
   const environment = {
     VERCEL_ORG_ID: "team_expected",
     VERCEL_PROJECT_ID: "prj_expected",
@@ -126,6 +130,7 @@ test("accepts the locked install contract and an empty pulled environment", () =
 
   const empty = run("verify-vercel-pull.mjs", [], directory, environment);
   assert.equal(empty.status, 0, empty.stderr);
+  assert.equal(JSON.parse(empty.stdout).systemVariables, 1);
 
   writeProject(directory, {
     settings: { ...settings, installCommand: "npm install" },
@@ -148,7 +153,8 @@ test("accepts the locked install contract and an empty pulled environment", () =
   );
   const configured = run("verify-vercel-pull.mjs", [], directory, environment);
   assert.notEqual(configured.status, 0);
-  assert.match(configured.stderr, /requires an empty environment/u);
+  assert.match(configured.stderr, /VITE_REMOTE_API/u);
+  assert.doesNotMatch(configured.stderr, /example\.test/u);
 });
 
 test("accepts only a byte-identical static Vercel output", () => {

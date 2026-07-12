@@ -1,6 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
+const ALLOWED_VERCEL_SYSTEM_VARIABLES = new Set(["VERCEL_OIDC_TOKEN"]);
+
 const expectedOrgId = process.env.VERCEL_ORG_ID;
 const expectedProjectId = process.env.VERCEL_PROJECT_ID;
 if (!expectedOrgId || !expectedProjectId)
@@ -34,6 +36,7 @@ const entries = await readdir(vercelDirectory, { withFileTypes: true });
 const environmentFiles = entries.filter(
   (entry) => entry.isFile() && /^\.env(?:\..+)?\.local$/u.test(entry.name),
 );
+let systemVariables = 0;
 for (const entry of environmentFiles) {
   const content = await readFile(
     path.join(vercelDirectory, entry.name),
@@ -43,10 +46,22 @@ for (const entry of environmentFiles) {
     .replace(/^\uFEFF/u, "")
     .split(/\r?\n/u)
     .filter((line) => line.trim() && !line.trimStart().startsWith("#"));
-  if (assignments.length > 0)
+  const keys = assignments.map((line) => {
+    const match = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=/u);
+    if (!match)
+      throw new Error(
+        `${entry.name} contains an unsupported environment-file entry.`,
+      );
+    return match[1];
+  });
+  const unsupported = [
+    ...new Set(keys.filter((key) => !ALLOWED_VERCEL_SYSTEM_VARIABLES.has(key))),
+  ];
+  if (unsupported.length > 0)
     throw new Error(
-      `${entry.name} contains application environment variables; the guided client requires an empty environment.`,
+      `${entry.name} contains unsupported application environment variables: ${unsupported.join(", ")}.`,
     );
+  systemVariables += keys.length;
 }
 
 console.log(
@@ -54,6 +69,7 @@ console.log(
     status: "ok",
     projectName: project.projectName,
     environmentFiles: environmentFiles.length,
+    systemVariables,
     applicationVariables: 0,
   }),
 );

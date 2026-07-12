@@ -40,7 +40,7 @@ Create a Vercel project for `Jeric-png/nailsize-ai` with the repository root as 
 - security headers for every route; and
 - `git.deploymentEnabled.main=false`, so a push to `main` cannot bypass the protected manual workflow.
 
-The application has **no runtime or build-time application variables**. Do not add `VITE_INFERENCE_API_URL`, GCP credentials, Hugging Face tokens, OpenAI keys, model paths, database URLs, domain variables, capacity settings, monitoring variables, or billing variables.
+The application has **no runtime or build-time application variables**. Do not add `VITE_INFERENCE_API_URL`, GCP credentials, Hugging Face tokens, OpenAI keys, model paths, database URLs, domain variables, capacity settings, monitoring variables, or billing variables. Vercel CLI may pull its short-lived `VERCEL_OIDC_TOKEN` system variable automatically; the verifier allows that one Vercel-managed key, the application does not read it, and the byte-identical artifact check proves it did not alter the client output.
 
 The protected GitHub environments need only:
 
@@ -63,7 +63,7 @@ The workflow:
 1. checks the three shared Vercel values and the protected production URL when applicable;
 2. runs lint, typecheck, unit tests, build, and bundle verification;
 3. installs pinned Vercel CLI `55.0.0` without credentials or install scripts;
-4. pulls the selected preview or production project configuration and verifies the protected organization/project IDs, compatible static settings, and an empty application-variable set;
+4. pulls the selected preview or production project configuration and verifies the protected organization/project IDs, compatible static settings, no application variables, and at most Vercel's managed `VERCEL_OIDC_TOKEN` system key;
 5. for production, preflights the protected hostname against Vercel's project-domain API before any alias can move;
 6. removes the deploy token from the environment used by `vercel build`;
 7. proves `.vercel/output/static` is byte-for-byte identical to the already audited `apps/web/dist`, uses Build Output API v3, contains no function output, and records a canonical SHA-256 digest of the HTML, script, and stylesheet;
