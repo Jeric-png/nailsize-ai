@@ -228,16 +228,28 @@ test("pins Vercel targets and verifies individual uploaded files", () => {
   assert.match(workflow, /node scripts\/verify-vercel-files\.mjs/u);
   assert.doesNotMatch(workflow, /--archive/u);
   assert.doesNotMatch(workflow, /--vercel-protected/u);
+  assert.equal(workflow.match(/--vercel-curl/gu)?.length, 1);
   const uploadedVerification = workflow.indexOf(
     "node scripts/verify-vercel-files.mjs",
   );
   const stagedRuntimeVerification = workflow.indexOf(
-    'node scripts/verify-web-deployment.mjs "$DEPLOYMENT_URL" "$ARTIFACT_DIGEST"',
+    'node scripts/verify-web-deployment.mjs "$DEPLOYMENT_URL" "$ARTIFACT_DIGEST" --vercel-curl',
   );
   const promotion = workflow.indexOf('vercel promote "$DEPLOYMENT_URL"');
+  const publicRuntimeVerification = workflow.indexOf(
+    'node scripts/verify-web-deployment.mjs "$PRODUCTION_URL" "$ARTIFACT_DIGEST"',
+  );
   assert.ok(uploadedVerification >= 0);
   assert.ok(stagedRuntimeVerification > uploadedVerification);
   assert.ok(promotion > stagedRuntimeVerification);
+  assert.ok(publicRuntimeVerification > promotion);
+  assert.match(
+    workflow.slice(
+      workflow.lastIndexOf("- name: Verify staged production runtime"),
+      promotion,
+    ),
+    /VERCEL_TOKEN: \$\{\{ secrets\.VERCEL_TOKEN \}\}/u,
+  );
 });
 
 test("verifies every uploaded Vercel output byte and application digest", async () => {

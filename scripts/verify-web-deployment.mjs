@@ -3,13 +3,17 @@ import {
   guidedArtifactDigest,
   parseGuidedShell,
 } from "./guided-artifact.mjs";
+import { fetchProtectedVercelDeployment } from "./vercel-curl-fetch.mjs";
 
 const [rawUrl, expectedDigest, ...unexpectedArguments] = process.argv.slice(2);
-if (unexpectedArguments.length > 0)
+const useVercelCurl =
+  unexpectedArguments.length === 1 &&
+  unexpectedArguments[0] === "--vercel-curl";
+if (unexpectedArguments.length > 0 && !useVercelCurl)
   throw new Error("Deployment verifier received unexpected arguments.");
 if (!rawUrl)
   throw new Error(
-    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256]",
+    "Usage: node scripts/verify-web-deployment.mjs <https-url> [expected-sha256] [--vercel-curl]",
   );
 if (expectedDigest && !/^[a-f0-9]{64}$/u.test(expectedDigest))
   throw new Error(
@@ -33,7 +37,7 @@ origin.pathname = "/";
 origin.search = "";
 origin.hash = "";
 
-const root = await fetchChecked(origin);
+const root = await fetchChecked(origin, 512_000);
 assertSecurityHeaders(root);
 assertContentType(root, "text/html");
 const rootCsp = assertNoConnectionCsp(root);
@@ -42,7 +46,7 @@ const html = await readText(root, 512_000);
 const { scripts, styles } = parseGuidedShell(html, origin);
 const scriptArtifacts = [];
 for (const script of scripts) {
-  const response = await fetchChecked(script);
+  const response = await fetchChecked(script, 2_000_000);
   assertContentType(response, "javascript");
   const content = await readText(response, 2_000_000);
   scriptArtifacts.push({ pathname: script.pathname, content });
@@ -54,7 +58,7 @@ for (const script of scripts) {
 }
 const styleArtifacts = [];
 for (const style of styles) {
-  const response = await fetchChecked(style);
+  const response = await fetchChecked(style, 512_000);
   assertContentType(response, "text/css");
   const content = await readText(response, 512_000);
   styleArtifacts.push({ pathname: style.pathname, content });
@@ -76,7 +80,7 @@ if (expectedDigest && artifactDigest !== expectedDigest)
   );
 
 const deepRoute = new URL("/guide/left_fingers/1", origin);
-const deepResponse = await fetchChecked(deepRoute);
+const deepResponse = await fetchChecked(deepRoute, 512_000);
 assertSecurityHeaders(deepResponse);
 assertContentType(deepResponse, "text/html");
 const deepCsp = assertNoConnectionCsp(deepResponse);
@@ -152,12 +156,17 @@ function assertContentType(response, expected) {
     throw new Error(`${response.url} did not return ${expected} content.`);
 }
 
-async function fetchChecked(url) {
-  const response = await fetch(url, {
-    redirect: "error",
-    signal: AbortSignal.timeout(10_000),
-    headers: { "User-Agent": "nailsize-guided-deployment-smoke/1" },
-  });
+async function fetchChecked(url, maximumBodyBytes) {
+  const target = new URL(url);
+  if (target.protocol !== "https:" || target.origin !== origin.origin)
+    throw new Error("Deployment request escaped the expected HTTPS origin.");
+  const response = useVercelCurl
+    ? await fetchProtectedVercelDeployment(target, maximumBodyBytes)
+    : await fetch(target, {
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+        headers: { "User-Agent": "nailsize-guided-deployment-smoke/1" },
+      });
   if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}.`);
   const finalUrl = new URL(response.url);
   if (finalUrl.protocol !== "https:" || finalUrl.origin !== origin.origin)

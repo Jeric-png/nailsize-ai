@@ -63,14 +63,14 @@ The workflow:
 1. checks the three shared Vercel values and the protected production URL when applicable;
 2. runs lint, typecheck, unit tests, build, and bundle verification;
 3. installs pinned Vercel CLI `55.0.0` without credentials or install scripts;
-4. pulls the selected preview or production project configuration and verifies the protected organization/project IDs, compatible static settings, no application variables, and at most Vercel's managed `VERCEL_OIDC_TOKEN` system key;
+4. pulls the selected preview or production project configuration and verifies the protected organization/project IDs, compatible static settings, no application variables, and only Vercel's managed `VERCEL_OIDC_TOKEN` and `VERCEL_AUTOMATION_BYPASS_SECRET` system keys;
 5. for production, preflights the protected hostname against Vercel's project-domain API before any alias can move;
 6. removes the deploy token from the environment used by `vercel build`;
 7. proves `.vercel/output/static` is byte-for-byte identical to the already audited `apps/web/dist`, uses Build Output API v3, allows only bounded Vercel-generated `builds.json` and `diagnostics/` metadata beside it, contains no function output, and records a canonical SHA-256 digest of the served HTML, script, and stylesheet;
 8. deploys each file from that exact prebuilt output with an explicit target (`--target=preview` for staging; production uses `--prod --skip-domain` so live aliases do not move yet);
 9. verifies the CLI identity and the authenticated REST metadata, including deployment/project/team IDs, release commit, prebuilt state, target, and readiness;
 10. retrieves the authenticated deployment file tree and every uploaded file through Vercel's REST API, requires exactly one Vercel-normalized root containing the complete prebuilt tree, accepts Vercel's schema-less JSON content envelope only when it contains one canonical base64 value equal to the expected local file, rejects archives, functions, middleware, symlinks, extra or missing files, and byte differences, then reproduces the locally recorded application digest; and
-11. for production, requires the staged production-target URL to pass the complete unauthenticated runtime smoke test before any alias can move; and
+11. for production, requires the protected staged production-target URL to pass the complete runtime smoke through Vercel CLI's official automation bypass before any alias can move; `vercel curl` reuses an existing project bypass secret or creates one through Vercel's API when none exists, never prints it in this workflow, and the verifier still rejects redirects, non-2xx responses, wrong origins, malformed headers, oversized bodies, and artifact differences; and
 12. promotes only that byte- and runtime-verified production deployment, resolves the public production URL directly back to its deployment ID, and confirms it still serves the same local artifact digest without an authentication bypass.
 
 The deployment smoke verifier requires:
