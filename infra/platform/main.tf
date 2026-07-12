@@ -114,6 +114,67 @@ resource "google_cloud_run_v2_service" "inference" {
   }
 }
 
+resource "google_cloud_run_v2_job" "onnx_benchmark" {
+  project             = var.project_id
+  name                = "${local.prefix}-onnx-benchmark"
+  location            = var.region
+  deletion_protection = var.deletion_protection
+
+  template {
+    task_count  = 1
+    parallelism = 1
+
+    template {
+      service_account       = local.runtime_service_account_email
+      timeout               = "300s"
+      max_retries           = 0
+      execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
+
+      containers {
+        name    = "benchmark"
+        image   = var.image_uri
+        command = ["python"]
+        args    = ["-m", "app.runtime_benchmark"]
+
+        env {
+          name  = "BENCHMARK_IMAGE_URI"
+          value = var.image_uri
+        }
+        env {
+          name  = "DEPLOYMENT_ENVIRONMENT"
+          value = var.environment
+        }
+        env {
+          name  = "MODEL_PATH"
+          value = "models/nail-segmentation.onnx"
+        }
+        env {
+          name  = "MODEL_SHA256"
+          value = var.model_sha256
+        }
+        env {
+          name  = "MODEL_VERSION"
+          value = var.model_version
+        }
+
+        resources {
+          limits = {
+            cpu    = "2"
+            memory = "4Gi"
+          }
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = startswith(var.image_uri, "${var.region}-docker.pkg.dev/${var.project_id}/${local.prefix}-inference/")
+      error_message = "benchmark image_uri must use the environment-specific inference repository."
+    }
+  }
+}
+
 # The load balancer cannot authenticate to a serverless NEG. Public invocation is
 # therefore allowed at IAM while ingress and the disabled default URL constrain
 # internet traffic to the Cloud Armor-protected load balancer.

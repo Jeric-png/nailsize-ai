@@ -59,6 +59,18 @@ run "valid_secure_boundary" {
     condition     = google_cloud_run_v2_service.inference.template[0].service_account == "nailsize-staging-runtime@nailsize-staging-123.iam.gserviceaccount.com"
     error_message = "Cloud Run must use the bootstrapped environment-specific runtime identity."
   }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_job.onnx_benchmark.template[0].task_count == 1 &&
+      google_cloud_run_v2_job.onnx_benchmark.template[0].parallelism == 1 &&
+      google_cloud_run_v2_job.onnx_benchmark.template[0].template[0].max_retries == 0 &&
+      google_cloud_run_v2_job.onnx_benchmark.template[0].template[0].timeout == "300s" &&
+      google_cloud_run_v2_job.onnx_benchmark.template[0].template[0].containers[0].resources[0].limits["cpu"] == "2" &&
+      google_cloud_run_v2_job.onnx_benchmark.template[0].template[0].containers[0].resources[0].limits["memory"] == "4Gi"
+    )
+    error_message = "The benchmark job must run once without retries on the exact 2-vCPU/4-GiB contract."
+  }
 }
 
 run "rejects_mutable_image_tag" {
@@ -78,7 +90,10 @@ run "rejects_cross_environment_repository" {
     image_uri = "asia-southeast1-docker.pkg.dev/nailsize-staging-123/nailsize-production-inference/inference@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   }
 
-  expect_failures = [google_cloud_run_v2_service.inference]
+  expect_failures = [
+    google_cloud_run_v2_job.onnx_benchmark,
+    google_cloud_run_v2_service.inference,
+  ]
 }
 
 run "rejects_wildcard_frontend" {

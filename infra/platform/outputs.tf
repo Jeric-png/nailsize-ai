@@ -13,6 +13,11 @@ output "cloud_run_service" {
   value       = google_cloud_run_v2_service.inference.name
 }
 
+output "cloud_run_benchmark_job" {
+  description = "Cloud Run Job that benchmarks the immutable inference image on the target CPU configuration."
+  value       = google_cloud_run_v2_job.onnx_benchmark.name
+}
+
 output "runtime_service_account" {
   description = "Role-less service identity used by the inference container."
   value       = local.runtime_service_account_email

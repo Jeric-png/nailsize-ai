@@ -11,7 +11,7 @@ on:
           - staging
           - production
       model_release_tag:
-        description: Published GitHub release containing the exact five model assets
+        description: Published GitHub release containing the exact eleven model assets
         required: true
         type: string
       expected_model_version:
@@ -148,6 +148,7 @@ jobs:
           python services/inference/scripts/verify_staging_promotion.py \
             --run-metadata work/staging-evidence/run.json \
             --deployment-manifest work/staging-evidence/deployment/deployment-manifest.json \
+            --benchmark-report work/staging-evidence/deployment/onnx-runtime-benchmark.json \
             --vercel-deployment work/staging-evidence/deployment/vercel-deployment.json \
             --smoke-report work/staging-evidence/smoke/deployment-smoke.json \
             --expected-run-id "$STAGING_RUN_ID" \
@@ -289,6 +290,56 @@ jobs:
           terraform -chdir=infra/platform apply -input=false "$RUNNER_TEMP/platform.tfplan"
           echo "api_url=$(terraform -chdir=infra/platform output -raw api_url)" >> "$GITHUB_OUTPUT"
           echo "service_name=$(terraform -chdir=infra/platform output -raw cloud_run_service)" >> "$GITHUB_OUTPUT"
+          echo "benchmark_job=$(terraform -chdir=infra/platform output -raw cloud_run_benchmark_job)" >> "$GITHUB_OUTPUT"
+
+      - name: Benchmark the immutable ONNX model on the Cloud Run CPU contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          benchmark_job="${{ steps.platform.outputs.benchmark_job }}"
+          gcloud run jobs execute "$benchmark_job" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --wait
+          execution_resource="$(gcloud run jobs describe "$benchmark_job" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --format='value(latestCreatedExecution.name)')"
+          execution_name="${execution_resource##*/}"
+          [[ "$execution_name" =~ ^nailsize-(staging|production)-onnx-benchmark-[a-z0-9]+$ ]]
+          gcloud run jobs describe "$benchmark_job" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --format=json > "$RUNNER_TEMP/benchmark-job.json"
+          gcloud run jobs executions describe "$execution_name" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --format=json > "$RUNNER_TEMP/benchmark-execution.json"
+          query="resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"$benchmark_job\" AND labels.execution_name=\"$execution_name\" AND jsonPayload.schema_version=\"nailsize-cloud-run-onnx-benchmark-sample@1\""
+          for attempt in {1..12}; do
+            gcloud logging read "$query" \
+              --project "$GCP_PROJECT_ID" \
+              --freshness=1h \
+              --limit=2 \
+              --format=json > "$RUNNER_TEMP/benchmark-logs.json"
+            if [[ "$(jq 'length' "$RUNNER_TEMP/benchmark-logs.json")" == "1" ]]; then
+              break
+            fi
+            if [[ "$attempt" == "12" ]]; then
+              echo "Expected one structured benchmark log for $execution_name" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          python services/inference/scripts/verify_cloud_run_benchmark.py \
+            --job "$RUNNER_TEMP/benchmark-job.json" \
+            --execution "$RUNNER_TEMP/benchmark-execution.json" \
+            --logs "$RUNNER_TEMP/benchmark-logs.json" \
+            --expected-environment "$DEPLOY_ENVIRONMENT" \
+            --expected-image-uri "${{ steps.image.outputs.image_uri }}" \
+            --expected-model-version "$EXPECTED_MODEL_VERSION" \
+            --expected-model-sha256 "$EXPECTED_MODEL_SHA256" \
+            --output work/onnx-runtime-benchmark.json
 
       - name: Apply privacy-safe observability and budget controls
         shell: bash
@@ -361,6 +412,7 @@ jobs:
           path: |
             work/deployment-manifest.json
             work/model-release-manifest.json
+            work/onnx-runtime-benchmark.json
             work/runtime-model-verification.json
             work/image-promotion.json
             work/staging-promotion.json

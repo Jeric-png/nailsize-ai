@@ -11,6 +11,10 @@ MODEL_RELEASE_TAG = "model-nailsize-20260712"
 MODEL_SHA256 = "b" * 64
 FRONTEND = "https://staging.nailsize.example"
 API = "https://api-staging.nailsize.example"
+IMAGE = (
+    "us-central1-docker.pkg.dev/nailsize-staging/"
+    "nailsize-staging-inference/inference@sha256:" + "c" * 64
+)
 
 
 def _evidence():
@@ -32,12 +36,45 @@ def _evidence():
             "model_release_tag": MODEL_RELEASE_TAG,
             "api_url": API,
             "frontend_url": FRONTEND,
-            "image_uri": (
-                "us-central1-docker.pkg.dev/nailsize-staging/"
-                "nailsize-staging-inference/inference@sha256:" + "c" * 64
-            ),
+            "image_uri": IMAGE,
             "model_version": MODEL_VERSION,
             "model_sha256": MODEL_SHA256,
+        },
+        "benchmark_report": {
+            "schema_version": "nailsize-cloud-run-onnx-benchmark@1",
+            "environment": "staging",
+            "cloud_run_job": "nailsize-staging-onnx-benchmark",
+            "cloud_run_execution": "nailsize-staging-onnx-benchmark-abc12",
+            "image_uri": IMAGE,
+            "model_version": MODEL_VERSION,
+            "model_sha256": MODEL_SHA256,
+            "provider": "CPUExecutionProvider",
+            "iterations": 200,
+            "warmup_iterations": 20,
+            "input_shape": [1, 3, 224, 160],
+            "output_shape": [1, 1, 224, 160],
+            "runtime_contract": {
+                "cpu": "2",
+                "memory": "4Gi",
+                "execution_environment": "gen2",
+                "task_count": 1,
+                "parallelism": 1,
+                "max_retries": 0,
+                "timeout_seconds": 300,
+            },
+            "latency_ms": {"p50": 80.0, "p95": 100.0, "p99": 120.0, "mean": 85.0},
+            "limits_ms": {"p50": 2000.0, "p95": 5000.0, "p99": 10000.0},
+            "checks": {
+                "immutable_image": True,
+                "selected_model": True,
+                "cloud_run_job_contract": True,
+                "successful_single_task": True,
+                "structured_sample_linked": True,
+                "cpu_tensor_contract": True,
+                "finite_outputs": True,
+                "necessary_latency_limits": True,
+            },
+            "passed": True,
         },
         "vercel_deployment": {
             "schema_version": "nailsize-vercel-deployment@1",
@@ -81,6 +118,7 @@ def test_accepts_exact_successful_staging_candidate() -> None:
     assert report["staging_run_id"] == RUN_ID
     assert report["git_commit_sha"] == COMMIT_SHA
     assert report["smoke_checks_passed"] == 7
+    assert report["staging_benchmark_execution"] == "nailsize-staging-onnx-benchmark-abc12"
     assert report["staging_vercel_deployment_id"] == "dpl_staging123"
 
 
@@ -92,6 +130,8 @@ def test_accepts_exact_successful_staging_candidate() -> None:
         ("deployment_manifest", "environment", "production"),
         ("deployment_manifest", "promoted_from_image_uri", "staging-image"),
         ("deployment_manifest", "model_sha256", "e" * 64),
+        ("benchmark_report", "passed", False),
+        ("benchmark_report", "image_uri", "different"),
         ("vercel_deployment", "ready_substate", "STAGED"),
         ("smoke_report", "passed", False),
         ("smoke_report", "schema_version", "nailsize-deployment-smoke@1"),

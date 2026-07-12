@@ -28,6 +28,7 @@ ALLOWED_INFERENCE_RUNTIME_DEPENDENCIES = {
 ALLOWED_TERRAFORM_RESOURCE_ADDRESSES = {
     "google_artifact_registry_repository.inference",
     "google_billing_budget.project",
+    "google_cloud_run_v2_job.onnx_benchmark",
     "google_cloud_run_v2_service.inference",
     "google_cloud_run_v2_service_iam_member.public_invoker",
     "google_compute_backend_service.inference",

@@ -128,6 +128,10 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "deployment-smoke-staging" in workflow
     assert "verify_staging_promotion.py" in workflow
     assert "verify_image_promotion.py" in workflow
+    assert "verify_cloud_run_benchmark.py" in workflow
+    assert "work/onnx-runtime-benchmark.json" in workflow
+    assert 'gcloud run jobs execute "$benchmark_job"' in workflow
+    assert r"jsonPayload.schema_version=\"nailsize-cloud-run-onnx-benchmark-sample@1\"" in workflow
     assert 'gh run list --repo "$GITHUB_REPOSITORY" --workflow CI' in workflow
     assert "google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093" in workflow
     assert "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db" in workflow
@@ -144,12 +148,14 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     image_promotion = workflow.index('docker pull "$source_image"')
     image_build = workflow.index('docker build --tag "$image_tag"')
     observability_apply = workflow.index("terraform -chdir=infra/observability apply")
+    runtime_benchmark = workflow.index("verify_cloud_run_benchmark.py")
     assert (
         staging_gate
         < release_gate
         < runtime_gate
         < cloud_auth
         < image_promotion
+        < runtime_benchmark
         < observability_apply
         < vercel_gate
     )
@@ -167,6 +173,32 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert '--source-image-uri "$source_image"' in workflow
     assert "work/image-promotion.json" in workflow
     assert '--arg schema_version "nailsize-deployment@3"' in workflow
+
+
+def test_cloud_run_benchmark_job_matches_service_cpu_and_model_contract() -> None:
+    main = (REPOSITORY_ROOT / "infra" / "platform" / "main.tf").read_text()
+    outputs = (REPOSITORY_ROOT / "infra" / "platform" / "outputs.tf").read_text()
+    job = main.split('resource "google_cloud_run_v2_job" "onnx_benchmark"', 1)[1].split(
+        'resource "google_cloud_run_v2_service_iam_member"', 1
+    )[0]
+
+    for contract in (
+        'name                = "${local.prefix}-onnx-benchmark"',
+        "task_count  = 1",
+        "parallelism = 1",
+        'timeout               = "300s"',
+        "max_retries           = 0",
+        'execution_environment = "EXECUTION_ENVIRONMENT_GEN2"',
+        'command = ["python"]',
+        'args    = ["-m", "app.runtime_benchmark"]',
+        'cpu    = "2"',
+        'memory = "4Gi"',
+        'name  = "BENCHMARK_IMAGE_URI"',
+        'name  = "MODEL_SHA256"',
+        'name  = "MODEL_VERSION"',
+    ):
+        assert contract in job
+    assert 'output "cloud_run_benchmark_job"' in outputs
 
 
 def test_every_terraform_root_declares_remote_gcs_state() -> None:

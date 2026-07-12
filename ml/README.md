@@ -134,4 +134,4 @@ nailsize-benchmark /models/nail-segmentation.onnx \
   --output /reports/onnx-benchmark.json
 ```
 
-The report includes the model checksum, ONNX Runtime provider, iteration counts, p50/p95/p99/mean latency, logical CPU count, machine/platform, and Python version. A laptop or generic CI result only verifies the harness; only a report from the configured 2-vCPU/4-GiB Cloud Run revision satisfies the deployment benchmark task.
+The report includes the model checksum, ONNX Runtime provider, iteration counts, p50/p95/p99/mean latency, logical CPU count, machine/platform, and Python version. This command is useful for candidate and local harness checks. During deployment, Terraform also creates a single-task Cloud Run job from the exact digest-pinned inference image; the workflow runs `python -m app.runtime_benchmark`, verifies the live job and execution metadata plus its single structured log, and retains an aggregate report. A laptop, generic CI run, or Terraform source test does not satisfy the deployment benchmark task—only the credentialed 2-vCPU/4-GiB execution for the released image does.
