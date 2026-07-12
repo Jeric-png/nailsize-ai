@@ -130,6 +130,17 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Audit the selected Vercel project boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python services/inference/scripts/audit_vercel_projects.py \
+            --team-id "$VERCEL_TEAM_ID" \
+            --github-repository "$GITHUB_REPOSITORY" \
+            --github-repository-id "$VERCEL_GITHUB_REPO_ID" \
+            --project "$VERCEL_PROJECT_ID:$VERCEL_PROJECT_NAME" \
+            --output work/vercel-project-audit.json
+
       - name: Require exact successful staging evidence before production
         if: env.DEPLOY_ENVIRONMENT == 'production'
         shell: bash
@@ -385,6 +396,7 @@ jobs:
           --team-id "$VERCEL_TEAM_ID"
           --github-repo-id "$VERCEL_GITHUB_REPO_ID"
           --commit-sha "$GITHUB_SHA"
+          --api-url "${{ steps.platform.outputs.api_url }}"
           --frontend-url "$FRONTEND_ORIGIN"
           --output work/vercel-deployment.json
 
@@ -428,6 +440,7 @@ jobs:
             work/runtime-model-verification.json
             work/image-promotion.json
             work/staging-promotion.json
+            work/vercel-project-audit.json
             work/vercel-deployment.json
           if-no-files-found: error
           retention-days: 30

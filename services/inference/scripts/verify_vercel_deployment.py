@@ -20,6 +20,7 @@ def deploy_and_verify_vercel(
     team_id: str,
     github_repo_id: str,
     commit_sha: str,
+    api_url: str,
     frontend_url: str,
     timeout_seconds: float = 1200,
     poll_interval_seconds: float = 10,
@@ -34,9 +35,28 @@ def deploy_and_verify_vercel(
         team_id,
         github_repo_id,
         commit_sha,
+        api_url,
         frontend_url,
     )
     request = request_json or _request_json
+    environment_endpoint = (
+        "https://api.vercel.com/v10/projects/"
+        f"{urllib.parse.quote(project_id, safe='')}/env?"
+        + urllib.parse.urlencode({"teamId": team_id, "upsert": "true"})
+    )
+    environment = request(
+        "POST",
+        environment_endpoint,
+        token,
+        {
+            "key": "VITE_INFERENCE_API_URL",
+            "value": api_url,
+            "type": "plain",
+            "target": ["production"],
+            "comment": "Release-bound NailSize inference origin",
+        },
+    )
+    _validate_environment_upsert(environment, api_url)
     create_endpoint = "https://api.vercel.com/v13/deployments?" + urllib.parse.urlencode(
         {"teamId": team_id, "forceNew": "1"}
     )
@@ -116,6 +136,24 @@ def _validate_deployment_identity(
         raise ValueError("Vercel deployment Git SHA does not match the approved commit")
 
 
+def _validate_environment_upsert(response: dict[str, Any], api_url: str) -> None:
+    if response.get("failed") != []:
+        raise ValueError("Vercel API origin environment update did not fully succeed")
+    created = response.get("created")
+    if not isinstance(created, dict):
+        raise ValueError("Vercel API origin environment update returned an invalid result")
+    target = created.get("target")
+    if target == "production":
+        target = [target]
+    if (
+        created.get("key") != "VITE_INFERENCE_API_URL"
+        or created.get("value") != api_url
+        or created.get("type") != "plain"
+        or target != ["production"]
+    ):
+        raise ValueError("Vercel API origin environment update does not match the release")
+
+
 def _validate_inputs(
     token: str,
     project_id: str,
@@ -123,6 +161,7 @@ def _validate_inputs(
     team_id: str,
     github_repo_id: str,
     commit_sha: str,
+    api_url: str,
     frontend_url: str,
 ) -> None:
     values = (token, project_id, project_name, team_id, github_repo_id)
@@ -136,7 +175,12 @@ def _validate_inputs(
         character not in "0123456789abcdef" for character in commit_sha
     ):
         raise ValueError("Git commit SHA must be 40 lowercase hexadecimal characters")
-    parsed = urlparse(frontend_url)
+    _validate_https_origin(api_url, "API URL")
+    _validate_https_origin(frontend_url, "Frontend URL")
+
+
+def _validate_https_origin(value: str, label: str) -> None:
+    parsed = urlparse(value)
     if (
         parsed.scheme != "https"
         or not parsed.hostname
@@ -145,7 +189,7 @@ def _validate_inputs(
         or parsed.query
         or parsed.fragment
     ):
-        raise ValueError("Frontend URL must be an exact HTTPS origin")
+        raise ValueError(f"{label} must be an exact HTTPS origin")
 
 
 def _request_json(
@@ -184,6 +228,7 @@ def main() -> None:
     parser.add_argument("--team-id", required=True)
     parser.add_argument("--github-repo-id", required=True)
     parser.add_argument("--commit-sha", required=True)
+    parser.add_argument("--api-url", required=True)
     parser.add_argument("--frontend-url", required=True)
     parser.add_argument("--timeout-seconds", type=float, default=1200)
     parser.add_argument("--output", required=True)
@@ -195,6 +240,7 @@ def main() -> None:
         team_id=arguments.team_id,
         github_repo_id=arguments.github_repo_id,
         commit_sha=arguments.commit_sha,
+        api_url=arguments.api_url,
         frontend_url=arguments.frontend_url,
         timeout_seconds=arguments.timeout_seconds,
     )

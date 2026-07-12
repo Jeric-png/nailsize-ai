@@ -137,6 +137,8 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "verify_staging_promotion.py" in workflow
     assert "verify_image_promotion.py" in workflow
     assert "verify_cloud_run_benchmark.py" in workflow
+    assert "audit_vercel_projects.py" in workflow
+    assert "work/vercel-project-audit.json" in workflow
     assert "work/onnx-runtime-benchmark.json" in workflow
     assert 'gcloud run jobs execute "$benchmark_job"' in workflow
     assert r"jsonPayload.schema_version=\"nailsize-cloud-run-onnx-benchmark-sample@1\"" in workflow
@@ -147,8 +149,10 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     assert "npx vercel" not in workflow
     assert "npm install vercel" not in workflow
     assert "uses: ./.github/workflows/deployment-smoke.yml" in workflow
+    assert '--api-url "${{ steps.platform.outputs.api_url }}"' in workflow
 
     staging_gate = workflow.index("verify_staging_promotion.py")
+    vercel_project_audit = workflow.index("audit_vercel_projects.py")
     release_gate = workflow.index("nailsize-release-bundle")
     runtime_gate = workflow.index("verify_runtime_model.py")
     vercel_gate = workflow.index("verify_vercel_deployment.py")
@@ -159,7 +163,8 @@ def test_deployment_workflow_is_manual_gated_and_verifies_before_cloud_auth() ->
     observability_apply = workflow.index("terraform -chdir=infra/observability apply")
     runtime_benchmark = workflow.index("verify_cloud_run_benchmark.py")
     assert (
-        staging_gate
+        vercel_project_audit
+        < staging_gate
         < release_gate
         < runtime_gate
         < cloud_auth
