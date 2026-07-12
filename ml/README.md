@@ -87,13 +87,32 @@ Run `nailsize-annotation-report annotation-study.json --first-mask-root /private
 
 Run `nailsize-accuracy-report observations.jsonl --adequate-cohort skin_tone=monk-5 --adequate-cohort curvature=medium --adequate-cohort width=medium --adequate-cohort device=phone-a --output accuracy-report.json` after the public holdout is locked. Each JSONL row must contain `participant_id`, predicted and ground-truth width/size fields, and a `cohorts` string map. The report enforces the 200-participant/2,000-nail minimum, all overall measurement gates, reviewer-declared adequately sampled cohort gates across skin tone, curvature, width, and device, and deterministic participant-clustered 95% bootstrap intervals. It exits non-zero unless every available gate passes. Declaring cohort adequacy remains a documented study-review decision; the tool never infers adequacy from an arbitrary count.
 
+Run the selected ONNX model over every locked test crop, preserve `224×160` probability arrays and adjudicated binary ground-truth masks under separate approved roots, and create exact JSONL rows containing only `participant_id`, `image_id`, `prediction_probability_uri`, and `ground_truth_mask_uri`. Then generate the aggregate segmentation evidence:
+
+```bash
+nailsize-segmentation-report segmentation-observations.jsonl \
+  --prediction-mask-root /approved-evaluation/predictions \
+  --ground-truth-mask-root /approved-evaluation/ground-truth \
+  --dataset-version "$DATASET_VERSION" \
+  --model-version "$MODEL_VERSION" \
+  --model-sha256 "$MODEL_SHA256" \
+  --holdout-lock-report /approved-data/holdout-lock-report.json \
+  --expected-holdout-lock-sha256 "$HOLDOUT_LOCK_SHA256" \
+  --prediction-threshold 0.5 \
+  --threshold-selection-ref VALIDATION_THRESHOLD_REVIEW \
+  --segmentation-review-ref SEGMENTATION_REVIEW \
+  --output segmentation-evaluation-report.json
+```
+
+The tool accepts only bounded, finite, non-pickled `.npy` arrays with the fixed model output shape, requires probabilities within `[0, 1]` and binary ground truth, and applies the recorded threshold itself. It requires the observation identities and counts to reproduce the approved holdout commitment, reports mean IoU/Dice plus mean and conservative p95 nail-boundary error with participant-clustered intervals, and emits no identifiers or paths. The prediction threshold must be selected on validation data before public-holdout access; the report records a named threshold review rather than tuning on test results. Because the plan defines no universal segmentation threshold, a named segmentation review is mandatory and the report does not invent a pass line.
+
 Run `nailsize-model-card model-metadata.json accuracy-report.json model-card.md` only after review. Publication fails unless the accuracy report passes and metadata includes the immutable model checksum/version, dataset version, intended use, out-of-scope cases, limitations, overlap and boundary metrics, ONNX parity at or below `1e-4`, and named model-owner, nail-tech, and privacy/security reviews. The generated Markdown embeds overall clustered intervals and adequately sampled cohort results.
 
 Run `nailsize-operational-report study-bundle.json --output operational-report.json` on the locked study export. The bundle must declare `"schema_version": "nailsize-operational-study@1"` and contain one completion outcome per participant, ground-truth validity decisions, two complete ten-nail capture sets per repeatability participant, adequately sampled cohort declarations with parity-review references, and a repeatability-review reference. The report enforces first-pass and one-retake completion plus false-acceptance/false-rejection gates, publishes participant-clustered 95% intervals, and reports repeated-capture differences and subgroup rejection-rate gaps. Because the plan defines no universal numeric repeatability or subgroup rejection-parity threshold, those two conclusions require named study reviews instead of an invented cutoff. No images belong in this bundle.
 
 Run `nailsize-size-calibration-report physical-best-fit.jsonl --dataset-version DATASET_VERSION --calibration-review-ref REVIEW --curvature-review medium=REVIEW --output size-calibration-report.json` on the same locked public holdout. Each exact JSONL row contains only an opaque participant/nail ID, adjudicated physical width, physical best-fit size, and curvature cohort. The report applies the exact immutable `platform-default@1` mapping to physical widths, enforces the 200-participant/2,000-nail and size-agreement gates, rejects unmappable widths, publishes participant-clustered intervals, and measures best-fit tip margin overall and for reviewer-declared adequately sampled curvature cohorts. Cohort exact-size accuracy may not trail overall by more than five percentage points. Named reviews remain mandatory because the plan does not define a universal acceptable curvature-margin threshold.
 
-Before publishing a GitHub model release, place only `nail-segmentation.onnx`, the original `onnx-export-report.json`, the approved `dataset-provenance-report.json`, the approved `holdout-lock-report.json`, `model-metadata.json`, `annotation-agreement-report.json`, `size-calibration-report.json`, `accuracy-report.json`, `operational-report.json`, and the generated `model-card.md` in one directory, then run:
+Before publishing a GitHub model release, place only `nail-segmentation.onnx`, the original `onnx-export-report.json`, the approved `dataset-provenance-report.json`, the approved `holdout-lock-report.json`, the aggregate `segmentation-evaluation-report.json`, `model-metadata.json`, `annotation-agreement-report.json`, `size-calibration-report.json`, `accuracy-report.json`, `operational-report.json`, and the generated `model-card.md` in one directory, then run:
 
 ```bash
 nailsize-release-bundle /approved-release \
@@ -102,7 +121,7 @@ nailsize-release-bundle /approved-release \
   --output /reports/model-release-manifest.json
 ```
 
-This final gate independently checks exact ten-file contents, selected-checkpoint and ONNX checksum/version identity, fixed architecture/provider/tensor contracts, exporter-to-metadata parity linkage, the checksum-linked research-only dataset provenance and consent boundary, the approved holdout lock and identifier-free test-set commitment, exact accuracy-to-holdout participant/nail count parity, annotation agreement coverage/reviews/adjudication, physical best-fit size calibration against the exact production chart, shared dataset identity/counts, every numeric accuracy and operational threshold, finite clustered intervals, study/cohort counts and reviews, model-card reproducibility, and positive boundary uncertainty. It emits metadata only. Passing it proves the bundle is internally consistent; it does not prove that the submitted study data was representative or honestly collected, so protected human review remains mandatory.
+This final gate independently checks exact eleven-file contents, selected-checkpoint and ONNX checksum/version identity, fixed architecture/provider/tensor contracts, exporter-to-metadata parity linkage, the checksum-linked research-only dataset provenance and consent boundary, the approved holdout lock and identifier-free test-set commitment, exact segmentation/accuracy-to-holdout participant and nail counts, segmentation model/checksum/threshold/review linkage, overlap plus boundary metrics and clustered intervals, annotation agreement coverage/reviews/adjudication, physical best-fit size calibration against the exact production chart, every numeric accuracy and operational threshold, study/cohort counts and reviews, and model-card reproducibility. It emits metadata only. Passing it proves the bundle is internally consistent; it does not prove that the submitted study data was representative or honestly collected, so protected human review remains mandatory.
 
 The default CI suite measures coverage for production and dependency-light ML modules; the heavy PyTorch modules are excluded because their optional dependencies are not installed there. Run the `Model Tooling` GitHub Actions workflow after changes to `modeling.py`, `training.py`, the release chain, or their pinned dependencies. It installs the research extra on Linux and executes the real factory/export/release/training tests.
 

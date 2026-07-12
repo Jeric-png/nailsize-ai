@@ -65,6 +65,7 @@ jobs:
           --cov=nailsize_ml.dataset_provenance
           --cov=nailsize_ml.evaluation
           --cov=nailsize_ml.holdout_lock
+          --cov=nailsize_ml.segmentation_report
           --cov=nailsize_ml.size_calibration
           --cov-fail-under=85
       - name: Verify source-managed privacy release boundary

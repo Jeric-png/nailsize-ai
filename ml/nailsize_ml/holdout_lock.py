@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -146,15 +147,9 @@ def _build_report(
     if not test_records:
         raise ValueError("Public holdout must contain test records")
     participants = {record["participant_id"] for record in test_records}
-    commitment_payload = [
-        {"image_id": record["image_id"], "participant_id": record["participant_id"]}
-        for record in sorted(
-            test_records, key=lambda item: (item["participant_id"], item["image_id"])
-        )
-    ]
-    commitment = hashlib.sha256(
-        json.dumps(commitment_payload, separators=(",", ":"), sort_keys=True).encode()
-    ).hexdigest()
+    commitment = holdout_set_commitment(
+        (record["participant_id"], record["image_id"]) for record in test_records
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "dataset_version": dataset_version,
@@ -172,6 +167,19 @@ def _build_report(
         "holdout_lock_review_ref": holdout_lock_review_ref,
         "passed": True,
     }
+
+
+def holdout_set_commitment(pairs: Iterable[tuple[str, str]]) -> str:
+    normalized = sorted(
+        (
+            {"participant_id": participant_id, "image_id": image_id}
+            for participant_id, image_id in pairs
+        ),
+        key=lambda item: (item["participant_id"], item["image_id"]),
+    )
+    return hashlib.sha256(
+        json.dumps(normalized, separators=(",", ":"), sort_keys=True).encode()
+    ).hexdigest()
 
 
 def _verify_deterministic_splits(records: list[dict[str, str]], *, salt: str) -> None:

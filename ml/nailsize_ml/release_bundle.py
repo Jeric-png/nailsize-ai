@@ -27,9 +27,11 @@ from .holdout_lock import (
 from .holdout_lock import (
     SCHEMA_VERSION as HOLDOUT_LOCK_SCHEMA,
 )
-from .model_card import render_model_card
+from .model_card import SEGMENTATION_METRICS, render_model_card
 from .operational_validation import OPERATIONAL_METRICS
 from .reporting import METRIC_NAMES, REQUIRED_COHORT_DIMENSIONS
+from .segmentation_report import REPORT_FIELDS as SEGMENTATION_REPORT_FIELDS
+from .segmentation_report import SCHEMA_VERSION as SEGMENTATION_REPORT_SCHEMA
 from .size_calibration import CALIBRATION_METRICS, CHART_ID, CHART_VERSION
 
 REQUIRED_FILENAMES = frozenset(
@@ -43,6 +45,7 @@ REQUIRED_FILENAMES = frozenset(
         "nail-segmentation.onnx",
         "onnx-export-report.json",
         "operational-report.json",
+        "segmentation-evaluation-report.json",
         "size-calibration-report.json",
     }
 )
@@ -139,6 +142,7 @@ def verify_release_bundle(
     holdout_lock = _read_json(directory / "holdout-lock-report.json")
     export_report = _read_json(directory / "onnx-export-report.json")
     operational = _read_json(directory / "operational-report.json")
+    segmentation_evaluation = _read_json(directory / "segmentation-evaluation-report.json")
     size_calibration = _read_json(directory / "size-calibration-report.json")
     model_path = directory / "nail-segmentation.onnx"
     actual_sha256 = _sha256(model_path)
@@ -181,6 +185,18 @@ def verify_release_bundle(
         expected_test_record_count=accuracy.get("nail_count"),
         expected_test_participant_count=accuracy.get("participant_count"),
     )
+    segmentation_evaluation_sha256 = _validate_segmentation_evaluation_report(
+        segmentation_evaluation,
+        actual_report_sha256=_sha256(directory / "segmentation-evaluation-report.json"),
+        expected_dataset_version=dataset_version,
+        expected_model_version=expected_model_version,
+        expected_model_sha256=expected_model_sha256,
+        expected_holdout_lock_sha256=holdout_lock_sha256,
+        expected_test_set_commitment_sha256=holdout_lock["test_set_commitment_sha256"],
+        expected_participant_count=accuracy.get("participant_count"),
+        expected_nail_count=accuracy.get("nail_count"),
+        metadata=metadata,
+    )
 
     rendered_card = render_model_card(metadata, accuracy)
     committed_card = (directory / "model-card.md").read_text(encoding="utf-8")
@@ -198,12 +214,9 @@ def verify_release_bundle(
         expected_participant_count=accuracy["participant_count"],
         expected_nail_count=accuracy["nail_count"],
     )
-    segmentation = metadata["segmentation_metrics"]
-    boundary_error = _positive_finite(
-        segmentation.get("p95_boundary_error_px"), "p95_boundary_error_px"
-    )
+    boundary_error = segmentation_evaluation["metrics"]["p95_boundary_error_px"]
     return {
-        "schema_version": "nailsize-model-release@6",
+        "schema_version": "nailsize-model-release@7",
         "checkpoint_sha256": checkpoint_sha256,
         "model_version": expected_model_version,
         "model_sha256": expected_model_sha256,
@@ -211,6 +224,7 @@ def verify_release_bundle(
         "dataset_version": metadata["dataset_version"],
         "dataset_provenance_sha256": dataset_provenance_sha256,
         "holdout_lock_sha256": holdout_lock_sha256,
+        "segmentation_evaluation_sha256": segmentation_evaluation_sha256,
         "chart_id": CHART_ID,
         "chart_version": CHART_VERSION,
         "segmentation_boundary_error_px": boundary_error,
@@ -223,6 +237,89 @@ def verify_release_bundle(
         "operational_participant_count": operational["participant_count"],
         "approved": True,
     }
+
+
+def _validate_segmentation_evaluation_report(
+    report: dict[str, Any],
+    *,
+    actual_report_sha256: str,
+    expected_dataset_version: str,
+    expected_model_version: str,
+    expected_model_sha256: str,
+    expected_holdout_lock_sha256: str,
+    expected_test_set_commitment_sha256: str,
+    expected_participant_count: Any,
+    expected_nail_count: Any,
+    metadata: dict[str, Any],
+) -> str:
+    if set(report) != set(SEGMENTATION_REPORT_FIELDS):
+        raise ValueError("Segmentation evaluation report fields do not match the contract")
+    if report.get("schema_version") != SEGMENTATION_REPORT_SCHEMA:
+        raise ValueError("Unsupported segmentation evaluation report schema")
+    if report.get("passed") is not True:
+        raise ValueError("Segmentation evaluation report must pass before release")
+    if report.get("dataset_version") != expected_dataset_version:
+        raise ValueError("Segmentation evaluation dataset does not match the selected model")
+    if report.get("model_version") != expected_model_version:
+        raise ValueError("Segmentation evaluation model version does not match release")
+    if report.get("model_sha256") != expected_model_sha256:
+        raise ValueError("Segmentation evaluation model checksum does not match release")
+    if report.get("holdout_lock_sha256") != expected_holdout_lock_sha256:
+        raise ValueError("Segmentation evaluation does not use the approved holdout lock")
+    if report.get("test_set_commitment_sha256") != expected_test_set_commitment_sha256:
+        raise ValueError("Segmentation evaluation test commitment does not match holdout")
+    if (
+        _positive_integer(report.get("participant_count"), "participant_count")
+        != expected_participant_count
+        or _positive_integer(report.get("nail_count"), "nail_count") != expected_nail_count
+    ):
+        raise ValueError("Segmentation evaluation counts do not match the accuracy holdout")
+    threshold = _finite(report.get("prediction_threshold"), "prediction_threshold")
+    if not 0 < threshold < 1:
+        raise ValueError("Segmentation prediction threshold must be between zero and one")
+    for field in ("threshold_selection_ref", "segmentation_review_ref"):
+        if not isinstance(report.get(field), str) or not report[field].strip():
+            raise ValueError("Segmentation evaluation requires named threshold and model reviews")
+
+    expected_dataset_checks = {
+        "holdout_lock_checksum",
+        "holdout_commitment_match",
+        "holdout_participant_count_match",
+        "holdout_nail_count_match",
+    }
+    expected_gate_checks = {
+        "overlap_metrics_reported",
+        "boundary_metrics_reported",
+        "threshold_selected_without_public_holdout",
+        "segmentation_review_present",
+    }
+    dataset_checks = report.get("dataset_checks")
+    gate_checks = report.get("gate_checks")
+    if not isinstance(dataset_checks, dict) or set(dataset_checks) != expected_dataset_checks:
+        raise ValueError("Segmentation evaluation dataset checks do not match the contract")
+    if not isinstance(gate_checks, dict) or set(gate_checks) != expected_gate_checks:
+        raise ValueError("Segmentation evaluation gate checks do not match the contract")
+    _all_checks_pass(dataset_checks, "Segmentation evaluation dataset checks")
+    _all_checks_pass(gate_checks, "Segmentation evaluation gate checks")
+
+    metrics = report.get("metrics")
+    if not isinstance(metrics, dict) or set(metrics) != set(SEGMENTATION_METRICS):
+        raise ValueError("Segmentation evaluation metrics do not match the contract")
+    values = {name: _finite(metrics.get(name), name) for name in SEGMENTATION_METRICS}
+    for name in ("iou", "dice"):
+        if not 0 <= values[name] <= 1:
+            raise ValueError(f"Segmentation overlap metric is outside [0, 1]: {name}")
+    if values["mean_boundary_error_px"] < 0 or values["p95_boundary_error_px"] <= 0:
+        raise ValueError("Segmentation boundary metrics must include positive p95 error")
+    if metadata.get("segmentation_metrics") != metrics:
+        raise ValueError("Model metadata segmentation metrics do not match evaluation report")
+    intervals = report.get("confidence_intervals_95")
+    _validate_intervals(intervals, SEGMENTATION_METRICS, "segmentation evaluation")
+    for name in ("iou", "dice"):
+        interval = intervals[name]
+        if not 0 <= interval["lower"] <= interval["upper"] <= 1:
+            raise ValueError("Segmentation overlap confidence interval is outside [0, 1]")
+    return actual_report_sha256
 
 
 def _validate_export_report(
@@ -755,12 +852,12 @@ def _all_checks_pass(checks: Any, label: str) -> None:
 
 
 def _validate_intervals(intervals: Any, metrics: tuple[str, ...], label: str) -> None:
-    if not isinstance(intervals, dict):
-        raise ValueError(f"{label.title()} confidence intervals are required")
+    if not isinstance(intervals, dict) or set(intervals) != set(metrics):
+        raise ValueError(f"{label.title()} confidence intervals do not match the contract")
     for metric in metrics:
         interval = intervals.get(metric)
-        if not isinstance(interval, dict):
-            raise ValueError(f"{label.title()} confidence interval missing for {metric}")
+        if not isinstance(interval, dict) or set(interval) != {"lower", "upper"}:
+            raise ValueError(f"{label.title()} confidence interval fields do not match")
         lower = _finite(interval.get("lower"), f"{metric} interval lower")
         upper = _finite(interval.get("upper"), f"{metric} interval upper")
         if lower > upper:

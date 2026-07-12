@@ -137,6 +137,49 @@ def _holdout_lock_report() -> dict:
     }
 
 
+def _segmentation_evaluation_report(checksum: str, holdout_checksum: str) -> dict:
+    metrics = {
+        "iou": 0.9,
+        "dice": 0.95,
+        "mean_boundary_error_px": 0.4,
+        "p95_boundary_error_px": 0.8,
+    }
+    return {
+        "schema_version": "nailsize-segmentation-evaluation-report@1",
+        "dataset_version": "holdout-1",
+        "model_version": "release-1",
+        "model_sha256": checksum,
+        "holdout_lock_sha256": holdout_checksum,
+        "test_set_commitment_sha256": "f" * 64,
+        "participant_count": 200,
+        "nail_count": 2000,
+        "prediction_threshold": 0.5,
+        "threshold_selection_ref": "validation-threshold-review-1",
+        "metrics": metrics,
+        "confidence_intervals_95": {
+            name: {
+                "lower": max(0.0, value - 0.01),
+                "upper": min(1.0, value + 0.01),
+            }
+            for name, value in metrics.items()
+        },
+        "dataset_checks": {
+            "holdout_lock_checksum": True,
+            "holdout_commitment_match": True,
+            "holdout_participant_count_match": True,
+            "holdout_nail_count_match": True,
+        },
+        "gate_checks": {
+            "overlap_metrics_reported": True,
+            "boundary_metrics_reported": True,
+            "threshold_selected_without_public_holdout": True,
+            "segmentation_review_present": True,
+        },
+        "segmentation_review_ref": "segmentation-review-1",
+        "passed": True,
+    }
+
+
 def _operational_report() -> dict:
     return {
         "schema_version": "nailsize-operational-report@1",
@@ -303,6 +346,7 @@ def _write_bundle(directory):
     holdout_path.write_text(json.dumps(_holdout_lock_report()), encoding="utf-8")
     holdout_checksum = hashlib.sha256(holdout_path.read_bytes()).hexdigest()
     export = _export_report(checksum, provenance_checksum, holdout_checksum)
+    segmentation_evaluation = _segmentation_evaluation_report(checksum, holdout_checksum)
     accuracy = _accuracy_report()
     annotation_agreement = _annotation_agreement_report()
     operational = _operational_report()
@@ -314,6 +358,9 @@ def _write_bundle(directory):
         json.dumps(annotation_agreement), encoding="utf-8"
     )
     (directory / "operational-report.json").write_text(json.dumps(operational), encoding="utf-8")
+    (directory / "segmentation-evaluation-report.json").write_text(
+        json.dumps(segmentation_evaluation), encoding="utf-8"
+    )
     (directory / "size-calibration-report.json").write_text(
         json.dumps(size_calibration), encoding="utf-8"
     )
@@ -333,7 +380,7 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
     )
 
     assert manifest == {
-        "schema_version": "nailsize-model-release@6",
+        "schema_version": "nailsize-model-release@7",
         "checkpoint_sha256": "a" * 64,
         "model_version": "release-1",
         "model_sha256": checksum,
@@ -344,6 +391,9 @@ def test_verifies_exact_release_evidence_bundle(tmp_path) -> None:
         ).hexdigest(),
         "holdout_lock_sha256": hashlib.sha256(
             (tmp_path / "holdout-lock-report.json").read_bytes()
+        ).hexdigest(),
+        "segmentation_evaluation_sha256": hashlib.sha256(
+            (tmp_path / "segmentation-evaluation-report.json").read_bytes()
         ).hexdigest(),
         "chart_id": "platform-default",
         "chart_version": "1",
@@ -533,6 +583,41 @@ def test_rejects_tampered_public_holdout_lock_evidence(tmp_path, mutation, messa
         )
 
 
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda report: report.update(passed=False), "must pass"),
+        (lambda report: report.update(dataset_version="other"), "dataset does not match"),
+        (lambda report: report.update(model_version="release-2"), "model version"),
+        (lambda report: report.update(model_sha256="b" * 64), "model checksum"),
+        (lambda report: report.update(holdout_lock_sha256="0" * 64), "approved holdout"),
+        (lambda report: report.update(test_set_commitment_sha256="0" * 64), "commitment"),
+        (lambda report: report.update(nail_count=1999), "accuracy holdout"),
+        (lambda report: report.update(prediction_threshold=1.0), "between zero and one"),
+        (lambda report: report.update(threshold_selection_ref=""), "named threshold"),
+        (lambda report: report["metrics"].update(iou=1.1), "outside"),
+        (
+            lambda report: report["confidence_intervals_95"].update(private_metric={}),
+            "confidence intervals",
+        ),
+        (lambda report: report.update(participant_ids=["private"]), "fields do not match"),
+    ],
+)
+def test_rejects_tampered_segmentation_evaluation_evidence(
+    tmp_path, mutation, message: str
+) -> None:
+    checksum, _, _, _ = _write_bundle(tmp_path)
+    report_path = tmp_path / "segmentation-evaluation-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    mutation(report)
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        verify_release_bundle(
+            tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
+        )
+
+
 def test_rejects_removed_export_report_fields(tmp_path) -> None:
     checksum, _, _, _ = _write_bundle(tmp_path)
     report_path = tmp_path / "onnx-export-report.json"
@@ -643,9 +728,13 @@ def test_rejects_modified_model_card_and_nonpositive_boundary_error(tmp_path) ->
         )
 
     metadata["segmentation_metrics"]["p95_boundary_error_px"] = 0
+    segmentation_path = tmp_path / "segmentation-evaluation-report.json"
+    segmentation = json.loads(segmentation_path.read_text(encoding="utf-8"))
+    segmentation["metrics"]["p95_boundary_error_px"] = 0
+    segmentation_path.write_text(json.dumps(segmentation), encoding="utf-8")
     (tmp_path / "model-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
     (tmp_path / "model-card.md").write_text(render_model_card(metadata, accuracy), encoding="utf-8")
-    with pytest.raises(ValueError, match="greater than zero"):
+    with pytest.raises(ValueError, match="positive p95"):
         verify_release_bundle(
             tmp_path, expected_model_version="release-1", expected_model_sha256=checksum
         )
