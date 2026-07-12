@@ -363,8 +363,16 @@ This ledger links goal claims to current, reproducible evidence. A checkbox is c
 ## 2026-07-12 repository vulnerability controls
 
 - The authenticated GitHub repository administrator API enabled vulnerability alerts and automated security fixes for the private repository. A subsequent `GET /vulnerability-alerts` returned `204`, and `GET /automated-security-fixes` returned `enabled: true` and `paused: false`.
-- The live Dependabot security-alert endpoint returned an empty list, and the repository has zero open product issues. All 13 open pull requests are Dependabot version updates; they are not evidence of a current vulnerability and were not merged merely because their individual CI runs were green.
+- The live Dependabot security-alert endpoint returned an empty list, and the repository has zero open product issues.
 - GitHub still reports code scanning as not enabled and secret scanning as disabled. Those private-repository controls and branch protection require a supported plan or approved compensating control, so the critical/high issue closure task remains open alongside deployed-artifact scanning and accountable sign-off.
+
+## 2026-07-12 bounded dependency maintenance
+
+- All 13 initial Dependabot version-update pull requests were classified rather than treated as vulnerabilities. React Refresh 0.5.3 was adopted after complete repository validation; the remaining proposals were superseded or widened support to unverified major versions of Python, GitHub Actions, Vite, JSDOM, ESLint, Vitest, Pillow, pytest-cov, OpenCV, or pytest and were closed with explicit migration requirements.
+- Dependabot policy now groups supported updates while ignoring semver-major version updates for npm, pip, GitHub Actions, and Terraform, Python images at 3.13 or newer, and semver-minor React Refresh updates while it remains below 1.0. GitHub's version-update ignore rules do not disable Dependabot security updates.
+- TypeScript 5.9.3 was applied locally with the existing patch-only `~` range preserved; Dependabot PR #14 was not merged unchanged because its generated lockfile widened the compiler requirement to `^5.9.3`. Lint, typecheck, 24 web tests, the Vercel-compatible production build, 18 strict Chromium scenarios, 45 Chromium/Firefox/WebKit compatibility scenarios, and the high-severity npm audit all passed.
+- CI run [29172970924](https://github.com/Jeric-png/nailsize-ai/actions/runs/29172970924) passed all ten jobs for compatibility-policy commit `d9899f5`. CI run [29173065616](https://github.com/Jeric-png/nailsize-ai/actions/runs/29173065616) passed all ten jobs for TypeScript commit `50c4d94`, including web lint/typecheck/tests/build, both browser gates, security scans, contracts, 306 dependency-light Python/ML tests at 93.50% coverage, live read-only container readiness/privacy smoke, and all three Terraform roots.
+- After the reviewed updates landed, all 14 Dependabot version-update pull requests were closed or superseded, the open product-issue list remained empty, and the live Dependabot security-alert list remained empty. This is repository-maintenance evidence, not deployed-artifact or accountable release sign-off, so the security closure task remains open.
 
 ## Evidence rules
 
