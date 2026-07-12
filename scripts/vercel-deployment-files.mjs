@@ -31,8 +31,10 @@ export async function verifyVercelDeploymentFiles({
     fetchImplementation,
     2_000_000,
   );
-  const remoteFiles = flattenDeploymentTree(tree);
-  assertExactPaths(localFiles, remoteFiles);
+  const remoteFiles = normalizeRemotePaths(
+    localFiles,
+    flattenDeploymentTree(tree),
+  );
 
   const contentByUid = new Map();
   let verifiedBytes = 0;
@@ -174,13 +176,39 @@ async function readLocalOutput(outputRoot) {
   return files;
 }
 
-function assertExactPaths(localFiles, remoteFiles) {
-  const localPaths = [...localFiles.keys()].sort();
-  const remotePaths = [...remoteFiles.keys()].sort();
-  if (JSON.stringify(localPaths) !== JSON.stringify(remotePaths))
+function normalizeRemotePaths(localFiles, remoteFiles) {
+  const staticIndexSuffix = "static/index.html";
+  const indexPaths = [...remoteFiles.keys()].filter(
+    (filePath) =>
+      filePath === staticIndexSuffix ||
+      filePath.endsWith(`/${staticIndexSuffix}`),
+  );
+  if (indexPaths.length !== 1)
     throw new Error(
-      "Uploaded deployment file tree does not exactly match .vercel/output.",
+      "Uploaded deployment must contain exactly one static/index.html path.",
     );
+  const remotePrefix = indexPaths[0].slice(0, -staticIndexSuffix.length);
+  if (remotePrefix && !remotePrefix.endsWith("/"))
+    throw new Error("Uploaded deployment uses an invalid file-tree root.");
+
+  const expectedRemotePaths = [...localFiles.keys()]
+    .map((filePath) => {
+      const relative = filePath.slice(`${deploymentPrefix}/`.length);
+      return `${remotePrefix}${relative}`;
+    })
+    .sort();
+  const actualRemotePaths = [...remoteFiles.keys()].sort();
+  if (JSON.stringify(expectedRemotePaths) !== JSON.stringify(actualRemotePaths))
+    throw new Error(
+      "Uploaded deployment file tree does not exactly match .vercel/output below its Vercel-normalized root.",
+    );
+
+  return new Map(
+    [...localFiles.keys()].map((filePath) => {
+      const relative = filePath.slice(`${deploymentPrefix}/`.length);
+      return [filePath, remoteFiles.get(`${remotePrefix}${relative}`)];
+    }),
+  );
 }
 
 function deploymentArtifactDigest(remoteFiles, contentByUid) {

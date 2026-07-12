@@ -447,7 +447,6 @@ function writeGuidedArtifact(directory) {
 }
 
 function deploymentTree(output) {
-  const entries = [];
   const visit = (directory) =>
     readdirSync(directory, { withFileTypes: true }).map((entry) => {
       const target = path.join(directory, entry.name);
@@ -465,20 +464,7 @@ function deploymentTree(output) {
         uid: sha1(readFileSync(target)),
       };
     });
-  entries.push({
-    name: ".vercel",
-    type: "directory",
-    mode: 16_877,
-    children: [
-      {
-        name: "output",
-        type: "directory",
-        mode: 16_877,
-        children: visit(output),
-      },
-    ],
-  });
-  return entries;
+  return visit(output);
 }
 
 function deploymentContents(output) {
