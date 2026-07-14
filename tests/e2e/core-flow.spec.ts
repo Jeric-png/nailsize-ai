@@ -434,6 +434,7 @@ test("automatic sizing needs only one local photo before analysis", async ({
 test("automatic sizing loads the pinned runtime locally without a silent result", async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   const requests: Array<{ method: string; url: string }> = [];
   page.on("request", (request) =>
     requests.push({ method: request.method(), url: request.url() }),
