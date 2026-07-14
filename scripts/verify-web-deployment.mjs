@@ -55,14 +55,14 @@ let convergenceDeadline;
 const result =
   waitForConvergence || useVercelCurl
     ? await waitForPublicDeploymentConvergence({
-      verify: async ({ deadline }) => {
-        convergenceDeadline = deadline;
-        return verifyDeployment();
-      },
-      ...(useVercelCurl
-        ? { timeoutMilliseconds: 60_000, intervalMilliseconds: 2_000 }
-        : {}),
-    })
+        verify: async ({ deadline }) => {
+          convergenceDeadline = deadline;
+          return verifyDeployment();
+        },
+        ...(useVercelCurl
+          ? { timeoutMilliseconds: 60_000, intervalMilliseconds: 2_000 }
+          : {}),
+      })
     : await verifyDeployment();
 console.log(JSON.stringify(result));
 
