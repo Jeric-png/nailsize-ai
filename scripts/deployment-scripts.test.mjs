@@ -231,6 +231,11 @@ test("locks every automatic-sizing runtime asset into the release digest", () =>
     "/assets/index-test.css",
     "/assets/index-test.js",
   ]);
+  assert.deepEqual(parseReleaseManifest(new Uint8Array(manifest)), [
+    "/assets/InstantSizing-test.js",
+    "/assets/index-test.css",
+    "/assets/index-test.js",
+  ]);
   assert.throws(
     () =>
       parseReleaseManifest(

@@ -96,9 +96,7 @@ export function releaseArtifactDigest(html, assets) {
 }
 
 export function parseReleaseManifest(rawManifest) {
-  const manifestBytes = Buffer.isBuffer(rawManifest)
-    ? rawManifest
-    : Buffer.from(String(rawManifest));
+  const manifestBytes = toManifestBytes(rawManifest);
   let manifest;
   try {
     manifest = JSON.parse(manifestBytes.toString("utf8"));
@@ -132,6 +130,14 @@ export function parseReleaseManifest(rawManifest) {
     }
   }
   return [...paths].sort();
+}
+
+function toManifestBytes(value) {
+  if (Buffer.isBuffer(value)) return value;
+  if (ArrayBuffer.isView(value))
+    return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+  if (value instanceof ArrayBuffer) return Buffer.from(value);
+  return Buffer.from(String(value));
 }
 
 export function assertPinnedRuntimeAsset(pathname, content) {
