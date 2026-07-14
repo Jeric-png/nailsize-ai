@@ -240,7 +240,7 @@ test("locks every automatic-sizing runtime asset into the release digest", () =>
   );
   assert.throws(
     () => parseReleaseManifest("not-json"),
-    /valid JSON \(bytes=8, sha256=[a-f0-9]{64}\)/u,
+    /valid JSON \(bytes=8, signature=6e6f742d, sha256=[a-f0-9]{64}\)/u,
   );
 
   const assets = [

@@ -104,8 +104,9 @@ export function parseReleaseManifest(rawManifest) {
     manifest = JSON.parse(manifestBytes.toString("utf8"));
   } catch {
     const digest = createHash("sha256").update(manifestBytes).digest("hex");
+    const signature = manifestBytes.subarray(0, 4).toString("hex");
     throw new Error(
-      `Release asset manifest must contain valid JSON (bytes=${manifestBytes.byteLength}, sha256=${digest}).`,
+      `Release asset manifest must contain valid JSON (bytes=${manifestBytes.byteLength}, signature=${signature}, sha256=${digest}).`,
     );
   }
   if (
