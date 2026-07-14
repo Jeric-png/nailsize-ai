@@ -365,18 +365,9 @@ describe("repeatability and size mapping", () => {
   });
 
   it("chooses the narrowest tip that is not narrower than the reading", () => {
-    expect(recommendSize(18)).toEqual({
-      recommendedSize: "0",
-      alternateSize: null,
-    });
-    expect(recommendSize(14.2)).toEqual({
-      recommendedSize: "3",
-      alternateSize: null,
-    });
-    expect(recommendSize(14.2, 0.3)).toEqual({
-      recommendedSize: "3",
-      alternateSize: "4",
-    });
+    expect(recommendSize(18)).toBe("0");
+    expect(recommendSize(14.2)).toBe("3");
+    expect(recommendSize(15.2)).toBe("2");
     expect(recommendSize(8.9)).toBeNull();
     expect(recommendSize(18.1)).toBeNull();
   });
@@ -404,7 +395,39 @@ describe("repeatability and size mapping", () => {
       projectedWidthMm: 15,
       sizingWidthMm: 15.2,
       recommendedSize: "2",
-      alternateSize: "3",
+      requiresPhysicalConfirmation: true,
     });
+    expect(result.measurements[0]).not.toHaveProperty("alternateSize");
+  });
+
+  it("fails closed instead of inventing a size outside the provisional chart", () => {
+    for (const [firstWidthMm, verificationWidthMm] of [
+      [18.4, 18.6],
+      [8.6, 8.8],
+    ]) {
+      const result = compareSamples(
+        "left_thumb",
+        [
+          {
+            digit: "thumb",
+            widthMm: firstWidthMm,
+            edges: horizontalEdges(firstWidthMm, portrait),
+          },
+        ],
+        [
+          {
+            digit: "thumb",
+            widthMm: verificationWidthMm,
+            edges: horizontalEdges(verificationWidthMm, portrait),
+          },
+        ],
+      );
+
+      expect(result.measurements[0]).toMatchObject({
+        consistent: true,
+        recommendedSize: null,
+        requiresPhysicalConfirmation: false,
+      });
+    }
   });
 });

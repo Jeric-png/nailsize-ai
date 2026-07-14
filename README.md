@@ -1,6 +1,6 @@
 # NailSize Guide
 
-NailSize Guide is a browser-only web application for estimating the **projected planar width** of all ten nails. It does not use an AI model, nail dataset, image API, or backend inference service.
+NailSize Guide is a browser-only web application for estimating the **projected planar width** of all ten nails and returning one clear sizing result for each nail. It does not use an AI model, nail dataset, image API, or backend inference service.
 
 The product contract and release boundaries are defined in [`PRD.md`](PRD.md).
 
@@ -13,7 +13,7 @@ The product contract and release boundaries are defined in [`PRD.md`](PRD.md).
 5. The app converts the markers to prepared-image pixel coordinates and uses the coin’s official `23.00 mm` nominal diameter to establish a nearby scale. It rejects a coin under `120 prepared-image pixels`, diameter spread over `8%`, centre spread over `6%`, or nails farther than `4.5` coin diameters away. Separately, the marked coin must appear at least `120 CSS/screen pixels` wide in the annotation view so the controls remain usable; this display-size rule is an ergonomics guard, not accuracy validation.
 6. The two readings for each nail must differ by no more than `0.6 mm`. Otherwise, the app requests a targeted retake instead of returning a recommendation.
 
-The result shows the average projected width and selects a default press-on size conservatively from the wider repeat. The built-in `18–9 mm` chart is a starting point; nail artists should replace it with their actual tip supplier’s measured chart.
+The result shows the average projected width and selects one default best-fit press-on size conservatively from the wider repeat when the measurement falls within the provisional chart. If a measurement sits near a chart boundary, the UI asks for physical confirmation without showing a competing size; an out-of-chart measurement is flagged for artist review. The built-in `18–9 mm` chart is a starting point; nail artists should replace it with their actual tip supplier’s measured chart.
 
 ## Important limitation
 

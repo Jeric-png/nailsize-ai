@@ -4,7 +4,7 @@ This execution plan implements the product contract in [`../PRD.md`](../PRD.md).
 
 ## 1. Goal
 
-Deliver a fast, free-to-host web application that helps a nail artist turn customer-guided photos into repeatable projected nail-width measurements and preliminary press-on size recommendations. The active product must work without a nail dataset, trained model, image API, backend service, or image storage.
+Deliver a fast, free-to-host web application that helps a nail artist turn customer-guided photos into repeatable projected nail-width measurements and one clear sizing result per nail: a preliminary best-fit press-on size within the provisional chart or an artist-review flag outside it. The active product must work without a nail dataset, trained model, image API, backend service, or image storage.
 
 The product may claim **guided planar measurement** only. It must not claim curved-surface width, guaranteed fit, or validated accuracy until physical testing supports those claims.
 
@@ -53,7 +53,7 @@ Legacy inference, ML, contracts, and GCP infrastructure remain outside the activ
 
 - Lint, typecheck, unit tests, build, and bundle privacy audit pass.
 - Geometry fixtures prove eight-rim-marker validation, `23.00 mm` pixel-scale conversion, calibration and proximity limits, repeatability boundaries, and chart mapping.
-- End-to-end tests complete all four groups and all ten results from eight local photos.
+- End-to-end tests complete all four groups and produce one clear sizing result for each of ten nails from eight local photos, with no competing size exposed.
 - Browser tests prove inconsistent repeats block recommendations and trigger a targeted retake.
 - Network assertions prove zero non-GET and zero cross-origin requests during sizing.
 - Built assets contain no source maps, API origins, model providers, or secret-dependent configuration.

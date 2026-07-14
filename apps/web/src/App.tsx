@@ -63,13 +63,15 @@ function Landing() {
   return (
     <div className="page landing">
       <Eyebrow>Guided press-on nail measurement</Eyebrow>
-      <h1>Measure every nail without an AI training dataset.</h1>
+      <h1>Measure every nail. Get one clear sizing result per nail.</h1>
       <p className="lede">
         Use a current Singapore 50-cent coin as the scale, place the measurement
-        markers yourself, and verify every width with a second photo.
+        markers yourself, and verify each width with a second photo. You will
+        get one conservative best-fit size when the chart covers the nail—or a
+        clear artist-review flag when it does not.
       </p>
       <div className="hero-placeholder" aria-hidden="true">
-        <span>HAND + 50-CENT REFERENCE</span>
+        <span>8 PHOTOS → 1 CLEAR RESULT PER NAIL</span>
       </div>
       <Card>
         <h2>What you will need</h2>
@@ -297,13 +299,13 @@ function NailResult({
         <strong>{measurement.projectedWidthMm.toFixed(1)} mm</strong>
         <span>
           {measurement.recommendedSize
-            ? `Recommended size ${measurement.recommendedSize}`
+            ? `Best-fit size ${measurement.recommendedSize}`
             : "Outside default chart"}
         </span>
-        {measurement.alternateSize && (
+        {measurement.requiresPhysicalConfirmation && (
           <span className="measurement-boundary-warning">
-            Average-only size {measurement.alternateSize} may be too narrow;
-            confirm physically.
+            Borderline measurement—confirm this nail physically before making
+            the set.
           </span>
         )}
       </div>
@@ -353,7 +355,7 @@ function Results({
   const summary = measurements
     .map((measurement) => {
       const size = measurement.recommendedSize
-        ? `recommended size ${measurement.recommendedSize}${measurement.alternateSize ? `; average-only boundary size ${measurement.alternateSize} may be too narrow and needs physical confirmation` : ""}`
+        ? `best-fit size ${measurement.recommendedSize}${measurement.requiresPhysicalConfirmation ? "; borderline measurement—confirm physically" : ""}`
         : "manual chart check";
       return `${measurement.side} ${measurement.digit}: ${measurement.projectedWidthMm.toFixed(1)} mm average; ${measurement.sizingWidthMm.toFixed(1)} mm sizing width — ${size}`;
     })
@@ -403,11 +405,12 @@ function Results({
   return (
     <div className="page results-page">
       <Eyebrow>Guided measurement complete</Eyebrow>
-      <h1>Your projected nail widths.</h1>
+      <h1>Your best-fit sizing results.</h1>
       <p className="lede">
-        Send this text-only summary to your nail artist. Each recommendation
-        uses the wider of two agreeing readings so the selected tip is not
-        narrower than either measurement.
+        Send this text-only summary to your nail artist. Each in-chart nail gets
+        one size, selected from the wider of two agreeing readings so the
+        suggested tip is not narrower than either measurement. Out-of-chart
+        measurements are flagged for artist review.
       </p>
       <div className="results-layout">
         <div className="result-summary">

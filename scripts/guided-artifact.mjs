@@ -3,6 +3,11 @@ import { createHash } from "node:crypto";
 export const forbiddenClientBindings = [
   "localhost:8000",
   "/v1/measure",
+  "/instant",
+  "InstantSizing",
+  "onnxruntime",
+  "nails_seg",
+  "ort-wasm",
   "VITE_INFERENCE_API_URL",
   "api.openai.com",
   "huggingface.co",

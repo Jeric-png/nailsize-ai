@@ -2,7 +2,7 @@
 
 ## Goal
 
-Implement, verify, deploy, and physically evaluate the dataset-free guided sizing flow defined in [`plan.md`](plan.md). A green build proves software behavior; it does not by itself prove nail-width accuracy or press-on fit.
+Implement, verify, deploy, and physically evaluate the dataset-free guided sizing flow defined in [`plan.md`](plan.md), returning one clear sizing result per nail. A green build proves software behavior; it does not by itself prove nail-width accuracy or press-on fit.
 
 ## 1. Product and measurement contract
 
@@ -37,12 +37,12 @@ Implement, verify, deploy, and physically evaluate the dataset-free guided sizin
 - [x] Unit-test Third Series coin scale conversion and eight-point rim validation.
 - [x] Unit-test marker rules, repeatability threshold, and size mapping.
 - [x] Unit-test session transitions and object-URL cleanup.
-- [x] E2E-test eight photos producing ten results.
+- [x] E2E-test eight photos producing one clear sizing result for each of ten nails without a competing size.
 - [x] E2E-test inconsistent repeats and targeted retakes.
 - [x] E2E-test unsupported files, reset, copy, responsive layouts, and accessibility checks.
 - [x] Assert zero non-GET and zero cross-origin requests in the sizing flow.
 - [x] Audit the production bundle for source maps, API endpoints, AI providers, and secret-bound configuration.
-- [ ] Confirm the coin-calibrated worktree passes `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run verify:bundle`, `npm run test:e2e`, and `npm run test:compat` locally.
+- [x] Confirm the coin-calibrated worktree passes `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run verify:bundle`, `npm run test:e2e`, and `npm run test:compat` locally.
 - [ ] Confirm the same release commit passes the protected GitHub CI and security jobs.
 
 ## 4. Vercel release

@@ -30,7 +30,7 @@ This decision is retained as historical rationale only. `guided-paper-v1` is not
 - Status: Accepted
 - Decision: Display the two-photo average, but map the wider agreeing observation to the size chart.
 - Reason: A tip recommendation should not be narrower than either accepted reading.
-- Consequence: The average-based size may appear as an alternate when the readings cross a chart boundary.
+- Consequence: When the readings cross a chart boundary, the UI keeps the conservative mapping as the single best-fit result and gives a generic physical-confirmation warning without exposing the average-based alternate.
 
 ## ADR-015 — Treat the default chart as provisional
 

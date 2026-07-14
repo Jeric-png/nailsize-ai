@@ -40,7 +40,7 @@ export interface FinalMeasurement {
   repeatDeltaMm: number;
   consistent: boolean;
   recommendedSize: string | null;
-  alternateSize: string | null;
+  requiresPhysicalConfirmation: boolean;
 }
 
 export interface CaptureResult {
@@ -317,13 +317,12 @@ export function compareSamples(
       verificationWidthMm: round(verificationReading.widthMm, 1),
       repeatDeltaMm: delta,
       consistent: delta <= REPEAT_TOLERANCE_MM + MILLIMETRE_COMPARISON_EPSILON,
-      recommendedSize: recommendation?.recommendedSize ?? null,
-      alternateSize:
+      recommendedSize: recommendation,
+      requiresPhysicalConfirmation: Boolean(
         recommendation &&
         averageRecommendation &&
-        averageRecommendation.recommendedSize !== recommendation.recommendedSize
-          ? averageRecommendation.recommendedSize
-          : null,
+        averageRecommendation !== recommendation,
+      ),
     };
   });
 
@@ -354,11 +353,8 @@ export function formatRepeatDeltaMm(
   return deltaMm.toFixed(2);
 }
 
-export function recommendSize(
-  widthMm: number,
-  halfSpreadMm = 0,
-): { recommendedSize: string; alternateSize: string | null } | null {
-  if (!Number.isFinite(widthMm) || !Number.isFinite(halfSpreadMm)) return null;
+export function recommendSize(widthMm: number): string | null {
+  if (!Number.isFinite(widthMm)) return null;
   if (widthMm > CHART[0].widthMm || widthMm < CHART.at(-1)!.widthMm)
     return null;
 
@@ -368,23 +364,7 @@ export function recommendSize(
       (index === CHART.length - 1 || CHART[index + 1].widthMm < widthMm),
   );
   if (recommendedIndex < 0) return null;
-
-  const lower = widthMm - Math.max(0, halfSpreadMm);
-  const upper = widthMm + Math.max(0, halfSpreadMm);
-  const alternate = CHART.filter(
-    (entry, index) =>
-      index !== recommendedIndex &&
-      entry.widthMm >= lower &&
-      entry.widthMm <= upper,
-  ).sort(
-    (left, right) =>
-      Math.abs(left.widthMm - widthMm) - Math.abs(right.widthMm - widthMm),
-  )[0];
-
-  return {
-    recommendedSize: CHART[recommendedIndex].size,
-    alternateSize: alternate?.size ?? null,
-  };
+  return CHART[recommendedIndex].size;
 }
 
 function createCoinCalibration(

@@ -231,7 +231,7 @@ test("landing, preparation, and capture explain the local guided flow", async ({
 }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "without an AI training dataset",
+    "one clear sizing result per nail",
   );
   await expect(page.getByText("Photos stay in this browser")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
@@ -468,7 +468,7 @@ test("an inconsistent second photo blocks sizing and targets the verification re
   await expect(page.getByText("First measurement complete")).toBeVisible();
 });
 
-test("eight local photos produce ten results without uploading image data", async ({
+test("eight local photos produce one clear result per nail without uploading image data", async ({
   context,
   page,
 }) => {
@@ -495,9 +495,12 @@ test("eight local photos produce ten results without uploading image data", asyn
   for (const captureType of Object.keys(captureDigits) as Array<
     keyof typeof captureDigits
   >) {
-    await completePhoto(page, captureType, 1, 0.23);
+    const firstWidthFraction = captureType === "left_thumb" ? 0.29 : 0.23;
+    const verificationWidthFraction =
+      captureType === "left_thumb" ? 0.296 : 0.236;
+    await completePhoto(page, captureType, 1, firstWidthFraction);
     await page.getByRole("button", { name: "Take verification photo" }).click();
-    await completePhoto(page, captureType, 2, 0.236);
+    await completePhoto(page, captureType, 2, verificationWidthFraction);
     await expect(page.getByText("Consistency check passed")).toBeVisible();
     await page.getByRole("button", { name: "Accept and continue" }).click();
   }
@@ -510,16 +513,31 @@ test("eight local photos produce ten results without uploading image data", asyn
   await expect(
     page
       .locator(".measurement-row:visible")
-      .filter({ hasText: "Recommended size 2" })
+      .filter({ hasText: "Best-fit size 2" })
       .first(),
   ).toBeVisible();
+  const visibleResultRows = page.locator(".measurement-row:visible");
+  await expect(visibleResultRows).toHaveCount(mobile ? 5 : 10);
+  for (let index = 0; index < (mobile ? 5 : 10); index += 1) {
+    const row = visibleResultRows.nth(index);
+    const bestFitCount = await row.getByText(/Best-fit size \d/).count();
+    const artistReviewCount = await row
+      .getByText("Outside default chart", { exact: true })
+      .count();
+    expect(bestFitCount + artistReviewCount).toBe(1);
+    await expect(row).not.toContainText(/average-only|alternate size/i);
+  }
+  await expect(
+    visibleResultRows.filter({ hasText: "Outside default chart" }),
+  ).toHaveCount(1);
   await expect(
     page
       .locator(".measurement-row:visible")
-      .filter({ hasText: /Average-only size 3 may be too narrow/i })
+      .filter({
+        hasText: /Borderline measurement—confirm this nail physically/i,
+      })
       .first(),
   ).toBeVisible();
-  await expect(page.getByText("Outside default chart")).toHaveCount(0);
   await expect(page.getByText(/Two-photo agreement passed/)).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 
@@ -536,10 +554,11 @@ test("eight local photos produce ten results without uploading image data", asyn
       ).__NAILSIZE_COPIED_TEXT__,
   );
   expect(copiedText).toContain("guided projected-width results");
-  expect(copiedText).toContain("recommended size 2");
-  expect(copiedText).toContain(
-    "average-only boundary size 3 may be too narrow",
-  );
+  expect(copiedText).toContain("best-fit size 2");
+  expect(copiedText).toMatch(/Left thumb: .* — manual chart check/u);
+  expect(copiedText).toContain("borderline measurement—confirm physically");
+  expect(copiedText).not.toContain("boundary size 3");
+  expect(copiedText).not.toMatch(/average-only|alternate size/i);
   expect(copiedText).toContain("do not measure nail curvature or guarantee");
 
   expect(requests.every((request) => request.method === "GET")).toBe(true);

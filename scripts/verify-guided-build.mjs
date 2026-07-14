@@ -14,6 +14,20 @@ if (!files.some((file) => file.endsWith("index.html")))
   throw new Error("The guided web build is missing index.html.");
 if (files.some((file) => file.endsWith(".map")))
   throw new Error("Production source maps must not be published.");
+const forbiddenModelFiles = files.filter((file) => {
+  const relative = path.relative(root, file);
+  const segments = relative.split(path.sep);
+  return (
+    /\.(?:onnx|wasm)$/iu.test(relative) ||
+    segments.some((segment) => /^(?:models?|ort)$/iu.test(segment))
+  );
+});
+if (forbiddenModelFiles.length > 0)
+  throw new Error(
+    `Guided-only artifact contains a forbidden model/runtime file: ${forbiddenModelFiles
+      .map((file) => path.relative(root, file))
+      .join(", ")}.`,
+  );
 
 for (const file of files) {
   if (!/\.(?:html|js|css|json)$/u.test(file)) continue;

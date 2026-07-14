@@ -13,7 +13,7 @@ A release candidate is technically ready when all of the following are true for 
 - component/browser tests cover the separate `120 CSS/screen px` rendered-annotation ergonomics guard and one-pixel/eight-pixel rendered CSS keyboard steps, including a high-resolution source;
 - image-preparation tests prove source headers over 20 MP or either side over 8192 px are rejected before full decode, while accepted images remain bounded to a 4096-pixel edge and 16 MP;
 - session tests prove mandatory coin confirmation and object URL revocation for acceptance, correction/reopen, confirmation withdrawal, and reset; manual review covers replacement and page teardown;
-- E2E proves eight local photos produce ten results, exact duplicate repeats and inconsistent measurements block acceptance, copy is text-only, and all observed network requests are same-origin `GET`;
+- E2E proves eight local photos produce one clear result for each of ten nails without displaying a competing boundary size, exact duplicate repeats and inconsistent measurements block acceptance, copy is text-only, and all observed network requests are same-origin `GET`;
 - the protected Vercel deployment and `scripts/verify-web-deployment.mjs` pass for the exact HTTPS URL; and
 - manual real-device review passes on current iOS Safari and Android Chrome, including camera/file selection, pointer and keyboard marker placement, results, share/copy, reload, and reset.
 

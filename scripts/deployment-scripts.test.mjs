@@ -207,6 +207,35 @@ test("accepts only a byte-identical static Vercel output", () => {
   assert.match(functionOutput.stderr, /unexpected entries/u);
 });
 
+test("rejects automatic sizing code and hidden model runtime assets", () => {
+  const directory = workspace();
+  const dist = path.join(directory, "apps", "web", "dist");
+  writeGuidedArtifact(dist);
+
+  writeFileSync(
+    path.join(dist, "assets", "index-test.js"),
+    'const route = "/instant"; export { route };',
+    "utf8",
+  );
+  const automaticRoute = run("verify-guided-build.mjs", [], directory);
+  assert.notEqual(automaticRoute.status, 0);
+  assert.match(automaticRoute.stderr, /\/instant/u);
+
+  writeGuidedArtifact(dist);
+  writeFileSync(path.join(dist, "nails.onnx"), "model", "utf8");
+  const model = run("verify-guided-build.mjs", [], directory);
+  assert.notEqual(model.status, 0);
+  assert.match(model.stderr, /forbidden model\/runtime file/u);
+  rmSync(path.join(dist, "nails.onnx"));
+
+  const runtimeDirectory = path.join(dist, "assets", "ort");
+  mkdirSync(runtimeDirectory, { recursive: true });
+  writeFileSync(path.join(runtimeDirectory, "runtime.bin"), "runtime", "utf8");
+  const runtime = run("verify-guided-build.mjs", [], directory);
+  assert.notEqual(runtime.status, 0);
+  assert.match(runtime.stderr, /forbidden model\/runtime file/u);
+});
+
 test("pins Vercel targets and verifies individual uploaded files", () => {
   const workflow = readFileSync(
     path.join(repositoryRoot, ".github", "workflows", "deploy.yml"),

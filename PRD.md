@@ -2,7 +2,7 @@
 
 ## 1. Product summary
 
-NailSize Guide is a mobile-first web application that helps customers estimate the projected planar width of all ten fingernails for preliminary press-on nail sizing. It uses guided manual annotation and a current Third Series Singapore 50-cent coin as a local scale reference, entirely in the browser. It does not use a nail dataset, AI model, image API, backend, account, or image storage.
+NailSize Guide is a mobile-first web application that helps customers estimate the projected planar width of all ten fingernails and receive one clear sizing result for each nail: a conservative best-fit press-on size within the provisional chart or an artist-review flag outside it. It uses guided manual annotation and a current Third Series Singapore 50-cent coin as a local scale reference, entirely in the browser. It does not use a nail dataset, AI model, image API, backend, account, or image storage.
 
 Status: coin-calibrated browser client implemented. Fresh local automated verification, GitHub CI, staging, real-device review, physical accuracy, and tip-fit validation remain separate release gates.
 
@@ -13,7 +13,7 @@ Customers ordering premade nail sets often do not know which tip size fits each 
 Primary users:
 
 - customers completing a guided sizing session on a phone;
-- nail artists receiving the resulting widths and provisional size suggestions.
+- nail artists receiving the resulting widths and one clear provisional sizing result per nail.
 
 ## 3. Goals
 
@@ -40,7 +40,7 @@ Primary users:
 5. For each photo, require the user to place eight markers clockwise around the complete coin rim.
 6. Lock calibration, then require left and right sidewall markers for every expected nail.
 7. Compare each nail’s two readings. Accept only when the difference is at most `0.6 mm`; otherwise request a targeted group retake.
-8. Show all ten projected widths and provisional tip sizes, with text-only copy/share and an erase action.
+8. Show all ten projected widths with one result per nail: a provisional best-fit size within the chart or an artist-review flag outside it. Include a generic physical-confirmation warning for borderline measurements, text-only copy/share, and an erase action. Do not show a competing alternate size.
 
 ## 6. Measurement contract
 
@@ -78,7 +78,7 @@ Method identifier: `guided-sg50-coin-v1`.
 
 ## 9. Acceptance criteria
 
-- Eight valid local photos can produce ten results without any non-GET or cross-origin request.
+- Eight valid local photos can produce one clear sizing result for each of ten nails without any non-GET or cross-origin request; in-chart results expose no competing size.
 - Reusing the exact normalized first photo cannot satisfy the independent-repeat requirement.
 - An inconsistent repeated reading blocks results and preserves unaffected accepted work.
 - Reset, reload, or close removes the in-memory session; copy/share contains text only.

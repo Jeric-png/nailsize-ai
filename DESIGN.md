@@ -3,7 +3,7 @@
 ## Source of truth
 
 - Status: Active
-- Last refreshed: 2026-07-13
+- Last refreshed: 2026-07-14
 - Primary product surfaces: landing, Third Series coin confirmation and preparation, four guided capture pairs, eight-point coin-rim calibration, nail-edge marking, repeatability review, results, and recoverable errors.
 - Evidence reviewed: Stitch project `8073142126445672722` and its eight approved visual/style references, the implemented React/CSS component system, `PRD.md`, and the approved dataset-free guided-sizing decision.
 
@@ -15,9 +15,9 @@
 
 ## Product goals
 
-- Goals: help customers make repeatable, calibrated projected-width measurements without a nail-training dataset or remote image processing, then give nail artists those widths and press-on size recommendations.
+- Goals: help customers make repeatable, calibrated projected-width measurements without a nail-training dataset or remote image processing, then give nail artists one clear result per nail: a conservative best-fit size within the provisional chart or an artist-review flag outside it.
 - Non-goals: diagnosis, accounts, saved history, ecommerce, or permanent photo storage.
-- Success signals: users complete two measurements for each of four capture groups, resolve inconsistent readings, and can copy a ten-nail text summary.
+- Success signals: users complete two measurements for each of four capture groups, resolve inconsistent readings, and can copy a ten-nail summary with one clear sizing result per nail.
 
 ## Personas and jobs
 
@@ -35,6 +35,7 @@
 
 - Calibration before sizing: never produce millimetres until the supported coin identity, all eight rim markers, and both nail edges have been explicitly confirmed.
 - Repetition before recommendation: never accept a capture group when its two readings exceed the documented agreement tolerance.
+- One clear decision per nail: show the conservative best-fit size as the result; when a measurement is borderline, ask for physical confirmation without presenting a competing size.
 - Recovery over blame: every rejection names the fix and preserves other completed capture groups.
 - Data minimization is visible: explain that photos remain in browser memory and are never uploaded.
 - Tradeoffs: error clarity and accessibility take precedence over pixel-level Stitch fidelity.
@@ -81,7 +82,7 @@
 ## Content voice
 
 - Tone: direct, supportive, factual, and non-medical.
-- Terminology: “projected nail width,” “50-cent reference,” “coin rim,” “first measurement,” “verification measurement,” “agreement,” and “recommended press-on size.”
+- Terminology: “projected nail width,” “50-cent reference,” “coin rim,” “first measurement,” “verification measurement,” “agreement,” and “best-fit size.”
 - Microcopy rules: explain why, give one concrete correction, and never promise perfect fit.
 
 ## Implementation constraints

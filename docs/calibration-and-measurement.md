@@ -57,7 +57,7 @@ sizing_width_mm = max(first_width_mm, verification_width_mm)
 
 The group passes only when every nail has `repeat_delta_mm <= 0.6`. The **0.6 mm value is a repeatability threshold, not an accuracy bound, confidence interval, or fit guarantee**. It is provisional until physical validation establishes an appropriate operating limit.
 
-The UI displays the two-photo average, rounded to 0.1 mm. Size selection uses the wider repeat so the suggested tip is not narrower than either agreeing observation. `platform-default@1` is currently a provisional 10-tip chart: size 0 is 18 mm, size 1 is 17 mm, through size 9 at 9 mm. The mapping chooses the narrowest listed tip that is not narrower than `sizing_width_mm`. Readings outside 9–18 mm receive no default size. If average-based and conservative mappings cross a chart boundary, the average-based size is shown as an alternate.
+The UI displays the two-photo average, rounded to 0.1 mm. Size selection uses the wider repeat so the suggested tip is not narrower than either agreeing observation. `platform-default@1` is currently a provisional 10-tip chart: size 0 is 18 mm, size 1 is 17 mm, through size 9 at 9 mm. The mapping chooses the narrowest listed tip that is not narrower than `sizing_width_mm`. Readings outside 9–18 mm receive no default size. If average-based and conservative mappings cross a chart boundary, the UI keeps the conservative size as the single best-fit result and shows a generic physical-confirmation warning instead of a competing size.
 
 ## Interpretation and validation status
 
