@@ -57,9 +57,14 @@ export async function fetchProtectedVercelDeployment(
       readFile(bodyPath),
     ]);
     const { status, headers } = parseVercelCurlHeaders(headerDump);
-    const bodyStream = new Response(body).body;
-    if (!bodyStream)
-      throw new Error("Protected deployment response has no body.");
+    const bodyBytes = new Uint8Array(body.byteLength);
+    bodyBytes.set(body);
+    const bodyStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(bodyBytes);
+        controller.close();
+      },
+    });
 
     return {
       body: bodyStream,
