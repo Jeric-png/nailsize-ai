@@ -52,14 +52,18 @@ origin.search = "";
 origin.hash = "";
 
 let convergenceDeadline;
-const result = waitForConvergence
-  ? await waitForPublicDeploymentConvergence({
+const result =
+  waitForConvergence || useVercelCurl
+    ? await waitForPublicDeploymentConvergence({
       verify: async ({ deadline }) => {
         convergenceDeadline = deadline;
         return verifyDeployment();
       },
+      ...(useVercelCurl
+        ? { timeoutMilliseconds: 60_000, intervalMilliseconds: 2_000 }
+        : {}),
     })
-  : await verifyDeployment();
+    : await verifyDeployment();
 console.log(JSON.stringify(result));
 
 async function verifyDeployment() {
