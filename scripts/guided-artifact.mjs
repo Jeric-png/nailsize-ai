@@ -96,15 +96,17 @@ export function releaseArtifactDigest(html, assets) {
 }
 
 export function parseReleaseManifest(rawManifest) {
+  const manifestBytes = Buffer.isBuffer(rawManifest)
+    ? rawManifest
+    : Buffer.from(String(rawManifest));
   let manifest;
   try {
-    manifest = JSON.parse(
-      Buffer.isBuffer(rawManifest)
-        ? rawManifest.toString("utf8")
-        : String(rawManifest),
-    );
+    manifest = JSON.parse(manifestBytes.toString("utf8"));
   } catch {
-    throw new Error("Release asset manifest must contain valid JSON.");
+    const digest = createHash("sha256").update(manifestBytes).digest("hex");
+    throw new Error(
+      `Release asset manifest must contain valid JSON (bytes=${manifestBytes.byteLength}, sha256=${digest}).`,
+    );
   }
   if (
     !manifest ||

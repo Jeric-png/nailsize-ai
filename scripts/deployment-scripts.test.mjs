@@ -238,6 +238,10 @@ test("locks every automatic-sizing runtime asset into the release digest", () =>
       ),
     /unsafe asset path/u,
   );
+  assert.throws(
+    () => parseReleaseManifest("not-json"),
+    /valid JSON \(bytes=8, sha256=[a-f0-9]{64}\)/u,
+  );
 
   const assets = [
     { pathname: "/asset-manifest.json", content: manifest },
