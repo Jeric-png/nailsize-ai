@@ -19,9 +19,13 @@ test("builds a bounded shell-free Vercel curl request without credentials", () =
 
   assert.deepEqual(arguments_.slice(0, 3), [
     "curl",
-    "https://candidate.vercel.app/assets/app.js",
-    "--",
+    "/assets/app.js",
+    "--deployment",
   ]);
+  assert.equal(
+    arguments_[arguments_.indexOf("--deployment") + 1],
+    "https://candidate.vercel.app",
+  );
   assert.ok(arguments_.includes("--max-filesize"));
   assert.ok(arguments_.includes("2000000"));
   assert.ok(arguments_.includes("--max-time"));
@@ -77,6 +81,11 @@ test("runs Vercel curl without a shell or credential-bearing arguments", async (
         temporaryHeaderPath =
           arguments_[arguments_.indexOf("--dump-header") + 1];
         temporaryBodyPath = arguments_[arguments_.indexOf("--output") + 1];
+        assert.equal(arguments_[1], "/");
+        assert.equal(
+          arguments_[arguments_.indexOf("--deployment") + 1],
+          "https://candidate.vercel.app",
+        );
         writeFileSync(
           temporaryHeaderPath,
           "HTTP/2 200\r\nContent-Type: text/html\r\n\r\n",

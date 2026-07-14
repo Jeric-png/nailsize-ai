@@ -86,7 +86,9 @@ export function buildVercelCurlArguments(
 
   return [
     "curl",
-    url.href,
+    `${url.pathname}${url.search}`,
+    "--deployment",
+    url.origin,
     "--",
     "--silent",
     "--show-error",
