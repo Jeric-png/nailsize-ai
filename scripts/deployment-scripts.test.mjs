@@ -21,6 +21,7 @@ import {
 } from "./vercel-api-contract.mjs";
 import {
   flattenDeploymentTree,
+  isCanonicalBase64,
   verifyVercelDeploymentFiles,
 } from "./vercel-deployment-files.mjs";
 import {
@@ -435,6 +436,13 @@ test("verifies every uploaded Vercel output byte and application digest", async 
     }),
     /expected canonical base64|contents differ/u,
   );
+});
+
+test("validates model-sized canonical base64 without recursive regex limits", () => {
+  const encoded = Buffer.alloc(8 * 1024 * 1024, 0xa5).toString("base64");
+  assert.equal(isCanonicalBase64(encoded), true);
+  assert.equal(isCanonicalBase64(`${encoded.slice(0, -1)}!`), false);
+  assert.equal(isCanonicalBase64("A==="), false);
 });
 
 test("rejects non-file entries in a Vercel deployment tree", () => {

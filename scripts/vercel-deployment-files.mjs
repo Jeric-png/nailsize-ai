@@ -342,14 +342,25 @@ function describeJsonShape(payload) {
     : `object with ${fields} fields`;
 }
 
-function isCanonicalBase64(value) {
+export function isCanonicalBase64(value) {
   if (value === "") return true;
-  if (
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(
-      value,
-    )
-  )
-    return false;
+  if (value.length % 4 !== 0) return false;
+  const firstPadding = value.indexOf("=");
+  const contentLength = firstPadding === -1 ? value.length : firstPadding;
+  const paddingLength = value.length - contentLength;
+  if (paddingLength > 2) return false;
+  for (let index = 0; index < contentLength; index += 1) {
+    const code = value.charCodeAt(index);
+    const allowed =
+      (code >= 65 && code <= 90) ||
+      (code >= 97 && code <= 122) ||
+      (code >= 48 && code <= 57) ||
+      code === 43 ||
+      code === 47;
+    if (!allowed) return false;
+  }
+  for (let index = contentLength; index < value.length; index += 1)
+    if (value.charCodeAt(index) !== 61) return false;
   return Buffer.from(value, "base64").toString("base64") === value;
 }
 
