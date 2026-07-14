@@ -1,6 +1,15 @@
 # Architecture and Product Decisions
 
-The decisions below define the active dataset-free release. ADR-020 supersedes the full-sheet calibration decision in ADR-012. Earlier Cloud Run, ONNX, segmentation, ISO ID-1, and model-release decisions are superseded and apply only to the retained legacy research prototype.
+ADR-011 through ADR-020 describe the deployed guided release and its history. ADR-021 defines the feasibility-gated target for the next release. The current guided method remains the production rollback until the automatic method passes its software, physical, privacy, accessibility, performance, and rollout gates.
+
+ADR-022 supersedes ADR-021 for the public beta interaction while retaining its local model and deterministic geometry work.
+
+## ADR-022 — Ship one selected nail with an assumed 23 mm reference
+
+- Status: accepted 2026-07-14.
+- Decision: `/instant` accepts one photo of one chosen nail and one round reference that the user explicitly tells the app to treat as `23.00 mm`. Automatic reference fitting is followed by at most one centre tap; nail review uses two sidewall handles; the result contains one conservative size suggestion.
+- Reason: a two-hand workflow and precision rim marking remained too slow for the expected upload-to-result experience. The supplied cluttered one-nail photo also showed that full-frame reference selection needs a simple disambiguation gesture.
+- Consequence: the app cannot claim to identify the coin or verify its diameter. A wrong assumption scales the result incorrectly. Physical accuracy, chart approval, representative performance, and fit validation remain open.
 
 ## ADR-011 — Use browser-local guided geometry
 
@@ -30,7 +39,7 @@ This decision is retained as historical rationale only. `guided-paper-v1` is not
 - Status: Accepted
 - Decision: Display the two-photo average, but map the wider agreeing observation to the size chart.
 - Reason: A tip recommendation should not be narrower than either accepted reading.
-- Consequence: When the readings cross a chart boundary, the UI keeps the conservative mapping as the single best-fit result and gives a generic physical-confirmation warning without exposing the average-based alternate.
+- Consequence: When the average-based size crosses a chart boundary, the customer sees one conservative best-fit selection plus a generic borderline warning, not a competing size.
 
 ## ADR-015 — Treat the default chart as provisional
 
@@ -75,3 +84,11 @@ This decision is retained as historical rationale only. `guided-paper-v1` is not
 - Consequence: Calibration rejects a coin under `120 px` in prepared-image/source-coordinate space, diameter spread over `8%`, opposite-centre spread over `6%`, or nails farther than `4.5` coin diameters away. A separate `120 CSS/screen px` annotation-view minimum protects marker ergonomics without serving as accuracy evidence. Readings outside `5–25 mm` also fail closed.
 - Limitation: This is a nearby pixel scale with obvious-tilt rejection, not a full homography or arbitrary perspective correction. It does not establish real-world accuracy, curved-surface width, or press-on fit.
 - Sources: [Singapore Currency Act legal specification](https://sso.agc.gov.sg/SL/CA1967-S347-2013?ProvIds=Sc-&ValidDate=20130611); [MAS Third Series coin release](https://www.nas.gov.sg/archivesonline/data/pdfdoc/20130228006/press_release.pdf).
+
+## ADR-021 — Target two-photo automatic proposals with exception-only correction
+
+- Status: Accepted for feasibility and implementation; not approved for default production rollout.
+- Decision: The next method uses one complete left-hand photo and one complete right-hand photo. Browser-local pretrained vision proposes the coin ellipse and five nail boundaries per hand. Deterministic geometry produces projected widths, the user reviews the overlays, and only uncertain coins or nails require adjustment or a targeted retake.
+- Reason: The eight-photo workflow requires dozens of precision placements and takes about eight minutes, which does not match the expected upload-to-recommendation product. Two photos remove structural repetition while preserving an inspectable calibration reference.
+- Architecture: the lazy automatic route fetches exact-hash same-origin model/WASM assets. Deterministic image processing proposes the coin ellipse, a pinned nail-specific YOLOv8-seg model proposes nail masks, and versioned geometry/quality rules fail closed. ONNX runs sequentially in the browser; worker migration is a measured optimization, not an implemented claim. OpenAI/VLM output is not a measurement source.
+- Consequence: `guided-sg50-coin-v1` remains rollback through at least one stable automatic release cycle. The automatic method cannot claim validated accuracy until representative physical comparison passes. If model licensing, proposal quality, or cold-cache performance fails its gate, retain the guided method rather than fabricate sizes.

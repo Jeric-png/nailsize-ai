@@ -1,7 +1,11 @@
 import {
+  assertPinnedRuntimeAsset,
   forbiddenClientBindings,
-  guidedArtifactDigest,
   parseGuidedShell,
+  parseReleaseManifest,
+  pinnedRuntimeAssetPaths,
+  releaseArtifactDigest,
+  releaseManifestPath,
 } from "./guided-artifact.mjs";
 import { waitForPublicDeploymentConvergence } from "./public-deployment-convergence.mjs";
 import { fetchProtectedVercelDeployment } from "./vercel-curl-fetch.mjs";
@@ -62,50 +66,61 @@ async function verifyDeployment() {
   const root = await fetchChecked(origin, 512_000);
   assertSecurityHeaders(root);
   assertContentType(root, "text/html");
-  const rootCsp = assertNoConnectionCsp(root);
+  const rootCsp = assertLocalRuntimeCsp(root);
 
   const html = await readText(root, 512_000);
   const { scripts, styles } = parseGuidedShell(html, origin);
-  const scriptArtifacts = [];
-  for (const script of scripts) {
-    const response = await fetchChecked(script, 2_000_000);
-    assertContentType(response, "javascript");
-    const content = await readText(response, 2_000_000);
-    scriptArtifacts.push({ pathname: script.pathname, content });
-    for (const value of forbiddenClientBindings)
-      if (content.includes(value))
-        throw new Error(
-          `Deployment bundle contains forbidden dependency ${value}.`,
-        );
-  }
-  const styleArtifacts = [];
-  for (const style of styles) {
-    const response = await fetchChecked(style, 512_000);
-    assertContentType(response, "text/css");
-    const content = await readText(response, 512_000);
-    styleArtifacts.push({ pathname: style.pathname, content });
-    for (const value of forbiddenClientBindings)
-      if (content.includes(value))
-        throw new Error(
-          `Deployment stylesheet contains forbidden dependency ${value}.`,
-        );
+  const manifestResponse = await fetchChecked(
+    new URL(releaseManifestPath, origin),
+    512_000,
+  );
+  assertContentType(manifestResponse, "application/json");
+  const manifestContent = await readBytes(manifestResponse, 512_000);
+  const releasePaths = new Set([
+    releaseManifestPath,
+    ...parseReleaseManifest(manifestContent),
+    ...pinnedRuntimeAssetPaths,
+    ...scripts.map(({ pathname }) => pathname),
+    ...styles.map(({ pathname }) => pathname),
+  ]);
+  const releaseAssets = [];
+  for (const pathname of releasePaths) {
+    const response =
+      pathname === releaseManifestPath
+        ? manifestResponse
+        : await fetchChecked(
+            new URL(pathname, origin),
+            maximumReleaseAssetBytes(pathname),
+          );
+    assertReleaseContentType(response, pathname);
+    const content =
+      pathname === releaseManifestPath
+        ? manifestContent
+        : await readBytes(response, maximumReleaseAssetBytes(pathname));
+    if (/\.(?:css|js|json|mjs)$/u.test(pathname)) {
+      const text = new TextDecoder().decode(content);
+      for (const value of forbiddenClientBindings)
+        if (text.includes(value))
+          throw new Error(
+            `Deployment asset ${pathname} contains forbidden dependency ${value}.`,
+          );
+    }
+    if (pinnedRuntimeAssetPaths.includes(pathname))
+      assertPinnedRuntimeAsset(pathname, content);
+    releaseAssets.push({ pathname, content });
   }
 
-  const artifactDigest = guidedArtifactDigest(
-    html,
-    scriptArtifacts,
-    styleArtifacts,
-  );
+  const artifactDigest = releaseArtifactDigest(html, releaseAssets);
   if (expectedDigest && artifactDigest !== expectedDigest)
     throw new Error(
       "Deployment does not serve the locally verified release artifact.",
     );
 
-  const deepRoute = new URL("/guide/left_fingers/1", origin);
+  const deepRoute = new URL("/instant", origin);
   const deepResponse = await fetchChecked(deepRoute, 512_000);
   assertSecurityHeaders(deepResponse);
   assertContentType(deepResponse, "text/html");
-  const deepCsp = assertNoConnectionCsp(deepResponse);
+  const deepCsp = assertLocalRuntimeCsp(deepResponse);
   if (deepCsp !== rootCsp)
     throw new Error("SPA deep route does not use the root security policy.");
   if ((await readText(deepResponse, 512_000)) !== html)
@@ -118,6 +133,7 @@ async function verifyDeployment() {
     origin: origin.origin,
     scripts: scripts.length,
     styles: styles.length,
+    releaseAssets: releaseAssets.length,
     artifactDigest,
     clientOnly: true,
   };
@@ -136,22 +152,42 @@ function parseCsp(value) {
   return directives;
 }
 
-function assertNoConnectionCsp(response) {
+function assertLocalRuntimeCsp(response) {
   const value = response.headers.get("content-security-policy") ?? "";
-  const connectSources = parseCsp(value).get("connect-src");
+  const policy = parseCsp(value);
+  const connectSources = policy.get("connect-src");
   if (
     !connectSources ||
     connectSources.length !== 1 ||
-    connectSources[0] !== "'none'"
+    connectSources[0] !== "'self'"
   )
-    throw new Error("Deployment CSP connect-src must contain only 'none'.");
+    throw new Error("Deployment CSP connect-src must contain only 'self'.");
+  const scriptSources = policy.get("script-src") ?? [];
+  if (
+    scriptSources.length !== 2 ||
+    !scriptSources.includes("'self'") ||
+    !scriptSources.includes("'wasm-unsafe-eval'")
+  )
+    throw new Error(
+      "Deployment CSP script-src must allow only same-origin scripts and WebAssembly compilation.",
+    );
+  const workerSources = policy.get("worker-src") ?? [];
+  if (
+    workerSources.length !== 2 ||
+    !workerSources.includes("'self'") ||
+    !workerSources.includes("blob:")
+  )
+    throw new Error(
+      "Deployment CSP worker-src must allow only same-origin and local blob workers.",
+    );
   return value;
 }
 
 function assertSecurityHeaders(response) {
   const required = new Map([
     ["cross-origin-opener-policy", "same-origin"],
-    ["cross-origin-resource-policy", "same-site"],
+    ["cross-origin-embedder-policy", "require-corp"],
+    ["cross-origin-resource-policy", "same-origin"],
     ["referrer-policy", "no-referrer"],
     ["x-content-type-options", "nosniff"],
     ["x-frame-options", "DENY"],
@@ -166,6 +202,33 @@ function assertSecurityHeaders(response) {
     throw new Error(
       "Deployment permissions policy does not match the client-only contract.",
     );
+}
+
+function maximumReleaseAssetBytes(pathname) {
+  if (pathname.endsWith(".onnx")) return 55 * 1024 * 1024;
+  if (pathname.endsWith(".wasm")) return 16 * 1024 * 1024;
+  if (pathname.endsWith(".js")) return 4 * 1024 * 1024;
+  return 1024 * 1024;
+}
+
+function assertReleaseContentType(response, pathname) {
+  if (pathname.endsWith(".css")) return assertContentType(response, "text/css");
+  if (pathname.endsWith(".js") || pathname.endsWith(".mjs"))
+    return assertContentType(response, "javascript");
+  if (pathname.endsWith(".json"))
+    return assertContentType(response, "application/json");
+  if (pathname.endsWith(".wasm"))
+    return assertContentType(response, "application/wasm");
+  if (pathname.endsWith(".onnx")) {
+    const value = (response.headers.get("content-type") ?? "").toLowerCase();
+    if (
+      !value.includes("application/octet-stream") &&
+      !value.includes("application/onnx")
+    )
+      throw new Error(`${response.url} did not return an ONNX binary type.`);
+    return;
+  }
+  throw new Error(`Deployment manifest referenced unsupported asset ${pathname}.`);
 }
 
 function assertContentType(response, expected) {
@@ -206,15 +269,18 @@ function requestTimeoutMilliseconds() {
 }
 
 async function readText(response, maximumBytes) {
+  return new TextDecoder().decode(await readBytes(response, maximumBytes));
+}
+
+async function readBytes(response, maximumBytes) {
   const declaredLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > maximumBytes)
     throw new Error(`Deployment response exceeds ${maximumBytes} bytes.`);
   if (!response.body) throw new Error("Deployment response has no body.");
 
   const reader = response.body.getReader();
-  const decoder = new TextDecoder();
   let length = 0;
-  let content = "";
+  const chunks = [];
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -223,7 +289,13 @@ async function readText(response, maximumBytes) {
       await reader.cancel();
       throw new Error(`Deployment response exceeds ${maximumBytes} bytes.`);
     }
-    content += decoder.decode(value, { stream: true });
+    chunks.push(value);
   }
-  return content + decoder.decode();
+  const content = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    content.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return content;
 }

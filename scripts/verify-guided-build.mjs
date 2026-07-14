@@ -1,9 +1,14 @@
 import { appendFile, readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
+  assertPinnedRuntimeAsset,
   forbiddenClientBindings,
   guidedArtifactDigest,
   parseGuidedShell,
+  parseReleaseManifest,
+  pinnedRuntimeAssetPaths,
+  releaseArtifactDigest,
+  releaseManifestPath,
 } from "./guided-artifact.mjs";
 
 const root = path.resolve(process.argv[2] ?? "apps/web/dist");
@@ -14,21 +19,6 @@ if (!files.some((file) => file.endsWith("index.html")))
   throw new Error("The guided web build is missing index.html.");
 if (files.some((file) => file.endsWith(".map")))
   throw new Error("Production source maps must not be published.");
-const forbiddenModelFiles = files.filter((file) => {
-  const relative = path.relative(root, file);
-  const segments = relative.split(path.sep);
-  return (
-    /\.(?:onnx|wasm)$/iu.test(relative) ||
-    segments.some((segment) => /^(?:models?|ort)$/iu.test(segment))
-  );
-});
-if (forbiddenModelFiles.length > 0)
-  throw new Error(
-    `Guided-only artifact contains a forbidden model/runtime file: ${forbiddenModelFiles
-      .map((file) => path.relative(root, file))
-      .join(", ")}.`,
-  );
-
 for (const file of files) {
   if (!/\.(?:html|js|css|json)$/u.test(file)) continue;
   const content = await readFile(file, "utf8");
@@ -42,7 +32,7 @@ for (const file of files) {
 if (root === path.resolve(".vercel/output/static"))
   await verifyVercelOutput(root);
 
-const artifactDigest = await digestLocalApplication(root);
+const artifactDigest = await digestLocalApplication(root, files);
 if (recordGitHubOutput) {
   if (!process.env.GITHUB_OUTPUT)
     throw new Error("GITHUB_OUTPUT is required to record the artifact digest.");
@@ -63,7 +53,7 @@ console.log(
   }),
 );
 
-async function digestLocalApplication(applicationRoot) {
+async function digestLocalApplication(applicationRoot, applicationFiles) {
   const html = await readFile(path.join(applicationRoot, "index.html"), "utf8");
   const { scripts, styles } = parseGuidedShell(
     html,
@@ -79,11 +69,34 @@ async function digestLocalApplication(applicationRoot) {
         ),
       })),
     );
-  return guidedArtifactDigest(
-    html,
-    await readAssets(scripts),
-    await readAssets(styles),
+  const scriptAssets = await readAssets(scripts);
+  const styleAssets = await readAssets(styles);
+  const manifestFile = path.join(
+    applicationRoot,
+    releaseManifestPath.slice(1),
   );
+  if (!applicationFiles.includes(manifestFile))
+    return guidedArtifactDigest(html, scriptAssets, styleAssets);
+
+  const manifestContent = await readFile(manifestFile);
+  const releasePaths = new Set([
+    releaseManifestPath,
+    ...parseReleaseManifest(manifestContent),
+    ...pinnedRuntimeAssetPaths,
+    ...scripts.map(({ pathname }) => pathname),
+    ...styles.map(({ pathname }) => pathname),
+  ]);
+  const assets = await Promise.all(
+    [...releasePaths].map(async (pathname) => ({
+      pathname,
+      content: await readFile(safeAssetPath(applicationRoot, pathname)),
+    })),
+  );
+  for (const pathname of pinnedRuntimeAssetPaths) {
+    const asset = assets.find((candidate) => candidate.pathname === pathname);
+    assertPinnedRuntimeAsset(pathname, asset.content);
+  }
+  return releaseArtifactDigest(html, assets);
 }
 
 function safeAssetPath(applicationRoot, pathname) {

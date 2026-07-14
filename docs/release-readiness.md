@@ -1,47 +1,60 @@
 # Release Readiness
 
-Release readiness has two distinct gates. A green **client release** proves that the browser-only software is deployable and respects its documented boundaries. It does not satisfy the separate **measurement validation** gate needed for accuracy or fit claims.
+The single-nail automatic beta is prepared for deployment. Readiness is split into software, distribution, performance, privacy, and physical-validation evidence. Passing one category does not imply another has passed.
 
-## Client release gate
+## Automatic client gate
 
-A release candidate is technically ready when all of the following are true for the same commit:
+A candidate is technically ready only when the same commit satisfies all of the following:
 
 - `npm ci`, lint, typecheck, unit tests, build, and `verify:bundle` pass;
-- Chromium E2E and Chromium/Firefox/WebKit compatibility suites pass;
+- Chromium E2E plus Chromium/Firefox/WebKit compatibility suites pass;
 - `npm audit --audit-level=high` and the filesystem Trivy scan have no blocking finding;
-- geometry tests cover `23.00 mm` coin-scale conversion, clockwise eight-rim-marker rules, the `120` prepared-image-pixel, `8%`, `6%`, `4.5`-diameter, and `5–25 mm` guardrails, repeat pass/fail, and chart boundaries;
-- component/browser tests cover the separate `120 CSS/screen px` rendered-annotation ergonomics guard and one-pixel/eight-pixel rendered CSS keyboard steps, including a high-resolution source;
-- image-preparation tests prove source headers over 20 MP or either side over 8192 px are rejected before full decode, while accepted images remain bounded to a 4096-pixel edge and 16 MP;
-- session tests prove mandatory coin confirmation and object URL revocation for acceptance, correction/reopen, confirmation withdrawal, and reset; manual review covers replacement and page teardown;
-- E2E proves eight local photos produce one clear result for each of ten nails without displaying a competing boundary size, exact duplicate repeats and inconsistent measurements block acceptance, copy is text-only, and all observed network requests are same-origin `GET`;
-- the protected Vercel deployment and `scripts/verify-web-deployment.mjs` pass for the exact HTTPS URL; and
-- manual real-device review passes on current iOS Safari and Android Chrome, including camera/file selection, pointer and keyboard marker placement, results, share/copy, reload, and reset.
+- the product result identifies `auto-assumed23-single-v0.1.0`, while manifest tests pin the exact model revision/hash, ONNX tensor shapes, runtime hashes, calibration, measurement, quality-profile, and chart versions;
+- preprocessing, model-runtime, postprocessing, mask-quality, coin-detector, ellipse-calibration, transverse-width, uncertainty, and chart-boundary tests pass;
+- component/E2E tests prove one local photo can reach one selected best-fit suggestion for the chosen nail, uncertain reference/nail evidence requires correction, rejected photos fail closed, competing boundary sizes are not shown, and copy is text only;
+- the beta requires explicit confirmation that the visible round reference should be assumed to be exactly `23.00 mm` and never claims to verify its denomination;
+- lifecycle tests cover object URL, decoded pixel, canvas, tensor, and session cleanup on replacement, failure, reset, reload, and unmount;
+- request-observing tests see only expected same-origin `GET` navigation and static-asset requests, with no photo/result request body;
+- the retained guided fallback still passes its eight-point calibration, two-observation repeatability, targeted-retake, marker accessibility, and cleanup tests; and
+- current iOS Safari and Android Chrome remain required for release-quality capture/upload, local inference, review/correction, results, copy, reset, low-memory, and failure-recovery evidence.
 
-Record the commit, GitHub Actions run, immutable Vercel deployment URL, browser/device versions, reviewer, and known limitations in `docs/goal-evidence.md`. Do not record credentials, photos, marker coordinates, or individual results.
+Software tests establish implementation behavior, not real-world sizing accuracy.
 
-## Configuration review
+## Model distribution gate
 
-Confirm before production:
+The candidate model card identifies CC BY 4.0, requires attribution, and the exported ONNX graph embeds AGPL-3.0 metadata. This public repository preserves upstream revision, source/export hashes, attribution, conversion details, and benchmark limitations in [`automatic-model-provenance.md`](automatic-model-provenance.md). The beta may be distributed with that notice, but long-term licensing interpretation remains an explicit project risk and must be reviewed before commercial reliance.
 
-- Vercel receives only `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`, the production-only `VERCEL_PRODUCTION_URL`, and secret `VERCEL_TOKEN` through the protected deployment environment;
-- the project has no API routes, functions, analytics, Speed Insights, replay, error-reporting SDK, or injected integration;
-- deployed CSP contains `connect-src 'none'` and scripts are same-origin;
-- source maps and legacy API/model provider strings are absent;
-- production requires `DEPLOY_PRODUCTION` plus environment approval; and
-- the UI consistently identifies the supported Third Series coin, says projected width, discloses that no full perspective correction is performed, explains the two-photo repeat check, and retains the curvature/no-fit disclaimer.
+## Performance and usability gate
 
-No GCP, Cloud Run, Terraform, domain/capacity/monitoring/billing, Hugging Face, OpenAI, model, or database variable belongs to this release.
+The experience should complete promptly from one photo, but no public duration promise is approved. Measure model download, warm-up, inference, review time, failures, and low-memory behavior separately on named phones.
 
-## Measurement validation gate
+Also verify that automatic review is materially faster and easier than the guided fallback, including for users who need one correction or retake.
 
-The 0.6 mm two-photo limit demonstrates repeatability only; it is not an accuracy target. The displayed width is the average, while the wider repeat drives conservative size selection. Neither rule proves the marked edges are anatomically correct or that a physical tip fits a curved nail. The official `23.00 ± 0.10 mm` coin tolerance and the absence of full homography/perspective correction are additional physical limitations. The `120 CSS/screen px` rendered-size guard establishes annotation usability only and must never be cited as accuracy validation.
+## Configuration and privacy gate
 
-Before making a “validated,” “accurate,” or “fits” claim, complete and independently review the physical protocol in [`data-protocol.md`](data-protocol.md). The evidence must use the deployed workflow and actual tip set, quantify millimetre error and repeatability, report failure/missingness and curvature effects, and justify both the repeat threshold and chart mapping.
+Confirm before promotion:
 
-`platform-default@1` (18–9 mm for sizes 0–9) is provisional. A nail artist may use the client as a clearly labelled beta measurement aid, but commercial sizing should use an approved artist/manufacturer chart and retain a sizing-kit fallback for borderline or strongly curved nails.
+- Vercel receives only the protected project/team/deployment values documented in [`deployment.md`](deployment.md); the application itself has no runtime secret or API key;
+- there are no API routes, functions, analytics, Speed Insights, replay, error-reporting SDKs, persistent stores, or injected integrations;
+- CSP contains `connect-src 'self'`, same-origin scripts plus `wasm-unsafe-eval`, and local-worker restrictions; COOP/COEP/CORP headers match the committed policy;
+- source maps and legacy/remote inference bindings are absent;
+- the release manifest and exact ONNX/WASM hashes match the reviewed artifact; and
+- production still requires `DEPLOY_PRODUCTION`, environment approval, byte-identity checks, staged runtime smoke, and post-promotion verification.
 
-## Stop conditions
+No GCP, Cloud Run, Terraform, domain/capacity/monitoring/billing, OpenAI, Hugging Face inference, model-provider, or database variable belongs to the client. The bundled model is a static release asset, not a secret or runtime provider.
 
-Block or roll back the client release for a failed test, unexpected upload/cross-origin request, unreleased object URL, missing security header, injected telemetry, broken real-device flow, or mismatch between deployed URL and reviewed commit. Block accuracy and guaranteed-fit claims whenever physical evidence is missing or fails, even if every software and deployment check is green.
+## Physical sizing validation gate
 
-The legacy model-release and GCP readiness scripts do not authorize or block this browser-only client; they remain historical research controls outside the active release chain.
+Before saying “validated,” “accurate,” or “fits,” independently review and execute [`data-protocol.md`](data-protocol.md) against technician-defined physical ground truth and the actual supplier tip set. Use participant-disjoint target photos, representative hands/devices/conditions, and report millimetre error, signed bias, missingness, correction/retake rates, size agreement, curvature effects, and subgroup performance.
+
+The current public-sample segmentation benchmark is feasibility evidence only. Model confidence, visible overlays, deterministic geometry, coin tolerance, or a green client release cannot prove physical width or fit. `platform-default@1` remains provisional; borderline and strongly curved nails require an artist or physical sizing kit.
+
+The guided fallback's `0.6 mm` rule demonstrates repeatability only and is not an accuracy target or confidence interval.
+
+## Evidence and stop conditions
+
+For an approved release, record the commit, CI run, immutable deployment URL, artifact digest, model/runtime hashes, license decision, device/browser versions, performance sample, reviewers, and known limitations in `docs/goal-evidence.md`. Never record credentials, photos, contours, coordinates, or individual results.
+
+Block or roll back for failed software/security checks, unexpected request or persistence, asset/hash mismatch, missing security header, broken fallback, unmeasured performance claims, or mismatch between the deployed URL and reviewed commit. Always block accuracy and guaranteed-fit claims until physical evidence passes, even when every software check is green.
+
+Legacy model-release and GCP readiness scripts remain historical controls outside this browser-client release chain.

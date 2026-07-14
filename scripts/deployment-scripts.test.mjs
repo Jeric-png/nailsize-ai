@@ -23,7 +23,13 @@ import {
   flattenDeploymentTree,
   verifyVercelDeploymentFiles,
 } from "./vercel-deployment-files.mjs";
-import { guidedArtifactDigest } from "./guided-artifact.mjs";
+import {
+  assertPinnedRuntimeAsset,
+  guidedArtifactDigest,
+  parseReleaseManifest,
+  pinnedRuntimeAssetPaths,
+  releaseArtifactDigest,
+} from "./guided-artifact.mjs";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -207,33 +213,85 @@ test("accepts only a byte-identical static Vercel output", () => {
   assert.match(functionOutput.stderr, /unexpected entries/u);
 });
 
-test("rejects automatic sizing code and hidden model runtime assets", () => {
-  const directory = workspace();
-  const dist = path.join(directory, "apps", "web", "dist");
-  writeGuidedArtifact(dist);
-
-  writeFileSync(
-    path.join(dist, "assets", "index-test.js"),
-    'const route = "/instant"; export { route };',
-    "utf8",
+test("locks every automatic-sizing runtime asset into the release digest", () => {
+  const manifest = Buffer.from(
+    JSON.stringify({
+      "index.html": {
+        file: "assets/index-test.js",
+        css: ["assets/index-test.css"],
+      },
+      "src/components/InstantSizing.tsx": {
+        file: "assets/InstantSizing-test.js",
+      },
+    }),
   );
-  const automaticRoute = run("verify-guided-build.mjs", [], directory);
-  assert.notEqual(automaticRoute.status, 0);
-  assert.match(automaticRoute.stderr, /\/instant/u);
+  assert.deepEqual(parseReleaseManifest(manifest), [
+    "/assets/InstantSizing-test.js",
+    "/assets/index-test.css",
+    "/assets/index-test.js",
+  ]);
+  assert.throws(
+    () =>
+      parseReleaseManifest(
+        JSON.stringify({ index: { file: "../outside.js" } }),
+      ),
+    /unsafe asset path/u,
+  );
 
-  writeGuidedArtifact(dist);
-  writeFileSync(path.join(dist, "nails.onnx"), "model", "utf8");
-  const model = run("verify-guided-build.mjs", [], directory);
-  assert.notEqual(model.status, 0);
-  assert.match(model.stderr, /forbidden model\/runtime file/u);
-  rmSync(path.join(dist, "nails.onnx"));
+  const assets = [
+    { pathname: "/asset-manifest.json", content: manifest },
+    { pathname: "/assets/index-test.js", content: Buffer.from("entry") },
+    {
+      pathname: "/assets/InstantSizing-test.js",
+      content: Buffer.from("automatic"),
+    },
+  ];
+  const digest = releaseArtifactDigest("<title>NailSize Guide</title>", assets);
+  assert.equal(
+    releaseArtifactDigest(
+      "<title>NailSize Guide</title>",
+      [...assets].reverse(),
+    ),
+    digest,
+  );
+  assert.notEqual(
+    releaseArtifactDigest("<title>NailSize Guide</title>", [
+      ...assets.slice(0, 2),
+      {
+        pathname: "/assets/InstantSizing-test.js",
+        content: Buffer.from("changed"),
+      },
+    ]),
+    digest,
+  );
 
-  const runtimeDirectory = path.join(dist, "assets", "ort");
-  mkdirSync(runtimeDirectory, { recursive: true });
-  writeFileSync(path.join(runtimeDirectory, "runtime.bin"), "runtime", "utf8");
-  const runtime = run("verify-guided-build.mjs", [], directory);
-  assert.notEqual(runtime.status, 0);
-  assert.match(runtime.stderr, /forbidden model\/runtime file/u);
+  for (const pathname of pinnedRuntimeAssetPaths) {
+    const content = readFileSync(
+      path.join(repositoryRoot, "apps", "web", "public", pathname.slice(1)),
+    );
+    assert.doesNotThrow(() => assertPinnedRuntimeAsset(pathname, content));
+  }
+  const changedRuntime = Buffer.from(
+    readFileSync(
+      path.join(
+        repositoryRoot,
+        "apps",
+        "web",
+        "public",
+        "ort",
+        "ort-wasm-simd-threaded.mjs",
+      ),
+    ),
+  );
+  changedRuntime[0] ^= 1;
+  assert.throws(
+    () =>
+      assertPinnedRuntimeAsset(
+        "/ort/ort-wasm-simd-threaded.mjs",
+        changedRuntime,
+      ),
+    /failed its pinned SHA-256/u,
+  );
 });
 
 test("pins Vercel targets and verifies individual uploaded files", () => {

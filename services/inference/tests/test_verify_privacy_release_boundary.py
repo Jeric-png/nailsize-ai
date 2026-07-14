@@ -15,7 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 def _copy_audit_surface(destination: Path) -> Path:
     for relative in (
         "apps/web/package.json",
-        "apps/web/src/api.ts",
+        "apps/web/src/vision/onnxNailSegmenter.ts",
         "services/inference/pyproject.toml",
         "services/inference/Dockerfile",
         "vercel.json",
@@ -144,15 +144,16 @@ def test_rejects_payload_bearing_edge_logging(
 
 def test_rejects_measurement_data_in_url_fields(tmp_path: Path) -> None:
     root = _copy_audit_surface(tmp_path)
-    api = root / "apps/web/src/api.ts"
-    api.write_text(
-        api.read_text(encoding="utf-8").replace(
-            "`${apiUrl}/v1/measure`", "`${apiUrl}/v1/measure?capture=${captureType}`"
+    runtime = root / "apps/web/src/vision/onnxNailSegmenter.ts"
+    runtime.write_text(
+        runtime.read_text(encoding="utf-8").replace(
+            '"/models/nails_seg_s_yolov8_v1.onnx"',
+            '"/models/nails_seg_s_yolov8_v1.onnx?capture=${captureType}"',
         ),
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="query-free measurement path"):
+    with pytest.raises(ValueError, match="query-free same-origin model path"):
         verify_privacy_release_boundary(root)
 
 

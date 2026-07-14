@@ -1,44 +1,30 @@
 # NailSize Guide
 
-NailSize Guide is a browser-only web application for estimating the **projected planar width** of all ten nails and returning one clear sizing result for each nail. It does not use an AI model, nail dataset, image API, or backend inference service.
+NailSize Guide is a browser-only web application that turns one photo of one nail into a reviewable **projected planar width** and one conservative best-fit suggestion. The user selects the digit and explicitly asks the app to treat the round reference in the photo as exactly `23.00 mm`.
 
-The product contract and release boundaries are defined in [`PRD.md`](PRD.md).
+The automatic route is `/instant`. It is an experimental sizing aid, not a validated accuracy or fit guarantee. The manual `guided-sg50-coin-v1` workflow remains available as rollback.
 
-## How sizing works
+## Single-nail beta
 
-1. Confirm a current Third Series Singapore 50-cent coin: Port of Singapore on one face and a large `50` with `CENTS` on the other. Older Singapore 50-cent coins have different dimensions and are not supported.
-2. Complete four capture groups: left fingers, left thumb, right fingers, and right thumb.
-3. Take two independent photos for each group, moving the hand and phone between photos—eight photos total. The browser rejects an exact reuse of the first normalized image, but this guard cannot prove that physical repositioning occurred.
-4. Keep the coin flat beside the nails, photograph directly overhead, place eight markers clockwise around its complete rim, then mark both visible side edges of each nail.
-5. The app converts the markers to prepared-image pixel coordinates and uses the coin’s official `23.00 mm` nominal diameter to establish a nearby scale. It rejects a coin under `120 prepared-image pixels`, diameter spread over `8%`, centre spread over `6%`, or nails farther than `4.5` coin diameters away. Separately, the marked coin must appear at least `120 CSS/screen pixels` wide in the annotation view so the controls remain usable; this display-size rule is an ergonomics guard, not accuracy validation.
-6. The two readings for each nail must differ by no more than `0.6 mm`. Otherwise, the app requests a targeted retake instead of returning a recommendation.
+1. Choose the digit and upload one JPEG, PNG, or WebP photo containing one bare nail and one complete round reference.
+2. Confirm the `23.00 mm` reference assumption.
+3. The browser loads pinned same-origin ONNX/WASM assets, proposes the reference rim and nail boundary, and calculates projected width locally.
+4. If other circles or clutter confuse the detector, tap the reference centre once; the app fits the rim automatically. It never asks for eight rim markers in this route.
+5. Review the proposed nail width if requested and receive exactly one best-fit suggestion or an out-of-chart result.
 
-The result shows the average projected width and selects one default best-fit press-on size conservatively from the wider repeat when the measurement falls within the provisional chart. If a measurement sits near a chart boundary, the UI asks for physical confirmation without showing a competing size; an out-of-chart measurement is flagged for artist review. The built-in `18–9 mm` chart is a starting point; nail artists should replace it with their actual tip supplier’s measured chart.
+The app does not identify the coin or verify its diameter. Using a different-size object while confirming `23.00 mm` scales the result incorrectly.
 
-## Important limitation
+## Accuracy and model status
 
-The app measures a projected width using a local scale; it does not perform full perspective correction. Coin manufacturing tolerance, camera tilt, lens distortion, nail height, and marker placement remain error sources. It does not measure nail curvature, guarantee press-on fit, or replace a physical sizing kit. The `0.6 mm` rule checks capture repeatability, not real-world accuracy. Accuracy and tip-fit claims require a separate physical validation study.
+The beta estimates projected width rather than curved nail-surface length. Perspective, lens distortion, nail height, reference placement, segmentation, and the provisional chart can affect the output. It does not guarantee fit or replace a physical sizing kit.
 
-The supported coin is documented by the [Singapore Currency Act legal specification](https://sso.agc.gov.sg/SL/CA1967-S347-2013?ProvIds=Sc-&ValidDate=20130611) and the [MAS Third Series release](https://www.nas.gov.sg/archivesonline/data/pdfdoc/20130228006/press_release.pdf).
-
-## Privacy
-
-Photos stay in the browser. They are not uploaded, stored, logged, or used for training. An in-memory SHA-256 fingerprint catches exact duplicate normalized repeats and is discarded with the photo. Local object URLs are released when a photo is replaced, a capture is accepted, the session is reset, or the page is closed. Supported inputs are JPEG, PNG, and WebP up to 12 MB. Before full decoding, the browser rejects a source over 20 megapixels or with either side over 8192 pixels; accepted sources are then oriented, downscaled to at most a 4096-pixel edge and 16 MP, and re-encoded locally.
-
-Markers support pointer, touch, and keyboard adjustment. An arrow key moves a focused marker by one rendered CSS pixel; holding Shift moves it by eight rendered CSS pixels. These steps are based on the displayed annotation, not the prepared image's source pixels.
+The pinned `mnemic/nails_seg_yolov8` artifact and exact hashes are documented in [`docs/automatic-model-provenance.md`](docs/automatic-model-provenance.md). The upstream card states CC BY 4.0 while the exported graph contains AGPL-3.0 metadata; the repository preserves attribution, and long-term distribution interpretation still requires confirmation.
 
 ## Development
-
-Node.js 22 or newer is required.
 
 ```bash
 npm install
 npm run dev
-```
-
-Verification commands:
-
-```bash
 npm run lint
 npm run typecheck
 npm test
@@ -48,10 +34,10 @@ npm run test:e2e
 npm run test:compat
 ```
 
-`verify:bundle` rejects source maps, API endpoints, AI-provider references, and other forbidden network bindings in the production bundle.
+The product and design contracts are in [`PRD.md`](PRD.md) and [`DESIGN.md`](DESIGN.md).
 
 ## Deployment
 
-The built Vite application is hosted directly on Vercel using [`vercel.json`](vercel.json). The runtime needs no OpenAI, Hugging Face, Google Cloud, model, dataset, or application environment key. The manual deployment workflow uses Vercel project/team identifiers, a protected production URL, and a `VERCEL_TOKEN` stored as a GitHub environment secret.
+Vercel serves a static Vite artifact. There is no API route, inference server, database, OpenAI request, Hugging Face runtime dependency, or application secret. Deployment is performed by the protected GitHub Actions workflow after local and CI release checks pass.
 
-The former `services/inference/`, `ml/`, `packages/contracts/`, and `infra/` paths are retained as legacy research history. They are not part of the active web build or deployment path.
+Selected photos are processed in browser memory and are not uploaded. HEIC is currently unsupported; convert it locally to JPEG, PNG, or WebP before selection.

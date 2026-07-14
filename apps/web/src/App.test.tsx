@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
-describe("dataset-free application shell", () => {
-  it("describes local guided measurement without an inference service", () => {
+describe("private sizing application shell", () => {
+  it("leads with the one-photo automatic sizing promise", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     render(
       <MemoryRouter initialEntries={["/"]}>
@@ -18,13 +18,16 @@ describe("dataset-free application shell", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: /one clear sizing result per nail/i,
+        name: /upload one nail photo.*one best-fit suggestion/i,
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/8 photos → 1 clear result per nail/i),
-    ).toBeVisible();
     expect(screen.getByText(/never uploaded/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /size one nail from a photo/i }),
+    ).toHaveAttribute("href", "/instant");
+    expect(screen.getByText(/one photo, then a quick review/i)).toBeVisible();
+    expect(screen.getByText(/1 best-fit suggestion/i)).toBeVisible();
+    expect(screen.queryByText(/about one minute/i)).not.toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -63,23 +66,7 @@ describe("dataset-free application shell", () => {
       }),
     ).toBeVisible();
     expect(screen.getByText(/does not send selected photos/i)).toBeVisible();
-    expect(screen.getByText(/does not train or run/i)).toBeVisible();
-  });
-
-  it("does not expose an automatic sizing route", async () => {
-    const view = render(
-      <MemoryRouter initialEntries={["/instant"]}>
-        <App />
-      </MemoryRouter>,
-    );
-    const route = within(view.container);
-
-    expect(
-      await route.findByRole("heading", {
-        level: 1,
-        name: /one clear sizing result per nail/i,
-      }),
-    ).toBeVisible();
-    expect(route.queryByText(/automatic sizing/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/runs it in your browser/i)).toBeVisible();
+    expect(screen.getByText(/not used for training/i)).toBeVisible();
   });
 });

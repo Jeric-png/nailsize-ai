@@ -1,16 +1,18 @@
 # Deployment
 
-## Active architecture
+## Architecture and current release state
 
-NailSize Guide is a static React/Vite client. Calibration, marker measurement, repeat comparison, and chart mapping execute in the browser. Vercel serves HTML, JavaScript, CSS, and image assets only; there is no API route, function, container, database, object store, or inference service in the active path.
+NailSize Guide is a static React/Vite client. Automatic coin detection, ONNX nail segmentation, calibration, review, and chart mapping execute in the browser. Vercel serves HTML, JavaScript, CSS, the release manifest, the pinned ONNX model, and the pinned WebAssembly runtime. There is no API route, function, container, database, object store, or inference service.
 
-| Environment | Runtime                      | Purpose                      |
-| ----------- | ---------------------------- | ---------------------------- |
-| Development | Vite on `localhost:5173`     | Local implementation         |
-| Staging     | Vercel preview deployment    | Deployment and device checks |
-| Production  | Vercel production deployment | Public guided client         |
+The release candidate routes `/instant` to the experimental one-photo, one-nail flow. The existing guided client remains the production-safe rollback. A green deployment proves software delivery, privacy boundaries, and artifact identity; it does not prove sizing accuracy or fit.
 
-The retained `services/inference/`, `ml/`, `packages/contracts/`, and `infra/` trees are legacy research work. Do not provision or deploy them for this release.
+| Environment | Runtime                  | Purpose                                     |
+| ----------- | ------------------------ | ------------------------------------------- |
+| Development | Vite on `localhost:5173` | Local implementation and verification       |
+| Staging     | Vercel preview           | Approved candidate and device checks only   |
+| Production  | Vercel static deployment | Reviewed beta with guided rollback           |
+
+The retained `services/inference/`, `ml/`, `packages/contracts/`, and `infra/` trees are legacy research. Do not provision or deploy them.
 
 ## Local verification
 
@@ -27,75 +29,64 @@ npm run test:e2e
 npm run test:compat
 ```
 
-`verify:bundle` rejects source maps, telemetry/service-worker bindings, and built references to the old localhost API, `/v1/measure`, `VITE_INFERENCE_API_URL`, OpenAI, or Hugging Face. Playwright verifies that the sizing flow issues only same-origin `GET` asset and navigation requests.
+`verify:bundle` rejects source maps, telemetry/service-worker bindings, old API paths, and remote OpenAI/Hugging Face inference endpoints. It parses the Vite release manifest, includes lazy chunks in the artifact digest, and verifies the exact ONNX and WASM SHA-256 values. Playwright must prove that runtime traffic consists only of expected same-origin `GET` requests and never contains photo or result data.
 
-## Vercel project
+## Vercel project and configuration
 
-Create a Vercel project for `Jeric-png/nailsize-ai` with the repository root as its root directory. The committed [`vercel.json`](../vercel.json) supplies:
+The Vercel project for `Jeric-png/nailsize-ai` uses the repository root. Committed [`vercel.json`](../vercel.json) defines the build, `apps/web/dist` output, Vite framework, static-asset-safe SPA rewrites, security headers, and `git.deploymentEnabled.main=false` so a push to `main` cannot bypass the protected workflow.
 
-- build command `npm run build`;
-- output directory `apps/web/dist`;
-- Vite framework detection;
-- SPA rewrites to `index.html`;
-- security headers for every route; and
-- `git.deploymentEnabled.main=false`, so a push to `main` cannot bypass the protected manual workflow.
+The application has no runtime or build-time secret. Do not add `VITE_INFERENCE_API_URL`, GCP credentials, Hugging Face or OpenAI tokens, model-provider keys, database URLs, or capacity/monitoring/billing variables. The model path and hashes are versioned source contracts, not environment values. Vercel may manage its own OIDC and automation-bypass values; they are not application inputs.
 
-The application has **no runtime or build-time application variables**. Do not add `VITE_INFERENCE_API_URL`, GCP credentials, Hugging Face tokens, OpenAI keys, model paths, database URLs, domain variables, capacity settings, monitoring variables, or billing variables. Vercel CLI may manage `VERCEL_OIDC_TOKEN` and `VERCEL_AUTOMATION_BYPASS_SECRET` as platform-owned system values. Neither is an application input. The byte-identical artifact check proves the platform values did not alter the client output.
+Protected GitHub environments require:
 
-The protected GitHub environments need only:
+| Name                    | Kind                 | Purpose                              |
+| ----------------------- | -------------------- | ------------------------------------ |
+| `VERCEL_TEAM_ID`        | Environment variable | Vercel owner/team ID                 |
+| `VERCEL_PROJECT_ID`     | Environment variable | Target project ID                    |
+| `VERCEL_TOKEN`          | Environment secret   | Narrowly scoped deploy token         |
+| `VERCEL_PRODUCTION_URL` | Production variable  | Exact protected `.vercel.app` origin |
 
-| Name                | Kind                 | Purpose                      |
-| ------------------- | -------------------- | ---------------------------- |
-| `VERCEL_TEAM_ID`    | environment variable | Vercel owner/team ID         |
-| `VERCEL_PROJECT_ID` | environment variable | Target Vercel project ID     |
-| `VERCEL_TOKEN`      | environment secret   | Narrowly scoped deploy token |
+Never commit a token. Rotate any credential pasted into chat or logs.
 
-Production additionally requires `VERCEL_PRODUCTION_URL`, set to the exact authoritative project origin such as `https://nailsize-ai-web.vercel.app`. The workflow does not guess this hostname: the Vercel project-domain API must bind it to the protected project before promotion, and the deployment API must resolve it to the created deployment afterward.
+## Promotion gates
 
-Never commit the token. Rotate any token previously pasted into chat or logs.
+Publish only the exact attributed, hash-pinned model described in [`automatic-model-provenance.md`](automatic-model-provenance.md). The public beta must retain the experimental and no-fit-guarantee copy. Long-term licensing interpretation, real-device performance, and physical sizing accuracy remain open independent reviews and must not be presented as completed.
 
-## Protected deployment workflow
+The existing workflow is still named **Deploy guided web** for compatibility. It is manually dispatched from `main`; production additionally requires the exact `DEPLOY_PRODUCTION` confirmation and an environment reviewer. Before it may carry an automatic release, update the workflow naming after its functional checks remain green.
 
-Run **Deploy guided web** from GitHub Actions on `main` and choose `staging` or `production`. Production additionally requires the exact confirmation `DEPLOY_PRODUCTION` and should require a GitHub environment reviewer.
+The protected workflow:
 
-The workflow:
-
-1. checks the three shared Vercel values and the protected production URL when applicable;
+1. validates project/team authority and the protected production hostname;
 2. runs lint, typecheck, unit tests, build, and bundle verification;
-3. installs pinned Vercel CLI `55.0.0` without credentials or install scripts;
-4. pulls the selected preview or production project configuration and verifies the protected organization/project IDs, compatible static settings, no application variables, and only Vercel's managed `VERCEL_OIDC_TOKEN` and `VERCEL_AUTOMATION_BYPASS_SECRET` system keys;
-5. for production, preflights the protected hostname against Vercel's project-domain API before any alias can move;
-6. removes the deploy token from the environment used by `vercel build`;
-7. proves `.vercel/output/static` is byte-for-byte identical to the already audited `apps/web/dist`, uses Build Output API v3, allows only bounded Vercel-generated `builds.json` and `diagnostics/` metadata beside it, contains no function output, and records a canonical SHA-256 digest of the served HTML, script, and stylesheet;
-8. deploys each file from that exact prebuilt output with an explicit target (`--target=preview` for staging; production uses `--prod --skip-domain` so live aliases do not move yet);
-9. verifies the CLI identity and the authenticated REST metadata, including deployment/project/team IDs, release commit, prebuilt state, target, and readiness;
-10. retrieves the authenticated deployment file tree and every uploaded file through Vercel's REST API, requires exactly one Vercel-normalized root containing the complete prebuilt tree, accepts Vercel's schema-less JSON content envelope only when it contains one canonical base64 value equal to the expected local file, rejects archives, functions, middleware, symlinks, extra or missing files, and byte differences, then reproduces the locally recorded application digest; and
-11. for production, requires the protected staged production-target URL to pass the complete runtime smoke through Vercel CLI's official automation bypass before any alias can move; `vercel curl` reuses an existing project bypass secret or creates one through Vercel's API when none exists, never prints it in this workflow, and the verifier still rejects redirects, non-2xx responses, wrong origins, malformed headers, oversized bodies, and artifact differences; and
-12. promotes only that byte- and runtime-verified production deployment, verifies its generated deployment identity, polls the public hostname within a monotonic two-minute control-plane deadline until that hostname lookup returns the exact deployment ID and commit (without requiring Vercel's [optional, creation-time deployment `alias` field](https://vercel.com/docs/rest-api/deployments/get-a-deployment-by-id-or-url) to repeat a later promotion binding), then gives public edges a separate bounded minute to serve the same local artifact digest without an authentication bypass.
+3. installs the pinned Vercel CLI and pulls a static, variable-free project configuration;
+4. builds without exposing deployment credentials and proves `.vercel/output/static` is byte-identical to `apps/web/dist` with no functions, middleware, archives, symlinks, or unexpected files;
+5. records one digest covering HTML, manifest-listed chunks/styles, and pinned ONNX/WASM assets;
+6. deploys the exact prebuilt tree to an explicit preview or staged production target;
+7. verifies CLI identity, authenticated project/team/deployment metadata, target, commit, readiness, and every uploaded file through Vercel's API;
+8. runs the complete staged production smoke before any alias moves; and
+9. promotes only the verified deployment, then proves the protected hostname resolves to that deployment and serves the same digest.
 
-The deployment smoke verifier requires:
+## Runtime smoke contract
 
-- HTTPS and a successful application shell;
-- the expected `NailSize Guide` title;
-- same-origin application scripts;
-- no source-map or legacy remote-sizing dependency in the script bundle;
-- `connect-src 'none'`, the complete committed security-header set, and expected HTML/JavaScript/CSS content types;
-- exactly one same-origin application script and stylesheet with no telemetry or service-worker binding;
-- the same locally recorded artifact digest in the uploaded candidate, the staged production runtime, and after production promotion; and
-- an exact application shell and identical zero-connect CSP at the SPA deep route `/guide/left_fingers/1`.
+`scripts/verify-web-deployment.mjs` must verify:
 
-The **Guided web deployment smoke** workflow can repeat the same check for an exact deployed HTTPS URL.
+- HTTPS, a successful `NailSize Guide` shell, and the `/instant` deep route;
+- exactly the expected same-origin entry script and stylesheet plus manifest-declared lazy assets;
+- exact content types and pinned hashes for `/models/nails_seg_s_yolov8_v1.onnx` and the `/ort/` runtime files;
+- no source maps, telemetry, service worker, legacy API, or remote inference binding;
+- `connect-src 'self'`, same-origin scripts with `wasm-unsafe-eval`, local worker rules, and committed COOP/COEP/CORP, framing, MIME, referrer, and permissions headers; and
+- the same complete artifact digest locally, in the uploaded candidate, in staged production, and after promotion.
+
+The workflows retain their legacy **Guided web deployment smoke** name, but the verifier audits the complete automatic-capable static artifact.
 
 ## Browser and platform controls
 
-`vercel.json` disables runtime connections, restricts scripts to the same origin, allows local blob/data image previews, denies framing, disables object embedding, limits camera access to the app itself, and disables geolocation and microphone permissions. Keep Vercel Web Analytics, Speed Insights, session replay, error-reporting SDKs, third-party scripts, and integrations disabled unless a new privacy review proves they cannot observe photo or result data.
-
-The CSP is a defense-in-depth boundary, not proof by itself. Review the deployed project for dashboard-added scripts or integrations and repeat the real-device capture flow on current iOS Safari and Android Chrome.
+The CSP permits same-origin static fetches so the beta can load its model and WASM files; it does not authorize photo upload. Because `connect-src 'self'` would also permit a future same-origin endpoint, request-observing tests and project review remain mandatory. Keep Vercel Analytics, Speed Insights, replay, error-reporting SDKs, third-party scripts, and code-injecting integrations disabled.
 
 ## Rollback
 
-1. Stop further production dispatches and record the failing deployment URL and commit without copying photo or result data.
-2. Promote or redeploy the last known-good Vercel commit/output.
+1. Stop further production dispatches and record the failing deployment URL, commit, method version, and artifact digest without copying photo or result data.
+2. Promote or redeploy the last known-good guided/static artifact.
 3. Run `scripts/verify-web-deployment.mjs` against the restored URL.
-4. Repeat landing, capture, two-photo agreement, results, copy/share, reset, and real-device camera checks.
-5. If geometry or chart behavior changed, revert the complete method/chart version rather than editing an existing version in place.
+4. Repeat landing, automatic-or-guided capture as applicable, review, results, copy, reset, and real-device checks.
+5. Revert the complete method/model/chart version rather than silently changing an existing version.

@@ -7,7 +7,7 @@ from pathlib import Path
 SCHEMA_VERSION = "nailsize-privacy-release-boundary@1"
 
 ALLOWED_WEB_RUNTIME_DEPENDENCIES = {
-    "@nailsize/contracts",
+    "onnxruntime-web",
     "react",
     "react-dom",
     "react-router-dom",
@@ -102,7 +102,7 @@ def verify_privacy_release_boundary(repository_root: Path) -> dict[str, object]:
     _require_subset("Terraform log fields", terraform_log_fields, ALLOWED_TERRAFORM_LOG_FIELDS)
     _verify_container_logging(root / "services/inference/Dockerfile")
     _verify_platform_logging(root / "infra/platform/main.tf")
-    _verify_browser_transport(root / "apps/web/src/api.ts")
+    _verify_browser_transport(root / "apps/web/src/vision/onnxNailSegmenter.ts")
     _verify_browser_policy(root / "vercel.json")
 
     return {
@@ -204,11 +204,21 @@ def _verify_platform_logging(path: Path) -> None:
 
 def _verify_browser_transport(path: Path) -> None:
     source = path.read_text(encoding="utf-8")
-    required = "fetch(`${apiUrl}/v1/measure`, {"
-    if source.count(required) != 1:
-        raise ValueError("Browser must send payloads to one fixed query-free measurement path")
-    if "URLSearchParams" in source or "?${" in source:
-        raise ValueError("Browser measurement transport must not place data in URL fields")
+    if source.count('"/models/nails_seg_s_yolov8_v1.onnx"') != 1:
+        raise ValueError("Browser must use one fixed query-free same-origin model path")
+    for required in (
+        'mjs: "/ort/ort-wasm-simd-threaded.mjs"',
+        'wasm: "/ort/ort-wasm-simd-threaded.wasm"',
+        'credentials: "same-origin"',
+        'mode: "same-origin"',
+    ):
+        if required not in source:
+            raise ValueError("Browser model runtime must remain same-origin only")
+    if any(
+        forbidden in source
+        for forbidden in ("URLSearchParams", "?${", "http://", "https://")
+    ):
+        raise ValueError("Browser model runtime must not place data in URL fields")
 
 
 def _verify_browser_policy(path: Path) -> None:
@@ -221,8 +231,12 @@ def _verify_browser_policy(path: Path) -> None:
     }
     policy = header_values.get("Content-Security-Policy")
     directives = set(policy.split("; ")) if isinstance(policy, str) else set()
-    if "script-src 'self'" not in directives:
+    if "script-src 'self' 'wasm-unsafe-eval'" not in directives:
         raise ValueError("Browser policy must prohibit third-party script origins")
+    if "connect-src 'self'" not in directives:
+        raise ValueError("Browser policy may fetch only same-origin static runtime assets")
+    if "worker-src 'self' blob:" not in directives:
+        raise ValueError("Browser workers must be restricted to local runtime code")
     if "report-uri" in policy or "report-to" in policy:
         raise ValueError("Browser policy must not export violation payloads")
 

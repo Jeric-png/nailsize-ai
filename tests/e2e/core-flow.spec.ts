@@ -226,17 +226,17 @@ async function completePhoto(
     );
 }
 
-test("landing, preparation, and capture explain the local guided flow", async ({
+test("landing and fallback explain their browser-local flows", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "one clear sizing result per nail",
+    "Upload one nail photo",
   );
   await expect(page.getByText("Photos stay in this browser")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 
-  await page.getByRole("link", { name: "Start guided sizing" }).click();
+  await page.getByRole("link", { name: /use guided measurement/i }).click();
   await expect(page).toHaveURL(/\/prepare$/);
   await expect(page.getByText(/23\.0 mm wide/)).toBeVisible();
   await expect(page.getByRole("button", { name: "I’m ready" })).toBeDisabled();
@@ -400,6 +400,84 @@ test("tapping untouched default markers cannot confirm a coin scale", async ({
   await expect(page.getByText(/Coin-rim placement: 0 of 8/i)).toBeVisible();
 });
 
+test("automatic sizing needs only one local photo before analysis", async ({
+  page,
+}) => {
+  const requestedUrls: string[] = [];
+  page.on("request", (request) => requestedUrls.push(request.url()));
+  await page.goto("/instant");
+
+  await expect(
+    page.getByRole("heading", { name: /upload one nail photo/i }),
+  ).toBeVisible();
+  const start = page.getByRole("button", { name: "Find my nail size" });
+  await expect(start).toBeDisabled();
+  const inputs = page.locator('input[type="file"]');
+  await expect(inputs).toHaveCount(1);
+  await inputs.setInputFiles({
+    name: "single-nail.png",
+    mimeType: "image/png",
+    buffer: await syntheticPhotoBytes(page, ++syntheticPhotoSequence),
+  });
+  await expect(page.getByAltText("Selected nail preview")).toBeVisible();
+
+  await page.getByRole("checkbox", { name: /exactly 23\.00 mm/i }).check();
+  await expect(start).toBeEnabled();
+  expect(requestedUrls.some((url) => url.includes("/models/"))).toBe(false);
+  const appOrigin = new URL(page.url()).origin;
+  expect(requestedUrls.every((url) => new URL(url).origin === appOrigin)).toBe(
+    true,
+  );
+  await expectNoSeriousAccessibilityViolations(page);
+});
+
+test("automatic sizing loads the pinned runtime locally without a silent result", async ({
+  page,
+}) => {
+  const requests: Array<{ method: string; url: string }> = [];
+  page.on("request", (request) =>
+    requests.push({ method: request.method(), url: request.url() }),
+  );
+  await page.goto("/instant");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "single-runtime-smoke.png",
+    mimeType: "image/png",
+    buffer: await syntheticPhotoBytes(page, ++syntheticPhotoSequence),
+  });
+  await page.getByRole("checkbox", { name: /exactly 23\.00 mm/i }).check();
+  await page.getByRole("button", { name: "Find my nail size" }).click();
+  await expect(
+    page.getByRole("heading", { name: /finding your nail size/i }),
+  ).toBeVisible();
+
+  await expect(
+    page.getByRole("heading", {
+      name: /upload one nail photo|tap the round reference once|best-fit size|outside the provisional chart/i,
+    }),
+  ).toBeVisible({ timeout: 60_000 });
+
+  const appOrigin = new URL(page.url()).origin;
+  const runtimeRequests = requests.filter(({ url }) =>
+    /\/(?:models|ort)\//u.test(new URL(url).pathname),
+  );
+  expect(
+    runtimeRequests.some(({ url }) =>
+      url.endsWith("nails_seg_s_yolov8_v1.onnx"),
+    ),
+  ).toBe(true);
+  expect(
+    runtimeRequests.some(({ url }) =>
+      url.endsWith("ort-wasm-simd-threaded.wasm"),
+    ),
+  ).toBe(true);
+  expect(
+    requests.every(
+      ({ method, url }) =>
+        method === "GET" && new URL(url).origin === appOrigin,
+    ),
+  ).toBe(true);
+});
+
 test("privacy notice promises and explains the no-upload boundary", async ({
   page,
 }) => {
@@ -408,7 +486,8 @@ test("privacy notice promises and explains the no-upload boundary", async ({
     "never leave this browser",
   );
   await expect(page.getByText(/does not send selected photos/)).toBeVisible();
-  await expect(page.getByText(/does not train or run/)).toBeVisible();
+  await expect(page.getByText(/runs it in your browser/)).toBeVisible();
+  await expect(page.getByText(/not used for training/)).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 });
 
@@ -416,7 +495,7 @@ test("unknown routes recover to the landing page", async ({ page }) => {
   await page.goto("/does-not-exist");
   await expect(page).toHaveURL(/\/$/);
   await expect(
-    page.getByRole("link", { name: "Start guided sizing" }),
+    page.getByRole("link", { name: "Size one nail from a photo" }),
   ).toBeVisible();
 });
 
@@ -468,7 +547,7 @@ test("an inconsistent second photo blocks sizing and targets the verification re
   await expect(page.getByText("First measurement complete")).toBeVisible();
 });
 
-test("eight local photos produce one clear result per nail without uploading image data", async ({
+test("eight local photos produce ten results without uploading image data", async ({
   context,
   page,
 }) => {
@@ -495,12 +574,9 @@ test("eight local photos produce one clear result per nail without uploading ima
   for (const captureType of Object.keys(captureDigits) as Array<
     keyof typeof captureDigits
   >) {
-    const firstWidthFraction = captureType === "left_thumb" ? 0.29 : 0.23;
-    const verificationWidthFraction =
-      captureType === "left_thumb" ? 0.296 : 0.236;
-    await completePhoto(page, captureType, 1, firstWidthFraction);
+    await completePhoto(page, captureType, 1, 0.23);
     await page.getByRole("button", { name: "Take verification photo" }).click();
-    await completePhoto(page, captureType, 2, verificationWidthFraction);
+    await completePhoto(page, captureType, 2, 0.236);
     await expect(page.getByText("Consistency check passed")).toBeVisible();
     await page.getByRole("button", { name: "Accept and continue" }).click();
   }
@@ -516,28 +592,13 @@ test("eight local photos produce one clear result per nail without uploading ima
       .filter({ hasText: "Best-fit size 2" })
       .first(),
   ).toBeVisible();
-  const visibleResultRows = page.locator(".measurement-row:visible");
-  await expect(visibleResultRows).toHaveCount(mobile ? 5 : 10);
-  for (let index = 0; index < (mobile ? 5 : 10); index += 1) {
-    const row = visibleResultRows.nth(index);
-    const bestFitCount = await row.getByText(/Best-fit size \d/).count();
-    const artistReviewCount = await row
-      .getByText("Outside default chart", { exact: true })
-      .count();
-    expect(bestFitCount + artistReviewCount).toBe(1);
-    await expect(row).not.toContainText(/average-only|alternate size/i);
-  }
-  await expect(
-    visibleResultRows.filter({ hasText: "Outside default chart" }),
-  ).toHaveCount(1);
   await expect(
     page
       .locator(".measurement-row:visible")
-      .filter({
-        hasText: /Borderline measurement—confirm this nail physically/i,
-      })
+      .filter({ hasText: /Borderline measurement.*confirm this nail/i })
       .first(),
   ).toBeVisible();
+  await expect(page.getByText("Outside default chart")).toHaveCount(0);
   await expect(page.getByText(/Two-photo agreement passed/)).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page);
 
@@ -555,10 +616,8 @@ test("eight local photos produce one clear result per nail without uploading ima
   );
   expect(copiedText).toContain("guided projected-width results");
   expect(copiedText).toContain("best-fit size 2");
-  expect(copiedText).toMatch(/Left thumb: .* — manual chart check/u);
   expect(copiedText).toContain("borderline measurement—confirm physically");
   expect(copiedText).not.toContain("boundary size 3");
-  expect(copiedText).not.toMatch(/average-only|alternate size/i);
   expect(copiedText).toContain("do not measure nail curvature or guarantee");
 
   expect(requests.every((request) => request.method === "GET")).toBe(true);

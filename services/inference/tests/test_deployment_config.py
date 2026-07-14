@@ -9,7 +9,12 @@ def test_vercel_config_preserves_build_routing_and_security_headers() -> None:
     assert config["buildCommand"] == "npm run build"
     assert config["outputDirectory"] == "apps/web/dist"
     assert config["git"] == {"deploymentEnabled": {"main": False}}
-    assert config["rewrites"] == [{"source": "/((?!assets/).*)", "destination": "/index.html"}]
+    assert config["rewrites"] == [
+        {
+            "source": "/((?!assets/|models/|ort/|asset-manifest\\.json$).*)",
+            "destination": "/index.html",
+        }
+    ]
 
     headers = {entry["key"]: entry["value"] for entry in config["headers"][0]["headers"]}
     assert config["headers"][0]["source"] == "/(.*)"
@@ -17,6 +22,10 @@ def test_vercel_config_preserves_build_routing_and_security_headers() -> None:
     assert headers["X-Frame-Options"] == "DENY"
     assert headers["Referrer-Policy"] == "no-referrer"
     assert headers["Cross-Origin-Opener-Policy"] == "same-origin"
+    assert headers["Cross-Origin-Embedder-Policy"] == "require-corp"
+    assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
+    assert "connect-src 'self'" in headers["Content-Security-Policy"]
+    assert "'wasm-unsafe-eval'" in headers["Content-Security-Policy"]
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
     assert "camera=(self)" in headers["Permissions-Policy"]
 

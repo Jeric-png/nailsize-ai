@@ -1,95 +1,67 @@
-# NailSize Guide Product Requirements
+# NailSize Single-Nail Sizing Product Requirements
 
-## 1. Product summary
+## Product summary
 
-NailSize Guide is a mobile-first web application that helps customers estimate the projected planar width of all ten fingernails and receive one clear sizing result for each nail: a conservative best-fit press-on size within the provisional chart or an artist-review flag outside it. It uses guided manual annotation and a current Third Series Singapore 50-cent coin as a local scale reference, entirely in the browser. It does not use a nail dataset, AI model, image API, backend, account, or image storage.
+NailSize is a mobile-first, browser-only web application that turns one photo of one nail into one reviewable projected-width estimate and one conservative best-fit press-on suggestion. The user selects the digit and explicitly instructs the app to treat the round reference in the photo as exactly `23.00 mm`.
 
-Status: coin-calibrated browser client implemented. Fresh local automated verification, GitHub CI, staging, real-device review, physical accuracy, and tip-fit validation remain separate release gates.
+The automatic beta is experimental. It is functionally implemented but has not passed representative physical sizing or supplier-tip validation.
 
-## 2. Problem and users
+## Goals
 
-Customers ordering premade nail sets often do not know which tip size fits each finger. Nail artists need a consistent set of measurements without requiring customers to visit in person.
+- Reduce the journey to one digit selection, one photo, one reference confirmation, and one result.
+- Run image processing and the pinned nail model locally in the browser.
+- Automatically propose the reference rim and nail width; request only a one-tap reference correction or two-handle width review when needed.
+- Return exactly one best-fit suggestion, or fail closed when the evidence is unusable.
+- Preserve the manual guided flow as rollback.
 
-Primary users:
+## Non-goals
 
-- customers completing a guided sizing session on a phone;
-- nail artists receiving the resulting widths and one clear provisional sizing result per nail.
+- Identifying or verifying the coin denomination.
+- Measuring curved nail-surface length or guaranteeing tip fit.
+- Returning measurement coordinates from OpenAI or another vision-language model.
+- Accounts, saved photos, analytics, server inference, or a custom nail-training dataset.
+- Public accuracy claims before physical validation.
 
-## 3. Goals
+## Required flow
 
-- Produce a repeatable projected-width estimate for every nail using materials commonly available at home.
-- Keep selected photos and measurements on the customer’s device.
-- Detect unstable captures through independent repeats instead of presenting false confidence.
-- Run as a fast, free-hostable static web application on Vercel.
-- Clearly separate software correctness from physical accuracy and fit claims.
+1. Choose thumb, index, middle, ring, or little finger.
+2. Upload one JPEG, PNG, or WebP image up to 12 MB showing one bare nail and one complete round reference on the same plane.
+3. Confirm: “Assume my round reference is exactly 23.00 mm.”
+4. Normalize the image and run same-origin ONNX/WASM inference locally.
+5. Propose the reference ellipse and nail width automatically.
+6. When reference detection is ambiguous, ask for one centre tap and fit the rim automatically; do not ask for eight rim markers.
+7. When the proposed width is uncertain, show two editable sidewall handles for review.
+8. Display one conservative best-fit suggestion or an out-of-chart result, plus width, uncertainty, method/chart versions, and a no-fit-guarantee notice.
 
-## 4. Non-goals
+## Measurement contract
 
-- Automatic nail detection, segmentation, or AI classification.
-- Curved-surface width measurement or guaranteed press-on fit.
-- Accounts, order management, payments, galleries, analytics, or stored sessions.
-- Training-data collection or server-side image processing.
-- Final visual styling; interaction and visual decisions are governed by [`DESIGN.md`](DESIGN.md).
+Method identifier: `auto-assumed23-single-v0.1.0`.
 
-## 5. Required user flow
+- The reference diameter is a user-supplied assumption of `23.00 mm`; the app does not prove it.
+- Automatic calibration fits the complete visible reference rim and rejects weak, cropped, or severely tilted geometry.
+- A pinned YOLOv8 segmentation artifact proposes nail masks. Its score is proposal metadata, not calibrated measurement confidence.
+- Deterministic geometry calculates projected transverse width. User-adjusted sidewalls replace the proposed width geometry.
+- Uncertainty includes reference fit and boundary uncertainty. A chart-boundary result remains one conservative suggestion with a borderline warning.
+- Results use provisional chart `platform-default@1` and record whether geometry was automatic or user-corrected.
 
-1. Explain the method, privacy boundary, and limitations.
-2. Require the user to confirm that the reference is the current Third Series Singapore 50-cent coin showing the Port of Singapore and a large `50` with `CENTS`. Reject older, commemorative, damaged, or foreign coins.
-3. Guide four capture groups: left fingers, left thumb, right fingers, and right thumb.
-4. Require two independently repositioned photos for every group, for eight photos total. Reject an exact reuse of the first normalized image, while clearly treating this as a duplicate guard rather than proof of physical movement.
-5. For each photo, require the user to place eight markers clockwise around the complete coin rim.
-6. Lock calibration, then require left and right sidewall markers for every expected nail.
-7. Compare each nail’s two readings. Accept only when the difference is at most `0.6 mm`; otherwise request a targeted group retake.
-8. Show all ten projected widths with one result per nail: a provisional best-fit size within the chart or an artist-review flag outside it. Include a generic physical-confirmation warning for borderline measurements, text-only copy/share, and an erase action. Do not show a competing alternate size.
+## Privacy and architecture
 
-## 6. Measurement contract
+- React 19, TypeScript, React Router, Vite, ONNX Runtime Web, and static Vercel hosting.
+- Photos, contours, and measurements remain in volatile browser memory and are erased by reset/reload/close.
+- Runtime network traffic is limited to same-origin GET requests for versioned static assets.
+- No OpenAI key, Hugging Face runtime token, API route, database, object storage, or server image parser is required.
+- HEIC is not accepted; the supplied test image is converted locally to JPEG outside the product.
 
-Method identifier: `guided-sg50-coin-v1`.
+## Acceptance criteria
 
-- The only supported reference is the Third Series Singapore 50-cent circulation coin. Its official diameter is `23.00 mm` with a `±0.10 mm` tolerance. The app uses the nominal `23.00 mm` value.
-- Eight clockwise rim markers are converted to prepared-image pixel coordinates. Four opposite-marker diameters establish the local pixel scale; their median is used for conversion.
-- Calibration fails closed when the coin is smaller than `120 px` in prepared-image/source-coordinate space, opposite diameters differ by more than `8%`, opposite-pair centres differ by more than `6%` of the median diameter, the rim is incomplete, or markers are not clockwise and evenly distributed.
-- Coin confirmation also fails when the marked coin appears smaller than `120 CSS/screen px` in the rendered annotation view. This separate threshold keeps rim marking usable on the current display; it is not evidence of physical measurement accuracy.
-- Each measured nail must be within `4.5` coin diameters of the reference and yield a plausible `5–25 mm` span.
-- The coin and nails must lie flat on the same surface and the phone must be directly overhead. The method rejects obvious tilt through oval/centre checks; it does not compute a full homography or correct arbitrary perspective.
-- Displayed width is the average of the two readings, rounded to `0.1 mm`.
-- Sizing uses the wider reading so the recommended tip is not narrower than either accepted observation.
-- The provisional `platform-default@1` chart maps size `0 = 18 mm` through size `9 = 9 mm`; the nail artist must approve or replace it with the actual supplier chart.
-- `0.6 mm` is a repeatability rule, not an accuracy bound or fit guarantee.
+- One valid photo can reach one reviewable best-fit result.
+- Ambiguous reference detection requires at most one centre tap, not rim-by-rim marking.
+- Uncertain nail geometry is recoverable through two sidewall handles.
+- Invalid files, stale jobs, checksum failures, decode errors, and unusable geometry fail closed and can be retried.
+- Reset/reload removes the session and object URLs are released.
+- Lint, typecheck, unit, build, artifact audit, E2E, compatibility, and dependency checks pass.
+- Staging and production serve the exact verified static artifact.
 
-## 7. Privacy, safety, and accessibility
+## Validation boundary
 
-- Accept JPEG, PNG, and WebP files up to 12 MB.
-- Read supported image headers before full decoding and reject a source over 20 MP or with either side over 8192 pixels. Decode, orient, downscale accepted sources to a maximum 4096-pixel edge and 16 MP, and re-encode as JPEG in the browser; reject normalization failures.
-- Compare an in-memory SHA-256 fingerprint of each normalized repeat and reject exact duplicate pixels; discard the fingerprint with the photo.
-- Never upload, persist, log, or use photos or measurements for training.
-- Revoke object URLs on replacement, retake, acceptance, reset, and teardown.
-- Support pointer, touch, and keyboard marker placement with visible focus and at least 44-pixel interactive targets. Arrow keys move a focused marker by one rendered CSS pixel, or eight rendered CSS pixels with Shift; keyboard steps must not be scaled as prepared-image source pixels.
-- Label every result as a projected width and retain the curvature/no-fit disclaimer.
-
-## 8. Technical architecture
-
-- React 19, TypeScript, React Router, and Vite.
-- Pure client-side geometry and in-memory session state.
-- Vitest and Testing Library for unit/component coverage.
-- Playwright for Chromium, Firefox, WebKit, mobile layouts, privacy assertions, and complete flows.
-- Static Vercel hosting with SPA rewrites, same-origin scripts, and `connect-src 'none'` so runtime requests are disabled.
-- No application environment variables or runtime secrets. GitHub deployment environments need only Vercel project identifiers, a production-only protected URL, and a protected deploy token.
-
-## 9. Acceptance criteria
-
-- Eight valid local photos can produce one clear sizing result for each of ten nails without any non-GET or cross-origin request; in-chart results expose no competing size.
-- Reusing the exact normalized first photo cannot satisfy the independent-repeat requirement.
-- An inconsistent repeated reading blocks results and preserves unaffected accepted work.
-- Reset, reload, or close removes the in-memory session; copy/share contains text only.
-- Lint, typecheck, unit, build, bundle audit, Chromium E2E, cross-engine compatibility, dependency audit, and deployment smoke checks pass for the release commit.
-- Current iOS Safari and Android Chrome receive a manual real-device review.
-- Marketing does not claim validated accuracy or fit until the physical study in [`docs/data-protocol.md`](docs/data-protocol.md) passes.
-
-## 10. Success and release boundaries
-
-The software milestone succeeds when the static client and protected Vercel release path meet the acceptance criteria. Product validation is a separate milestone: a nail professional must approve the physical tip chart and a controlled study must quantify measurement error, repeatability, retake rate, and actual tip agreement. Until then, NailSize Guide is a clearly labelled projected-width beta with a physical sizing-kit fallback.
-
-## 11. Calibration references
-
-The coin specification and identifying design are sourced from the [Singapore Currency Act legal specification](https://sso.agc.gov.sg/SL/CA1967-S347-2013?ProvIds=Sc-&ValidDate=20130611) and the [Monetary Authority of Singapore Third Series coin release](https://www.nas.gov.sg/archivesonline/data/pdfdoc/20130228006/press_release.pdf).
+Functional completion is not physical validation. Before publishing accuracy or fit claims, compare results with technician-defined physical ground truth across representative people, devices, lighting, skin tones, nail shapes, and reference placement, then validate against the actual supplier chart.

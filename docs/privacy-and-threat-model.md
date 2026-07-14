@@ -1,57 +1,58 @@
 # Privacy and Threat Model
 
-## Active data flow
+## Client data flow
 
-1. The browser accepts a JPEG, PNG, or WebP file no larger than 12 MB.
-2. Before full decoding, the client reads the supported image header and rejects a source over 20 MP or with either side over 8192 pixels. Browser APIs then orient and downscale accepted images to at most 4096 pixels on an edge and 16 MP, and re-encode them as JPEG. A header, decode, or re-encode failure is rejected; the app does not retain the original file as a fallback preview.
-3. The client computes an in-memory SHA-256 fingerprint of the normalized image. An exact duplicate of the first image cannot be used as the verification photo.
-4. The client creates an in-memory object URL and displays it behind local marker controls.
-5. Third Series coin calibration, projected-width calculation, two-photo comparison, and chart mapping run synchronously in client JavaScript.
-6. Accepting or clearing a capture revokes its object URLs and discards its fingerprint. Results remain only in the in-memory React reducer until reset, reload, close, or unmount.
-7. Copy/share exports a text summary only after an explicit user action. The browser or operating-system share target is then outside this application's control.
+The automatic single-nail beta is the primary `/instant` flow.
 
-There is no `fetch` or form upload in the measurement flow, no active API route, and no production database, object storage, queue, model provider, analytics SDK, training export, or service-side image parser. Normal static page and asset requests still reach Vercel; selected photos are never request bodies.
+1. The browser accepts one JPEG, PNG, or WebP file no larger than 12 MB and a chosen digit. HEIC is not accepted.
+2. Header checks reject a source over 20 MP or 8192 pixels on either edge before full decode. Accepted images are oriented, downscaled to at most a 4096-pixel edge and 16 MP, and re-encoded locally.
+3. The client creates in-memory object URLs for review. Starting analysis fetches only pinned, same-origin application, ONNX, and WASM assets with `GET` requests.
+4. Coin-rim detection, nail-mask inference, ellipse calibration, projected-width calculation, uncertainty handling, and chart mapping execute in browser memory. Photo bytes are inputs to local browser APIs and are never request bodies.
+5. Ambiguous reference geometry asks for one centre tap; uncertain nail geometry asks for two sidewall handles. Results remain in React state until reset, reload, close, or unmount.
+6. Copy exports a text summary after an explicit user action. The destination clipboard or share target is outside the application's control.
+
+The guided fallback remains separate. It uses manual coin/nail markers and an in-memory SHA-256 fingerprint to reject exact reuse of a verification image. Neither flow uses an API route, server inference, database, object storage, analytics SDK, training export, or service-side image parser.
 
 ## Protected data
 
-- Selected photos, filenames, and embedded metadata
-- Normalized-image fingerprints, Third Series coin confirmation, coin-rim coordinates, and nail-edge coordinates
-- Individual projected widths, repeat differences, and size suggestions
-- Text result summaries and any incidental background content visible in a photo
+- Selected photos, filenames, source metadata, and incidental background content
+- Image fingerprints used by the guided fallback
+- Coin ellipse or rim coordinates, nail masks, sidewall coordinates, and correction provenance
+- Projected widths, uncertainty, repeat differences, and preliminary size suggestions
+- Text result summaries
 
-The client does not persist these values in local storage, session storage, IndexedDB, Cache Storage, cookies, or a service worker.
+The client must not persist these values in local storage, session storage, IndexedDB, Cache Storage, cookies, a service worker, logs, or telemetry. Normal HTTP caching may retain public application/model/WASM assets, never selected photos.
 
 ## Principal threats and controls
 
-| Threat                                                  | Current control                                                                                                                                                             | Verification                                                                                               |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Regression uploads a photo                              | Static-only architecture; same-origin-only CSP; no API dependency; E2E requires all observed requests to be same-origin `GET`                                               | Unit, bundle, E2E, and deployed smoke checks                                                               |
-| Browser persistence leaves photos behind                | In-memory reducer; object URL revocation on replacement, acceptance, restart, reset, coin-confirmation withdrawal, and unmount; no persistent storage APIs                  | Session tests cover acceptance, reopen, coin-confirmation withdrawal, and reset; E2E covers reset/recovery |
-| Third-party telemetry observes the page                 | No analytics/error-reporting SDK; self-only script policy; integrations must remain disabled in Vercel                                                                      | Bundle/deployment checks and dashboard review                                                              |
-| Malformed or oversized local image stresses the browser | JPEG/PNG/WebP allow-list; 12 MB source limit; header preflight rejects over 20 MP or either side over 8192 px before full decode; fail-closed 4096-edge/16 MP normalization | Image-preparation unit tests and browser tests                                                             |
-| One image is reused as both independent observations    | In-memory SHA-256 comparison of normalized image bytes rejects an exact duplicate; UI still instructs physical repositioning                                                | Unit and E2E duplicate-image checks                                                                        |
-| Wrong 50-cent coin produces the wrong scale             | Mandatory Third Series design confirmation; guidance rejects older, commemorative, damaged, and foreign coins                                                               | Session/component tests and manual certification                                                           |
-| Tilt or distant reference creates misleading scale      | Eight rim markers; `120` prepared-image-pixel geometry minimum; `8%` diameter-spread, `6%` centre-spread, and `4.5`-diameter proximity guards                               | Geometry unit tests and full-flow E2E                                                                      |
-| Coin controls are too small to mark reliably            | Separate `120 CSS/screen px` rendered-annotation minimum; this is an ergonomics guard and is not treated as accuracy evidence                                               | Component and high-resolution browser tests                                                                |
-| Shared-device or shoulder-surfing exposure              | No server history; explicit erase/reset; session disappears on reload/close                                                                                                 | Content and manual review                                                                                  |
-| Text is shared unintentionally                          | Copy/share requires a user gesture and includes no photo                                                                                                                    | E2E copy test and manual platform review                                                                   |
-| False precision or poor fit                             | Independent repeat gate; projected-width label; no-homography warning; conservative chart mapping; curvature and no-fit disclaimers                                         | Geometry tests, content review, physical validation before accuracy claims                                 |
-| Legacy backend is accidentally restored                 | Bundle rejects `/v1/measure`, localhost API, `VITE_INFERENCE_API_URL`, OpenAI, and Hugging Face references                                                                  | `npm run verify:bundle` and deployed smoke                                                                 |
+| Threat                                            | Control                                                                                                                                                                                                          | Required verification                                                               |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| A regression uploads a photo                      | Static architecture, no API dependency, and a same-origin-only connection policy; photo bytes must never enter `fetch`, forms, beacons, or telemetry                                                             | Unit, bundle, request-observing E2E, and deployed smoke checks                      |
+| Browser memory retains photos                     | Revoke object URLs and release decoded pixels, canvases, tensors, and results on replacement, failure, reset, unmount, and completion                                                                            | Lifecycle tests, memory-oriented review, and real-device reset/reload checks        |
+| A model/runtime asset is substituted              | Versioned same-origin paths, exact SHA-256 pins, fixed tensor contract, release manifest, and byte-identical deployment audit                                                                                    | Manifest/runtime tests, `verify:bundle`, and deployment verifier                    |
+| Third-party code observes the page                | No analytics, replay, error-reporting SDK, remote model provider, or injected integration; scripts are same-origin                                                                                               | Bundle/deployment checks and Vercel dashboard review                                |
+| Malformed or oversized input stresses the browser | Format/size allow-list, header preflight, bounded normalization, and fail-closed decode                                                                                                                          | Image-preparation unit and browser tests                                            |
+| Wrong reference creates the wrong scale           | The user must explicitly confirm the app should assume the visible round reference is exactly `23.00 mm`; calibration rejects weak/cropped/steep ellipse fits                                                     | Unit, content, and manual review                                                     |
+| Tilt or a distant reference misleads calibration  | Automatic ellipse guards require a complete rim, at least `120 px` minor diameter, axis ratio `0.72–1.02`, rim coverage at least `0.75`, residual at most `0.08`, and nail proximity within `4.5` coin diameters | Geometry tests and representative real-photo validation                             |
+| A weak mask becomes a recommendation              | Exactly five usable masks, ordering/span checks, visible overlays, scoped review reasons, manual correction, and fail-closed retakes                                                                             | Model/postprocess tests, component/E2E review flows, and physical validation        |
+| Results imply false precision or fit              | Projected-width terminology, uncertainty-aware chart mapping, provisional-chart label, curvature/no-fit disclaimer, and sizing-kit fallback                                                                      | Content review and physical validation before accuracy claims                       |
+| Legacy backend is restored                        | Bundle rejects `/v1/measure`, localhost API, `VITE_INFERENCE_API_URL`, OpenAI, and Hugging Face inference endpoints                                                                                              | `npm run verify:bundle` and deployed smoke                                          |
 
 ## Boundary limitations
 
-`connect-src 'none'` blocks `fetch`, XHR, WebSocket, EventSource, and beacon connections, including to a future same-origin endpoint. Code review, static deployment configuration, request-observing E2E tests, and Vercel project review remain required because policy can be changed by a later release. Repository controls also cannot prove that a browser extension, compromised device, operating-system share target, or dashboard-added Vercel integration does not capture screen content.
+`connect-src 'self'` permits the same-origin model/WASM fetches required by the beta. It would also permit a future same-origin API, so CSP is defense in depth rather than proof of zero upload. `script-src 'self' 'wasm-unsafe-eval'` is required for the pinned WebAssembly runtime. Code review, request-observing tests, static deployment inspection, and Vercel integration review remain necessary.
 
-Browser re-encoding normally removes source metadata, but this is an implementation side effect rather than a certified EXIF-scrubbing guarantee. The client reads supported-format dimensions from the source header before full decoding and rejects sources beyond the documented limits. Malformed files within those limits can still exercise the browser decoder, so decode failures remain a local availability test case even though failed normalization is rejected and nothing is uploaded.
+Browser re-encoding normally omits source metadata, but this is not a certified EXIF-scrubbing guarantee. Repository controls also cannot prevent a browser extension, compromised device, screenshot, operating-system share target, or shoulder surfing from exposing visible content.
 
-## Release privacy review
+## Release privacy and distribution review
 
-Before each public release:
+For every public automatic-beta deployment:
 
-- inspect the built bundle and deployed network log for non-GET or cross-origin requests;
-- confirm Vercel has no analytics, replay, error-reporting, deploy-hook, or third-party integration that injects client code;
-- verify no serverless functions or API routes exist in the project;
-- exercise replacement, accepted capture, restart, results reset, reload, and close paths on a real mobile browser; and
-- confirm copied/shared output contains text only.
+- prove all runtime requests are same-origin `GET` and no request body contains photo or result data;
+- verify the exact model/WASM hashes and complete release-artifact digest;
+- confirm there are no functions, API routes, analytics, replay, error reporting, injected integrations, or persistent storage;
+- exercise replacement, correction, failure, reset, reload, and close on current iOS Safari and Android Chrome;
+- confirm copied/shared output is text only; and
+- retain attribution and the documented CC BY 4.0/embedded AGPL-3.0 metadata notice, with long-term interpretation tracked as an open project risk.
 
-The legacy Python inference and ML research trees are outside the active production boundary. Their historical controls do not establish, and are not required for, the privacy of the browser-only release.
+Passing privacy checks does not establish model quality, physical measurement accuracy, completion time, or tip fit. Those are independent release gates. The legacy Python inference and ML trees remain outside the active boundary.

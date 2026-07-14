@@ -1,11 +1,19 @@
 import { createHash } from "node:crypto";
 import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { guidedArtifactDigest, parseGuidedShell } from "./guided-artifact.mjs";
+import {
+  assertPinnedRuntimeAsset,
+  guidedArtifactDigest,
+  parseGuidedShell,
+  parseReleaseManifest,
+  pinnedRuntimeAssetPaths,
+  releaseArtifactDigest,
+  releaseManifestPath,
+} from "./guided-artifact.mjs";
 
 const deploymentPrefix = ".vercel/output";
 const maximumFiles = 100;
-const maximumBytes = 10 * 1024 * 1024;
+const maximumBytes = 80 * 1024 * 1024;
 
 export async function verifyVercelDeploymentFiles({
   deploymentId,
@@ -235,7 +243,35 @@ function deploymentArtifactDigest(remoteFiles, contentByUid) {
       return { pathname: asset.pathname, content: content.toString("utf8") };
     });
 
-  return guidedArtifactDigest(html, readAssets(scripts), readAssets(styles));
+  const scriptAssets = readAssets(scripts);
+  const styleAssets = readAssets(styles);
+  const manifestFilePath = `${staticPrefix}${releaseManifestPath}`;
+  const manifestEntry = remoteFiles.get(manifestFilePath);
+  if (!manifestEntry)
+    return guidedArtifactDigest(html, scriptAssets, styleAssets);
+
+  const manifestContent = contentByUid.get(manifestEntry.uid);
+  if (!manifestContent)
+    throw new Error("Uploaded release manifest was not verified.");
+  const releasePaths = new Set([
+    releaseManifestPath,
+    ...parseReleaseManifest(manifestContent),
+    ...pinnedRuntimeAssetPaths,
+    ...scripts.map(({ pathname }) => pathname),
+    ...styles.map(({ pathname }) => pathname),
+  ]);
+  const releaseAssets = [...releasePaths].map((pathname) => {
+    const entry = remoteFiles.get(`${staticPrefix}${pathname}`);
+    const content = entry && contentByUid.get(entry.uid);
+    if (!content)
+      throw new Error(
+        `Uploaded deployment is missing verified release asset ${pathname}.`,
+      );
+    if (pinnedRuntimeAssetPaths.includes(pathname))
+      assertPinnedRuntimeAsset(pathname, content);
+    return { pathname, content };
+  });
+  return releaseArtifactDigest(html, releaseAssets);
 }
 
 async function getFileContent(

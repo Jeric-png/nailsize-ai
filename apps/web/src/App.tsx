@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import {
   Link,
   Navigate,
@@ -25,6 +33,10 @@ import {
   type SessionState,
 } from "./session";
 
+const SingleNailSizing = lazy(async () => ({
+  default: (await import("./components/SingleNailSizing")).SingleNailSizing,
+}));
+
 function FocusOnNavigation() {
   const { pathname } = useLocation();
   const previousPath = useRef(pathname);
@@ -46,9 +58,9 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="app-shell">
       <header className="site-header">
         <Link to="/" className="brand">
-          NAILSIZE / GUIDE
+          NAILSIZE
         </Link>
-        <span>Dataset-free sizing</span>
+        <span>Private on-device sizing</span>
       </header>
       <main>{children}</main>
       <footer className="site-footer">
@@ -62,32 +74,34 @@ function Shell({ children }: { children: React.ReactNode }) {
 function Landing() {
   return (
     <div className="page landing">
-      <Eyebrow>Guided press-on nail measurement</Eyebrow>
-      <h1>Measure every nail. Get one clear sizing result per nail.</h1>
+      <Eyebrow>One-photo press-on nail sizing</Eyebrow>
+      <h1>Upload one nail photo. Get one best-fit suggestion.</h1>
       <p className="lede">
-        Use a current Singapore 50-cent coin as the scale, place the measurement
-        markers yourself, and verify each width with a second photo. You will
-        get one conservative best-fit size when the chart covers the nail—or a
-        clear artist-review flag when it does not.
+        Photograph one bare nail beside a round reference that you confirm is
+        23.00 mm across. The app detects both privately on your device, shows
+        the proposed width line, then selects one conservative size.
       </p>
       <div className="hero-placeholder" aria-hidden="true">
-        <span>8 PHOTOS → 1 CLEAR RESULT PER NAIL</span>
+        <span>1 PHOTO → 1 BEST-FIT SUGGESTION</span>
       </div>
       <Card>
         <h2>What you will need</h2>
         <ul className="check-list">
           <li>Bare, natural nails</li>
           <li>Bright, even lighting</li>
-          <li>One current Third Series Singapore 50-cent coin</li>
-          <li>About eight minutes</li>
+          <li>One round reference treated as exactly 23.00 mm</li>
+          <li>One photo, then a quick review</li>
         </ul>
       </Card>
-      <Link className="button" to="/prepare">
-        Start guided sizing
+      <Link className="button" to="/instant">
+        Size one nail from a photo
+      </Link>
+      <Link className="landing-fallback-link" to="/prepare">
+        Need the manual fallback? Use guided measurement
       </Link>
       <p className="fine-print">
-        This tool measures visible, projected width. It does not measure the
-        curved surface of highly arched nails or guarantee fit.
+        Experimental beta: the reference diameter is assumed, not verified.
+        Projected width does not measure strong curvature or guarantee fit.
       </p>
     </div>
   );
@@ -227,10 +241,20 @@ function PrivacyNotice() {
         </p>
       </Card>
       <Card>
-        <h2>No training dataset</h2>
+        <h2>On-device model</h2>
         <p>
-          This release uses deterministic coin geometry and user-confirmed
-          markers. It does not train or run a nail-recognition model.
+          The automatic beta downloads a versioned nail-recognition model from
+          this website and runs it in your browser. Photo pixels are not sent to
+          the model provider, OpenAI, or a sizing API, and your photos are not
+          used for training.
+        </p>
+        <p className="fine-print">
+          Nail recognition is based on{" "}
+          <a href="https://huggingface.co/mnemic/nails_seg_yolov8">
+            mnemic/nails_seg_yolov8
+          </a>
+          . Its source card identifies CC BY 4.0; public distribution remains
+          subject to the project&apos;s recorded license review.
         </p>
       </Card>
       <Link className="button button--secondary" to="/">
@@ -405,12 +429,11 @@ function Results({
   return (
     <div className="page results-page">
       <Eyebrow>Guided measurement complete</Eyebrow>
-      <h1>Your best-fit sizing results.</h1>
+      <h1>Your projected nail widths.</h1>
       <p className="lede">
-        Send this text-only summary to your nail artist. Each in-chart nail gets
-        one size, selected from the wider of two agreeing readings so the
-        suggested tip is not narrower than either measurement. Out-of-chart
-        measurements are flagged for artist review.
+        Send this text-only summary to your nail artist. Each recommendation
+        uses the wider of two agreeing readings so the selected tip is not
+        narrower than either measurement.
       </p>
       <div className="results-layout">
         <div className="result-summary">
@@ -518,6 +541,21 @@ export function App() {
       <FocusOnNavigation />
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route
+          path="/instant"
+          element={
+            <Suspense
+              fallback={
+                <div className="page">
+                  <Eyebrow>Automatic sizing beta</Eyebrow>
+                  <h1>Preparing private on-device sizing…</h1>
+                </div>
+              }
+            >
+              <SingleNailSizing />
+            </Suspense>
+          }
+        />
         <Route path="/privacy" element={<PrivacyNotice />} />
         <Route
           path="/prepare"
