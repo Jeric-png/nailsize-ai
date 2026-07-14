@@ -93,6 +93,7 @@ export function buildVercelCurlArguments(
     "--silent",
     "--show-error",
     "--compressed",
+    "--no-include",
     "--request",
     "GET",
     "--proto",

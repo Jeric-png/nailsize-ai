@@ -30,6 +30,7 @@ test("builds a bounded shell-free Vercel curl request without credentials", () =
   assert.ok(arguments_.includes("2000000"));
   assert.ok(arguments_.includes("--max-time"));
   assert.ok(arguments_.includes("--compressed"));
+  assert.ok(arguments_.includes("--no-include"));
   assert.ok(arguments_.includes("--dump-header"));
   assert.ok(arguments_.includes("--output"));
   assert.doesNotMatch(arguments_.join(" "), /token|protection-bypass/iu);
