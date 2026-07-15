@@ -20,7 +20,12 @@ import {
   type Point,
   type SampleMeasurement,
 } from "../guidedSizing";
-import { fingerprintImage, prepareImage } from "../imagePreparation";
+import {
+  COMMON_IMAGE_FORMATS,
+  fingerprintImage,
+  IMAGE_FILE_ACCEPT,
+  prepareImage,
+} from "../imagePreparation";
 import type { SampleNumber, SessionAction, SessionState } from "../session";
 import { AnnotationSurface } from "./AnnotationSurface";
 import {
@@ -36,7 +41,6 @@ interface SessionProps {
   dispatch: React.Dispatch<SessionAction>;
 }
 
-const LOCAL_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_LOCAL_BYTES = 12 * 1024 * 1024;
 
 export function CaptureRoute(props: SessionProps) {
@@ -89,12 +93,6 @@ function CapturePage({
   }
 
   async function selectFile(file: File) {
-    if (!LOCAL_IMAGE_TYPES.has(file.type)) {
-      setError(
-        "Choose a JPEG, PNG, or WebP photo that this browser can display locally.",
-      );
-      return;
-    }
     if (file.size > MAX_LOCAL_BYTES) {
       setError("Choose a photo smaller than 12 MB.");
       return;
@@ -124,7 +122,7 @@ function CapturePage({
     } catch (preparationError) {
       if (requestId === preparationId.current)
         setError(
-          preparationError instanceof RangeError
+          preparationError instanceof Error
             ? preparationError.message
             : "This photo could not be prepared locally. Choose another image.",
         );
@@ -165,7 +163,7 @@ function CapturePage({
             alt={`Preview of ${config.title.toLowerCase()}, measurement ${sample}`}
             onError={() =>
               setError(
-                "This browser could not display the selected photo. Choose JPEG, PNG, or WebP.",
+                `This browser could not display the selected photo. Choose ${COMMON_IMAGE_FORMATS}.`,
               )
             }
           />
@@ -186,7 +184,7 @@ function CapturePage({
         type="file"
         tabIndex={-1}
         aria-label={`Choose measurement ${sample} photo for ${config.title.toLowerCase()}`}
-        accept="image/jpeg,image/png,image/webp"
+        accept={IMAGE_FILE_ACCEPT}
         capture="environment"
         onChange={(event) => {
           const file = event.target.files?.[0];

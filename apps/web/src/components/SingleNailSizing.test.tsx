@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as imagePreparation from "../imagePreparation";
 import type {
   AutomaticHandAnalysis,
@@ -11,7 +17,42 @@ import type {
 import { SingleNailSizing } from "./SingleNailSizing";
 
 vi.mock("./AutomaticReviewSurface", () => ({
-  AutomaticReviewSurface: () => <div aria-label="Detected nail overlay" />,
+  AutomaticReviewSurface: ({
+    onWidthLineChange,
+  }: {
+    onWidthLineChange: (
+      digit: "thumb",
+      line: {
+        start: { x: number; y: number };
+        end: { x: number; y: number };
+      },
+    ) => void;
+  }) => (
+    <div aria-label="Detected nail overlay">
+      <button
+        type="button"
+        onClick={() =>
+          onWidthLineChange("thumb", {
+            start: { x: 100, y: 100 },
+            end: { x: 300, y: 100 },
+          })
+        }
+      >
+        Move outside supported width
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onWidthLineChange("thumb", {
+            start: { x: 100, y: 100 },
+            end: { x: 200, y: 100 },
+          })
+        }
+      >
+        Restore supported width
+      </button>
+    </div>
+  ),
 }));
 
 function acceptedAnalysis(): AutomaticHandAnalysis {
@@ -57,6 +98,8 @@ beforeEach(() => {
   });
 });
 
+afterEach(cleanup);
+
 describe("single-nail sizing", () => {
   it("analyzes one photo with the selected digit and assumed reference", async () => {
     const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
@@ -66,8 +109,12 @@ describe("single-nail sizing", () => {
     render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
 
     const button = screen.getByRole("button", { name: /find my nail size/i });
+    const fileInput = document.querySelector('input[type="file"]')!;
+    expect(fileInput.getAttribute("accept")).toMatch(
+      /\.heic.*\.avif.*\.gif.*\.bmp/i,
+    );
     expect(button).toBeDisabled();
-    fireEvent.change(document.querySelector('input[type="file"]')!, {
+    fireEvent.change(fileInput, {
       target: {
         files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
       },
@@ -122,6 +169,62 @@ describe("single-nail sizing", () => {
     expect(
       screen.getByRole("button", { name: /tap the centre/i }),
     ).toBeVisible();
-    expect(screen.queryByText(/place all eight markers/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/place all eight markers/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the review mounted when a sidewall edit is outside 5–25 mm", async () => {
+    const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
+      status: "accepted",
+      analysis: acceptedAnalysis(),
+    }));
+    render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
+
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: {
+        files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
+      },
+    });
+    await screen.findByAltText("Selected nail preview");
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /exactly 23\.00 mm/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /find my nail size/i }));
+    await screen.findByRole("heading", { name: /best-fit size 4/i });
+    fireEvent.click(
+      screen.getByRole("button", { name: /accept this result/i }),
+    );
+    expect(
+      screen.getByRole("button", { name: /copy text-only result/i }),
+    ).toBeVisible();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /move outside supported width/i }),
+    );
+
+    expect(
+      screen.getByText(/outside the supported 5–25 mm range/i),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: /best-fit size 4/i }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Detected nail overlay")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /accept this result/i }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: /copy text-only result/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /restore supported width/i }),
+    );
+    expect(
+      screen.queryByText(/outside the supported 5–25 mm range/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /accept this result/i }),
+    ).toBeEnabled();
   });
 });

@@ -6,7 +6,7 @@ import {
   type PointerEvent,
 } from "react";
 import type { Digit } from "../guidedSizing";
-import { prepareImage } from "../imagePreparation";
+import { IMAGE_FILE_ACCEPT, prepareImage } from "../imagePreparation";
 import {
   analyzeAutomaticPhoto,
   completeAutomaticPhotoWithCoin,
@@ -73,7 +73,8 @@ export function SingleNailSizing({
   useEffect(
     () => () => {
       requestId.current += 1;
-      if (captureRef.current) URL.revokeObjectURL(captureRef.current.previewUrl);
+      if (captureRef.current)
+        URL.revokeObjectURL(captureRef.current.previewUrl);
       if (analysisRef.current) releaseAutomaticAnalysis(analysisRef.current);
       if (coinReviewRef.current)
         releaseCoinReviewContext(coinReviewRef.current);
@@ -219,7 +220,7 @@ export function SingleNailSizing({
           <input
             className="visually-hidden"
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={IMAGE_FILE_ACCEPT}
             capture="environment"
             disabled={preparing}
             onChange={(event) => void selectPhoto(event)}
@@ -243,7 +244,9 @@ export function SingleNailSizing({
       <div className="page processing-page">
         <Eyebrow>Private on-device analysis</Eyebrow>
         <h1>Finding your nail size.</h1>
-        <p className="lede">{STAGE_LABEL[stage]}. Your photo is not uploaded.</p>
+        <p className="lede">
+          {STAGE_LABEL[stage]}. Your photo is not uploaded.
+        </p>
       </div>
     );
 
@@ -310,11 +313,34 @@ export function SingleNailSizing({
   }
 
   if (!analysis || !capture) return null;
-  const measurement = analysis.measurements[0];
+  const currentAnalysis = analysis;
+  const measurement = currentAnalysis.measurements[0];
   const unresolved = measurement.needsReview;
   const resultLabel = measurement.recommendedSize
     ? `Best-fit size ${measurement.recommendedSize}`
     : "Outside the provisional chart";
+
+  function updateWidthLine(widthLine: {
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+  }) {
+    setPhase("review");
+    try {
+      const updated = recalculateAutomaticMeasurement(
+        measurement,
+        widthLine,
+        currentAnalysis.calibration,
+      );
+      setAnalysis({ ...currentAnalysis, measurements: [updated] });
+      setError("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "That line cannot produce a supported nail width.",
+      );
+    }
+  }
 
   async function copy() {
     try {
@@ -348,6 +374,7 @@ export function SingleNailSizing({
           sidewalls before accepting the result.
         </StatusMessage>
       )}
+      {error && <StatusMessage tone="error">{error}</StatusMessage>}
       <AutomaticReviewSurface
         previewUrl={capture.previewUrl}
         image={analysis.image}
@@ -356,22 +383,7 @@ export function SingleNailSizing({
         measurements={analysis.measurements}
         activeDigit={digit}
         onSelectDigit={() => undefined}
-        onWidthLineChange={(_, widthLine) => {
-          setAnalysis((current) =>
-            current
-              ? {
-                  ...current,
-                  measurements: [
-                    recalculateAutomaticMeasurement(
-                      current.measurements[0],
-                      widthLine,
-                      current.calibration,
-                    ),
-                  ],
-                }
-              : current,
-          );
-        }}
+        onWidthLineChange={(_, widthLine) => updateWidthLine(widthLine)}
       />
       <StatusMessage>
         Assumed reference: 23.00 mm. This beta has not passed representative
@@ -380,7 +392,10 @@ export function SingleNailSizing({
       </StatusMessage>
       <div className="action-stack">
         {phase === "review" ? (
-          <Button disabled={unresolved} onClick={() => setPhase("result")}>
+          <Button
+            disabled={unresolved || Boolean(error)}
+            onClick={() => setPhase("result")}
+          >
             Accept this result
           </Button>
         ) : (

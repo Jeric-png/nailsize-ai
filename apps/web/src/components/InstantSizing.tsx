@@ -7,7 +7,7 @@ import {
   type PointerEvent,
 } from "react";
 import type { Digit } from "../guidedSizing";
-import { prepareImage } from "../imagePreparation";
+import { IMAGE_FILE_ACCEPT, prepareImage } from "../imagePreparation";
 import {
   analyzeAutomaticPhoto,
   completeAutomaticPhotoWithCoin,
@@ -546,7 +546,7 @@ function CaptureTwoHands({
             <input
               className="visually-hidden"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={IMAGE_FILE_ACCEPT}
               capture="environment"
               disabled={preparingSide !== null}
               onChange={(event) => onSelect(side, event)}

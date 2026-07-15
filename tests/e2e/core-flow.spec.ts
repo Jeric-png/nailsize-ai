@@ -8,6 +8,16 @@ const captureDigits = {
   right_thumb: ["thumb"],
 } as const;
 
+const commonImageFixtures = [
+  "synthetic.jpg",
+  "synthetic.png",
+  "synthetic.webp",
+  "synthetic.heic",
+  "synthetic.avif",
+  "synthetic.gif",
+  "synthetic.bmp",
+] as const;
+
 async function expectNoSeriousAccessibilityViolations(page: Page) {
   const scan = await new AxeBuilder({ page }).analyze();
   expect(
@@ -431,6 +441,64 @@ test("automatic sizing needs only one local photo before analysis", async ({
   await expectNoSeriousAccessibilityViolations(page);
 });
 
+test("common photo formats normalize locally without an upload", async ({
+  browserName,
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const requests: Array<{ method: string; url: string }> = [];
+  page.on("request", (request) =>
+    requests.push({ method: request.method(), url: request.url() }),
+  );
+  await page.goto("/instant");
+  const input = page.locator('input[type="file"]');
+  const preview = page.getByAltText("Selected nail preview");
+
+  await input.setInputFiles({
+    name: "camera-upload",
+    mimeType: "application/octet-stream",
+    buffer: await syntheticPhotoBytes(page, ++syntheticPhotoSequence),
+  });
+  await expect(preview).toBeVisible();
+  await expect
+    .poll(() =>
+      preview.evaluate((image: HTMLImageElement) => [
+        image.naturalWidth,
+        image.naturalHeight,
+      ]),
+    )
+    .toEqual([600, 800]);
+
+  for (const fixture of commonImageFixtures) {
+    if (fixture === "synthetic.heic")
+      expect(requests.some(({ url }) => url.includes("heic-to"))).toBe(false);
+    await expect(input).toBeEnabled();
+    const previousSource = await preview.getAttribute("src");
+    await input.setInputFiles(`tests/fixtures/common-images/${fixture}`);
+    await expect(preview).toBeVisible();
+    await expect
+      .poll(() => preview.getAttribute("src"))
+      .not.toBe(previousSource);
+    await expect
+      .poll(() =>
+        preview.evaluate((image: HTMLImageElement) => [
+          image.naturalWidth,
+          image.naturalHeight,
+        ]),
+      )
+      .toEqual([64, 48]);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    if (fixture === "synthetic.heic" && browserName === "chromium")
+      expect(requests.some(({ url }) => url.includes("heic-to"))).toBe(true);
+  }
+
+  const appOrigin = new URL(page.url()).origin;
+  expect(requests.every(({ url }) => new URL(url).origin === appOrigin)).toBe(
+    true,
+  );
+  expect(requests.every(({ method }) => method === "GET")).toBe(true);
+});
+
 test("automatic sizing loads the pinned runtime locally without a silent result", async ({
   page,
 }) => {
@@ -510,7 +578,9 @@ test("unsupported local files receive an actionable replacement path", async ({
     buffer: Buffer.from("not-a-browser-image"),
   });
   await expect(
-    page.getByText(/Choose a JPEG, PNG, or WebP photo/),
+    page.getByText(
+      /Choose a JPEG, PNG, WebP, HEIC\/HEIF, AVIF, GIF, or BMP photo/,
+    ),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Mark coin rim" }),

@@ -256,6 +256,19 @@ function PrivacyNotice() {
           . Its source card identifies CC BY 4.0; public distribution remains
           subject to the project&apos;s recorded license review.
         </p>
+        <p className="fine-print">
+          When the browser cannot open HEIC/HEIF itself, the site runs the
+          same-origin{" "}
+          <a href="https://github.com/hoppergee/heic-to/tree/v1.5.2">
+            heic-to 1.5.2 decoder
+          </a>{" "}
+          (
+          <a href="https://github.com/hoppergee/heic-to/blob/v1.5.2/LICENSE">
+            LGPL-3.0
+          </a>
+          ) locally. The selected photo is not sent to that project or any
+          service.
+        </p>
       </Card>
       <Link className="button button--secondary" to="/">
         Return home

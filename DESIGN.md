@@ -15,7 +15,7 @@ This beta optimizes for a short upload-to-result journey. It does not identify c
 
 ## Experience contract
 
-1. Choose the nail and upload one JPEG, PNG, or WebP photo.
+1. Choose the nail and upload one common photo format: JPEG/JFIF, PNG, WebP, HEIC/HEIF, AVIF, GIF, or BMP.
 2. Confirm the explicit `23.00 mm` reference assumption.
 3. Run the pinned nail model and deterministic coin/width geometry locally.
 4. If automatic reference selection is ambiguous, ask for one tap at its centre and fit the rim automatically. Never require eight rim markers in this route.
@@ -38,7 +38,7 @@ The user may replace the photo or restart at any time. Failures must not silentl
 - React, TypeScript, Vite, plain CSS, and static Vercel hosting.
 - ONNX Runtime Web and pinned same-origin model/WASM assets; no OpenAI API, server inference, database, account, runtime secret, or image upload.
 - Automatic reference detection may be followed by a single centre tap. Nail correction uses only two width handles.
-- HEIC is not a supported product upload format. The supplied HEIC was converted locally to JPEG for functional testing and was never committed.
+- Common photo formats are normalized to metadata-free JPEG in browser memory. HEIC/HEIF uses native decoding where available and a lazy local decoder elsewhere; no selected photo is uploaded.
 - The pinned model has public attribution and exact hashes. The upstream card/embedded-license interpretation remains an open distribution review item.
 
 ## Validation boundaries

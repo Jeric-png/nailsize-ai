@@ -25,7 +25,7 @@ The automatic beta is experimental. It is functionally implemented but has not p
 ## Required flow
 
 1. Choose thumb, index, middle, ring, or little finger.
-2. Upload one JPEG, PNG, or WebP image up to 12 MB showing one bare nail and one complete round reference on the same plane.
+2. Upload one JPEG/JFIF, PNG, WebP, HEIC/HEIF, AVIF, GIF, or BMP image up to 12 MB showing one bare nail and one complete round reference on the same plane.
 3. Confirm: “Assume my round reference is exactly 23.00 mm.”
 4. Normalize the image and run same-origin ONNX/WASM inference locally.
 5. Propose the reference ellipse and nail width automatically.
@@ -50,7 +50,7 @@ Method identifier: `auto-assumed23-single-v0.1.0`.
 - Photos, contours, and measurements remain in volatile browser memory and are erased by reset/reload/close.
 - Runtime network traffic is limited to same-origin GET requests for versioned static assets.
 - No OpenAI key, Hugging Face runtime token, API route, database, object storage, or server image parser is required.
-- HEIC is not accepted; the supplied test image is converted locally to JPEG outside the product.
+- Common consumer/web photo formats are detected from their bytes rather than trusted MIME metadata. HEIC/HEIF decoding is native-first with a lazy, same-origin browser fallback; the photo still never leaves the device.
 
 ## Acceptance criteria
 

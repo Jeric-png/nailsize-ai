@@ -15,6 +15,7 @@ A candidate is technically ready only when the same commit satisfies all of the 
 - the beta requires explicit confirmation that the visible round reference should be assumed to be exactly `23.00 mm` and never claims to verify its denomination;
 - lifecycle tests cover object URL, decoded pixel, canvas, tensor, and session cleanup on replacement, failure, reset, reload, and unmount;
 - request-observing tests see only expected same-origin `GET` navigation and static-asset requests, with no photo/result request body;
+- synthetic JPEG, PNG, WebP, HEIC, AVIF, GIF, and BMP fixtures normalize successfully in current Chromium, Firefox, and WebKit without external or non-`GET` requests;
 - the retained guided fallback still passes its eight-point calibration, two-observation repeatability, targeted-retake, marker accessibility, and cleanup tests; and
 - current iOS Safari and Android Chrome remain required for release-quality capture/upload, local inference, review/correction, results, copy, reset, low-memory, and failure-recovery evidence.
 
@@ -23,6 +24,8 @@ Software tests establish implementation behavior, not real-world sizing accuracy
 ## Model distribution gate
 
 The candidate model card identifies CC BY 4.0, requires attribution, and the exported ONNX graph embeds AGPL-3.0 metadata. This public repository preserves upstream revision, source/export hashes, attribution, conversion details, and benchmark limitations in [`automatic-model-provenance.md`](automatic-model-provenance.md). The beta may be distributed with that notice, but long-term licensing interpretation remains an explicit project risk and must be reviewed before commercial reliance.
+
+The lazy HEIC/HEIF fallback is the pinned LGPL-3.0 `heic-to` package described in [`image-decoder-provenance.md`](image-decoder-provenance.md). Preserve its source/license notice and include it in the same distribution review; normal JPEG/PNG/WebP/AVIF/GIF/BMP visits do not load that chunk.
 
 ## Performance and usability gate
 

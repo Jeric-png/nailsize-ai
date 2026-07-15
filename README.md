@@ -6,7 +6,7 @@ The automatic route is `/instant`. It is an experimental sizing aid, not a valid
 
 ## Single-nail beta
 
-1. Choose the digit and upload one JPEG, PNG, or WebP photo containing one bare nail and one complete round reference.
+1. Choose the digit and upload one JPEG/JFIF, PNG, WebP, HEIC/HEIF, AVIF, GIF, or BMP photo containing one bare nail and one complete round reference.
 2. Confirm the `23.00 mm` reference assumption.
 3. The browser loads pinned same-origin ONNX/WASM assets, proposes the reference rim and nail boundary, and calculates projected width locally.
 4. If other circles or clutter confuse the detector, tap the reference centre once; the app fits the rim automatically. It never asks for eight rim markers in this route.
@@ -40,4 +40,4 @@ The product and design contracts are in [`PRD.md`](PRD.md) and [`DESIGN.md`](DES
 
 Vercel serves a static Vite artifact. There is no API route, inference server, database, OpenAI request, Hugging Face runtime dependency, or application secret. Deployment is performed by the protected GitHub Actions workflow after local and CI release checks pass.
 
-Selected photos are processed in browser memory and are not uploaded. HEIC is currently unsupported; convert it locally to JPEG, PNG, or WebP before selection.
+Selected photos are detected by file content, normalized in browser memory, and never uploaded. HEIC/HEIF uses native browser decoding when available and otherwise loads the pinned, same-origin `heic-to` fallback only for that photo type.
