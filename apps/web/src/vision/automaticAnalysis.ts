@@ -11,6 +11,7 @@ import {
   type HandSide,
 } from "./automaticSizing";
 import {
+  acceptBestEffortCoinEllipse,
   assessCoinEllipse,
   type CoinEllipseCalibration,
   type CoinEllipseProposal,
@@ -65,7 +66,9 @@ export const analyzeAutomaticPhoto: AutomaticPhotoAnalyzer = async (
         ),
       );
 
-    const assessed = assessCoinEllipse(suggestedEllipse, image);
+    const assessed = targetDigit
+      ? acceptBestEffortCoinEllipse(suggestedEllipse, image)
+      : assessCoinEllipse(suggestedEllipse, image);
     if (assessed.status === "rejected")
       return coinReviewOutcome(
         side,
@@ -83,7 +86,6 @@ export const analyzeAutomaticPhoto: AutomaticPhotoAnalyzer = async (
       detections,
       assessed.calibration,
       targetDigit,
-      suggestedEllipse,
     );
   } catch (cause) {
     releaseAutomaticPixels(image, detections);
@@ -123,7 +125,6 @@ export const completeAutomaticPhotoWithCoin: AutomaticCoinCompleter = (
     context.detections,
     assessed.calibration,
     context.targetDigit,
-    scored,
   );
 };
 
@@ -133,7 +134,6 @@ function finishSizing(
   detections: readonly YoloV8SegDetection[],
   calibration: CoinEllipseCalibration,
   targetDigit?: Digit,
-  suggestedEllipse: CoinEllipseProposal | null = null,
 ): AutomaticPhotoAnalysisOutcome {
   const sizing = targetDigit
     ? deriveAutomaticSingleNailSizing({
@@ -144,15 +144,6 @@ function finishSizing(
       })
     : deriveAutomaticHandSizing({ side, image, detections, calibration });
   if (sizing.status === "rejected") {
-    if (targetDigit)
-      return coinReviewOutcome(
-        side,
-        image,
-        detections,
-        suggestedEllipse,
-        targetDigit,
-        `${sizing.message} Tap the centre of the intended round reference once.`,
-      );
     releaseAutomaticPixels(image, detections);
     return sizing;
   }

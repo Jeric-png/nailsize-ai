@@ -2,7 +2,7 @@
 
 ## Candidate artifact
 
-- Purpose: visible, optionally editable nail-mask proposals used by the experimental `auto-assumed23-single-v0.1.0` product flow. The underlying artifact manifest retains its original pipeline version for compatibility; the artifact is not approved for accuracy claims or unattended fit guarantees.
+- Purpose: visible nail-mask proposals used by the experimental `auto-assumed23-single-v0.2.0` product flow. The underlying artifact manifest retains its original pipeline version for compatibility; the artifact is not approved for accuracy claims or fit guarantees.
 - Upstream repository: [`mnemic/nails_seg_yolov8`](https://huggingface.co/mnemic/nails_seg_yolov8), revision `187ebf22c110e38d4f9f60ff2b04b29629cff11c`.
 - Upstream file: `nails_seg_s_yolov8_v1.pt`.
 - Upstream file SHA-256: `99b7d1c6ceb4bde32d80fe7ae8c8eb809c27d99b55cf9db54b6692afe68f4070`.
@@ -21,7 +21,7 @@
 
 The candidate was evaluated on nine labelled public sample images containing 52 nail masks. At confidence `0.15`, it produced mean aggregate IoU `0.775`, minimum image IoU `0.495`, mean mask precision `0.837`, mean recall `0.893`, mean relative component-width error `7.0%`, p90 relative width error `13.5%`, and `76.9%` of component widths within `10%`.
 
-This is optimistic feasibility evidence only: the small sample may overlap the model's training domain, contains no coin-calibrated millimetre ground truth, and is not representative of target users or devices. It supports an experimental result with a visible, optional correction path, not automatic accuracy claims.
+This is optimistic feasibility evidence only: the small sample may overlap the model's training domain, contains no coin-calibrated millimetre ground truth, and is not representative of target users or devices. It supports an experimental best-effort result, not automatic accuracy claims.
 
 For comparison, the generic MediaPipe Interactive Segmenter was tested on the same 52 masks with an ideal interior seed. Its best tight-crop configuration produced mean IoU `0.565` and only `13.5%` of component widths within `10%`; it was rejected as the nail-boundary proposal model.
 

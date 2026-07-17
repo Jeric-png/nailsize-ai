@@ -2,17 +2,17 @@
 
 ## Product summary
 
-NailSize is a mobile-first, browser-only web application that turns one photo of one nail into one projected-width estimate and one conservative best-fit press-on suggestion. The user selects the digit and explicitly instructs the app to treat the round reference in the photo as exactly `23.00 mm`.
+NailSize is a mobile-first, browser-only web application that turns one photo of one nail beside a Singapore 50-cent coin into one best-fit press-on suggestion.
 
 The automatic beta is experimental. It is functionally implemented but has not passed representative physical sizing or supplier-tip validation.
 
 ## Goals
 
-- Reduce the journey to one digit selection, one photo, one reference confirmation, and one result.
+- Reduce the journey to one photo, one sizing action, and one result.
 - Run image processing and the pinned nail model locally in the browser.
-- Automatically propose the reference rim and nail width; request only a one-tap reference correction when the scale cannot be established.
-- Show the recommendation immediately after a usable detection and keep two-handle nail-width adjustment optional.
-- Return exactly one best-fit suggestion, or fail closed when the evidence is unusable.
+- Automatically detect the coin and nail without exposing calibration controls.
+- Show the recommendation immediately after a usable detection.
+- Return exactly one nearest best-fit suggestion, or request another photo when either object cannot be detected.
 - Preserve the manual guided flow as rollback.
 
 ## Non-goals
@@ -25,26 +25,23 @@ The automatic beta is experimental. It is functionally implemented but has not p
 
 ## Required flow
 
-1. Choose thumb, index, middle, ring, or little finger.
-2. Upload one JPEG/JFIF, PNG, WebP, HEIC/HEIF, AVIF, GIF, or BMP image up to 12 MB showing one bare nail and one complete round reference on the same plane.
-3. Confirm: “Assume my round reference is exactly 23.00 mm.”
-4. Normalize the image and run same-origin ONNX/WASM inference locally.
-5. Propose the reference ellipse and nail width automatically.
-6. When reference detection is ambiguous, ask for one centre tap and fit the rim automatically; do not ask for eight rim markers.
-7. Display one conservative best-fit suggestion or an out-of-chart result immediately after a usable detection.
-8. If confidence is lower, show a plain-language caution and offer two editable width markers as an optional correction. Never require this correction to reveal the result.
-9. Keep technical method and chart versions in the product documentation rather than the main customer result.
+1. Upload one JPEG/JFIF, PNG, WebP, HEIC/HEIF, AVIF, GIF, or BMP image up to 12 MB showing one bare nail and one complete Singapore 50-cent coin on the same plane.
+2. Select **Get my nail size**.
+3. Normalize the image and run same-origin ONNX/WASM inference locally.
+4. Detect the reference ellipse and nail width automatically.
+5. Display one nearest best-fit suggestion immediately after a usable detection, including for estimates beyond the provisional chart edges.
+6. If either object cannot be detected, return to upload with one plain retake message; do not ask the customer to confirm dimensions, select a finger, tap the coin, or edit markers.
+7. Keep technical method, confidence, width, uncertainty, and chart versions out of the main customer result.
 
 ## Measurement contract
 
-Method identifier: `auto-assumed23-single-v0.1.0`.
+Method identifier: `auto-assumed23-single-v0.2.0`.
 
-- The reference diameter is a user-supplied assumption of `23.00 mm`; the app does not prove it.
-- Automatic calibration fits the complete visible reference rim and rejects weak, cropped, or severely tilted geometry.
+- The reference diameter is an automatic product assumption of `23.00 mm`; the app does not prove it.
+- Automatic calibration uses the strongest confident round-reference proposal without customer quality review.
 - A pinned YOLOv8 segmentation artifact proposes nail masks. Its score is proposal metadata, not calibrated measurement confidence.
-- Deterministic geometry calculates projected transverse width. User-adjusted sidewalls replace the proposed width geometry.
-- Uncertainty includes reference fit and boundary uncertainty. A chart-boundary result remains one conservative suggestion with a borderline warning.
-- Results use provisional chart `platform-default@1` and record whether geometry was automatic or user-corrected.
+- Deterministic geometry calculates projected transverse width from the strongest usable nail mask.
+- Results use provisional chart `platform-default@1`; out-of-chart estimates map to the nearest available size 0 or 9.
 
 ## Privacy and architecture
 
@@ -56,9 +53,9 @@ Method identifier: `auto-assumed23-single-v0.1.0`.
 
 ## Acceptance criteria
 
-- One valid photo reaches one best-fit result without a second confirmation step.
-- Ambiguous reference detection requires at most one centre tap, not rim-by-rim marking.
-- Lower-confidence but usable nail geometry is shown with a caution and is optionally correctable through two width markers.
+- One valid photo and one action reach one best-fit result without choosing a digit, confirming the reference, or editing markers.
+- Lower-confidence but usable nail geometry remains non-blocking and produces one result.
+- The customer never sees calibration controls, confidence warnings, or an out-of-chart dead end.
 - Invalid files, stale jobs, checksum failures, decode errors, and unusable geometry fail closed and can be retried.
 - Reset/reload removes the session and object URLs are released.
 - Lint, typecheck, unit, build, artifact audit, E2E, compatibility, and dependency checks pass.

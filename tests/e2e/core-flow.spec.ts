@@ -418,12 +418,14 @@ test("automatic sizing needs only one local photo before analysis", async ({
   await page.goto("/instant");
 
   await expect(
-    page.getByRole("heading", { name: /upload one nail photo/i }),
+    page.getByRole("heading", { name: /upload one photo/i }),
   ).toBeVisible();
-  const start = page.getByRole("button", { name: "Find my nail size" });
+  const start = page.getByRole("button", { name: "Get my nail size" });
   await expect(start).toBeDisabled();
   const inputs = page.locator('input[type="file"]');
   await expect(inputs).toHaveCount(1);
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("combobox")).toHaveCount(0);
   await inputs.setInputFiles({
     name: "single-nail.png",
     mimeType: "image/png",
@@ -431,7 +433,6 @@ test("automatic sizing needs only one local photo before analysis", async ({
   });
   await expect(page.getByAltText("Selected nail preview")).toBeVisible();
 
-  await page.getByRole("checkbox", { name: /exactly 23\.00 mm/i }).check();
   await expect(start).toBeEnabled();
   expect(requestedUrls.some((url) => url.includes("/models/"))).toBe(false);
   const appOrigin = new URL(page.url()).origin;
@@ -513,15 +514,14 @@ test("automatic sizing loads the pinned runtime locally without a silent result"
     mimeType: "image/png",
     buffer: await syntheticPhotoBytes(page, ++syntheticPhotoSequence),
   });
-  await page.getByRole("checkbox", { name: /exactly 23\.00 mm/i }).check();
-  await page.getByRole("button", { name: "Find my nail size" }).click();
+  await page.getByRole("button", { name: "Get my nail size" }).click();
   await expect(
-    page.getByRole("heading", { name: /finding your nail size/i }),
+    page.getByRole("heading", { name: /getting your nail size/i }),
   ).toBeVisible();
 
   await expect(
     page.getByRole("heading", {
-      name: /upload one nail photo|tap the round reference once|recommended size|no size recommendation available/i,
+      name: /upload one photo|recommended press-on size/i,
     }),
   ).toBeVisible({ timeout: 60_000 });
 

@@ -1,18 +1,18 @@
 # NailSize Guide
 
-NailSize Guide is a browser-only web application that turns one photo of one nail into a **projected planar width** and one conservative best-fit suggestion. The user selects the digit and explicitly asks the app to treat the round reference in the photo as exactly `23.00 mm`.
+NailSize Guide is a browser-only web application that turns one photo of one nail beside a Singapore 50-cent coin into one best-fit press-on size suggestion.
 
 The automatic route is `/instant`. It is an experimental sizing aid, not a validated accuracy or fit guarantee. The manual `guided-sg50-coin-v1` workflow remains available as rollback.
 
 ## Single-nail beta
 
-1. Choose the digit and upload one JPEG/JFIF, PNG, WebP, HEIC/HEIF, AVIF, GIF, or BMP photo containing one bare nail and one complete round reference.
-2. Confirm the `23.00 mm` reference assumption.
-3. The browser loads pinned same-origin ONNX/WASM assets, proposes the reference rim and nail boundary, and calculates projected width locally.
-4. If other circles or clutter confuse the detector, tap the reference centre once; the app fits the rim automatically. It never asks for eight rim markers in this route.
-5. Receive one best-fit suggestion or an out-of-chart result immediately. Adjusting the detected nail width is optional.
+1. Upload one JPEG/JFIF, PNG, WebP, HEIC/HEIF, AVIF, GIF, or BMP photo containing one bare nail and one complete Singapore 50-cent coin.
+2. Select **Get my nail size**.
+3. The browser loads pinned same-origin ONNX/WASM assets, detects the coin and nail boundary, and calculates a projected width locally.
+4. Receive one best-fit size. The nearest size `0–9` is used even when the photo estimate falls beyond the provisional chart.
+5. If either object cannot be found, the only recovery is a plain request for another photo; the customer is never asked to place calibration markers.
 
-The app does not identify the coin or verify its diameter. Using a different-size object while confirming `23.00 mm` scales the result incorrectly.
+The app treats the automatically detected round object as a 23 mm Singapore 50-cent coin; it does not verify the denomination. Using a different-size object scales the result incorrectly.
 
 ## Accuracy and model status
 

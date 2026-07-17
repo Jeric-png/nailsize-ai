@@ -77,9 +77,8 @@ function Landing() {
       <Eyebrow>One-photo press-on nail sizing</Eyebrow>
       <h1>Upload one nail photo. Get one best-fit suggestion.</h1>
       <p className="lede">
-        Photograph one bare nail beside a round reference that you confirm is
-        23.00 mm across. The app detects both privately on your device, shows
-        the proposed width line, then selects one conservative size.
+        Photograph one bare nail beside a Singapore 50-cent coin. The app
+        detects both privately on your device and recommends one press-on size.
       </p>
       <div className="hero-placeholder" aria-hidden="true">
         <span>1 PHOTO → 1 BEST-FIT SUGGESTION</span>
@@ -89,8 +88,8 @@ function Landing() {
         <ul className="check-list">
           <li>Bare, natural nails</li>
           <li>Bright, even lighting</li>
-          <li>One round reference treated as exactly 23.00 mm</li>
-          <li>One photo, then your result</li>
+          <li>One Singapore 50-cent coin beside the nail</li>
+          <li>One photo and one sizing button</li>
         </ul>
       </Card>
       <Link className="button" to="/instant">
@@ -100,8 +99,8 @@ function Landing() {
         Need the manual fallback? Use guided measurement
       </Link>
       <p className="fine-print">
-        Experimental beta: the reference diameter is assumed, not verified.
-        Projected width does not measure strong curvature or guarantee fit.
+        Experimental best-fit estimate. Nail shape and tip brands can affect
+        fit.
       </p>
     </div>
   );

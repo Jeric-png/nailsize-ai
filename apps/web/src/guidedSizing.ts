@@ -367,6 +367,21 @@ export function recommendSize(widthMm: number): string | null {
   return CHART[recommendedIndex].size;
 }
 
+/**
+ * Returns the closest available press-on size for a photo estimate.
+ * Automatic single-nail sizing is intentionally best-effort, so estimates
+ * outside the chart use its widest or narrowest available tip.
+ */
+export function recommendClosestSize(widthMm: number): string | null {
+  if (!Number.isFinite(widthMm)) return null;
+  return CHART.reduce((closest, entry) =>
+    Math.abs(entry.widthMm - widthMm) <
+    Math.abs(closest.widthMm - widthMm)
+      ? entry
+      : closest,
+  ).size;
+}
+
 function createCoinCalibration(
   markers: CoinMarkers,
   dimensions: ImageDimensions,

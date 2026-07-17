@@ -18,46 +18,17 @@ import { SingleNailSizing } from "./SingleNailSizing";
 
 vi.mock("./AutomaticReviewSurface", () => ({
   AutomaticReviewSurface: ({
-    onWidthLineChange,
-    editable = true,
+    editable,
+    showDetails,
   }: {
-    onWidthLineChange: (
-      digit: "thumb",
-      line: {
-        start: { x: number; y: number };
-        end: { x: number; y: number };
-      },
-    ) => void;
     editable?: boolean;
+    showDetails?: boolean;
   }) => (
-    <div aria-label="Detected nail overlay">
-      {editable && (
-        <>
-          <button
-            type="button"
-            onClick={() =>
-              onWidthLineChange("thumb", {
-                start: { x: 100, y: 100 },
-                end: { x: 300, y: 100 },
-              })
-            }
-          >
-            Move outside supported width
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onWidthLineChange("thumb", {
-                start: { x: 100, y: 100 },
-                end: { x: 200, y: 100 },
-              })
-            }
-          >
-            Restore supported width
-          </button>
-        </>
-      )}
-    </div>
+    <div
+      aria-label="Detected nail overlay"
+      data-editable={String(editable)}
+      data-show-details={String(showDetails)}
+    />
   ),
 }));
 
@@ -78,7 +49,7 @@ function acceptedAnalysis(): AutomaticHandAnalysis {
     detections: [],
     measurements: [
       {
-        digit: "thumb",
+        digit: "index",
         source: "automatic",
         detectionIndex: 0,
         confidence: 0.9,
@@ -92,6 +63,20 @@ function acceptedAnalysis(): AutomaticHandAnalysis {
       },
     ],
   };
+}
+
+function uploadPhoto() {
+  fireEvent.change(document.querySelector('input[type="file"]')!, {
+    target: {
+      files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
+    },
+  });
+}
+
+async function uploadAndAnalyze() {
+  uploadPhoto();
+  await screen.findByAltText("Selected nail preview");
+  fireEvent.click(screen.getByRole("button", { name: /get my nail size/i }));
 }
 
 beforeEach(() => {
@@ -111,67 +96,62 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("single-nail sizing", () => {
-  it("analyzes one photo with the selected digit and assumed reference", async () => {
+  it("needs only one photo and one action to show a recommended size", async () => {
     const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
       status: "accepted",
       analysis: acceptedAnalysis(),
     }));
     render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
 
-    const button = screen.getByRole("button", { name: /find my nail size/i });
-    const fileInput = document.querySelector('input[type="file"]')!;
-    expect(fileInput.getAttribute("accept")).toMatch(
+    expect(
+      screen.getByRole("heading", { name: /upload one photo/i }),
+    ).toBeVisible();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /get my nail size/i }),
+    ).toBeDisabled();
+    const input = document.querySelector('input[type="file"]')!;
+    expect(input.getAttribute("accept")).toMatch(
       /\.heic.*\.avif.*\.gif.*\.bmp/i,
     );
-    expect(button).toBeDisabled();
-    fireEvent.change(fileInput, {
-      target: {
-        files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
-      },
-    });
-    await screen.findByAltText("Selected nail preview");
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /exactly 23\.00 mm/i }),
-    );
-    expect(button).toBeEnabled();
-    fireEvent.click(button);
 
-    await screen.findByRole("heading", { name: /recommended size: 4/i });
+    await uploadAndAnalyze();
+
+    await screen.findByRole("heading", {
+      name: /recommended press-on size: 4/i,
+    });
     expect(analyzePhoto).toHaveBeenCalledWith(
       "right",
       expect.any(File),
       expect.any(Function),
-      "thumb",
+      "index",
     );
-    expect(screen.getByLabelText("Detected nail overlay")).toBeVisible();
-    expect(screen.getByRole("button", { name: /copy result/i })).toBeVisible();
+    const preview = screen.getByLabelText("Detected nail overlay");
+    expect(preview).toHaveAttribute("data-editable", "false");
+    expect(preview).toHaveAttribute("data-show-details", "false");
     expect(
-      screen.getByRole("button", { name: /adjust detected width/i }),
-    ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: /save adjustment/i }),
+      screen.queryByRole("button", { name: /adjust|save|keep detected/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /move outside supported width/i }),
+      screen.queryByText(/millimet|uncertain|check width/i),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/may vary by about 0\.3 mm/i)).toBeVisible();
-    expect(screen.queryByText(/method:/i)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /copy result/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /copy size/i }));
     await waitFor(() =>
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /estimated visible width from this photo: 14\.2 mm, with about 0\.3 mm/i,
-        ),
+        "Recommended press-on nail size: 4",
       ),
     );
+    expect(screen.getByText("Size copied.")).toBeVisible();
   });
 
-  it("uses one centre tap instead of opening manual rim markers", async () => {
+  it("turns an automatic coin miss into one plain retry action", async () => {
     const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
       status: "coin-review",
       context: {
         side: "right",
-        targetDigit: "thumb",
+        targetDigit: "index",
         image: { width: 640, height: 480, data: new Uint8ClampedArray(0) },
         detections: [],
         suggestedEllipse: null,
@@ -179,162 +159,100 @@ describe("single-nail sizing", () => {
       },
     }));
     render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
-    fireEvent.change(document.querySelector('input[type="file"]')!, {
-      target: {
-        files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
-      },
-    });
-    await screen.findByAltText("Selected nail preview");
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /exactly 23\.00 mm/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /find my nail size/i }));
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole("heading", { name: /tap the round reference once/i }),
-      ).toBeVisible(),
-    );
+    await uploadAndAnalyze();
+
     expect(
-      screen.getByRole("button", { name: /tap the centre/i }),
+      await screen.findByText(
+        /could not clearly find both the nail and 50-cent coin/i,
+      ),
     ).toBeVisible();
-    expect(
-      screen.queryByText(/place all eight markers/i),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("Try another photo")).toBeVisible();
+    expect(screen.queryByText(/tap the|marker|rim/i)).not.toBeInTheDocument();
   });
 
-  it("keeps an optional adjustment recoverable when an edit is outside 5–25 mm", async () => {
-    const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
-      status: "accepted",
-      analysis: acceptedAnalysis(),
-    }));
-    render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
-
-    fireEvent.change(document.querySelector('input[type="file"]')!, {
-      target: {
-        files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
-      },
-    });
-    await screen.findByAltText("Selected nail preview");
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /exactly 23\.00 mm/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /find my nail size/i }));
-    await screen.findByRole("heading", { name: /recommended size: 4/i });
-    fireEvent.click(
-      screen.getByRole("button", { name: /adjust detected width/i }),
-    );
-    expect(
-      screen.getByRole("heading", { name: /check the detected nail width/i }),
-    ).toBeVisible();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /move outside supported width/i }),
-    );
-
-    expect(
-      screen.getByText(/outside the supported 5–25 mm range/i),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: /check the detected nail width/i }),
-    ).toBeVisible();
-    expect(screen.getByLabelText("Detected nail overlay")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: /save adjustment/i }),
-    ).toBeDisabled();
-    expect(
-      screen.queryByRole("button", { name: /copy result/i }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /restore supported width/i }),
-    );
-    expect(
-      screen.queryByText(/outside the supported 5–25 mm range/i),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /save adjustment/i }),
-    ).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: /save adjustment/i }));
-    expect(screen.getByRole("button", { name: /copy result/i })).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: /restore supported width/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("shows a lower-confidence detection as a result without forcing adjustment", async () => {
+  it("shows a lower-confidence detection without asking for confirmation", async () => {
     const accepted = acceptedAnalysis();
-    const lowConfidence: AutomaticHandAnalysis = {
-      ...accepted,
-      measurements: [
-        {
-          ...accepted.measurements[0],
-          needsReview: true,
-          reviewReasons: ["low outline confidence"],
-        },
-      ],
-    };
     const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
       status: "accepted",
-      analysis: lowConfidence,
+      analysis: {
+        ...accepted,
+        measurements: [
+          {
+            ...accepted.measurements[0],
+            needsReview: true,
+            reviewReasons: ["low outline confidence"],
+          },
+        ],
+      },
     }));
     render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
 
-    fireEvent.change(document.querySelector('input[type="file"]')!, {
-      target: {
-        files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
-      },
-    });
-    await screen.findByAltText("Selected nail preview");
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /exactly 23\.00 mm/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /find my nail size/i }));
+    await uploadAndAnalyze();
 
-    await screen.findByRole("heading", { name: /recommended size: 4/i });
+    await screen.findByRole("heading", {
+      name: /recommended press-on size: 4/i,
+    });
     expect(
-      screen.getByText(/less certain about the nail edges/i),
-    ).toBeVisible();
-    expect(screen.getByRole("button", { name: /copy result/i })).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: /save adjustment/i }),
+      screen.queryByText(/less certain|confirm|adjust/i),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /copy size/i })).toBeVisible();
   });
 
-  it("restores the detected measurement when optional changes are discarded", async () => {
+  it("derives the nearest best-fit size if a legacy result has no recommendation", async () => {
+    const accepted = acceptedAnalysis();
+    const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
+      status: "accepted",
+      analysis: {
+        ...accepted,
+        measurements: [{ ...accepted.measurements[0], recommendedSize: null }],
+      },
+    }));
+    render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
+
+    await uploadAndAnalyze();
+
+    expect(
+      await screen.findByRole("heading", {
+        name: /recommended press-on size: 4/i,
+      }),
+    ).toBeVisible();
+  });
+
+  it("clears the old photo if a replacement cannot be prepared", async () => {
+    render(<SingleNailSizing />);
+    uploadPhoto();
+    await screen.findByAltText("Selected nail preview");
+
+    vi.mocked(imagePreparation.prepareImage).mockRejectedValueOnce(
+      new Error("decode failed"),
+    );
+    uploadPhoto();
+
+    expect(
+      await screen.findByText(/could not read that photo/i),
+    ).toBeVisible();
+    expect(screen.queryByAltText("Selected nail preview")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /get my nail size/i }),
+    ).toBeDisabled();
+  });
+
+  it("returns to the upload screen with one button", async () => {
     const analyzePhoto = vi.fn<AutomaticPhotoAnalyzer>(async () => ({
       status: "accepted",
       analysis: acceptedAnalysis(),
     }));
     render(<SingleNailSizing analyzePhoto={analyzePhoto} />);
-
-    fireEvent.change(document.querySelector('input[type="file"]')!, {
-      target: {
-        files: [new File(["nail"], "nail.jpg", { type: "image/jpeg" })],
-      },
+    await uploadAndAnalyze();
+    await screen.findByRole("heading", {
+      name: /recommended press-on size: 4/i,
     });
-    await screen.findByAltText("Selected nail preview");
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /exactly 23\.00 mm/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /find my nail size/i }));
-    await screen.findByRole("heading", { name: /recommended size: 4/i });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /adjust detected width/i }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: /restore supported width/i }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: /keep detected result/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /size another nail/i }));
 
     expect(
-      screen.getByRole("heading", { name: /recommended size: 4/i }),
-    ).toBeVisible();
-    expect(
-      screen.getByText(/estimated visible width of your thumb nail: 14\.2 mm/i),
+      screen.getByRole("heading", { name: /upload one photo/i }),
     ).toBeVisible();
   });
 });

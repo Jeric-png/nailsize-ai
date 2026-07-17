@@ -79,6 +79,24 @@ describe("automatic hand sizing", () => {
     expect(result.measurements[0]).not.toHaveProperty("alternateSize");
   });
 
+  it("returns the closest available size for an out-of-chart photo estimate", () => {
+    const result = deriveAutomaticSingleNailSizing({
+      digit: "index",
+      image: { width: 700, height: 600 },
+      detections: [nailDetection(280)],
+      calibration: {
+        ...calibration,
+        majorRadiusPx: 400,
+        minorRadiusPx: 400,
+      },
+    });
+
+    expect(result.status).toBe("accepted");
+    if (result.status !== "accepted") return;
+    expect(result.measurements[0].projectedWidthMm).toBeLessThan(5);
+    expect(result.measurements[0].recommendedSize).toBe("9");
+  });
+
   it("labels five left-hand nails by the required capture orientation", () => {
     const result = deriveAutomaticHandSizing({
       side: "left",

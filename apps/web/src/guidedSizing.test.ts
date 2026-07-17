@@ -7,6 +7,7 @@ import {
   formatRepeatDeltaMm,
   isCaptureConsistent,
   measureSample,
+  recommendClosestSize,
   recommendSize,
   validateCoinCalibration,
   validateRenderedCoinSize,
@@ -370,6 +371,14 @@ describe("repeatability and size mapping", () => {
     expect(recommendSize(15.2)).toBe("2");
     expect(recommendSize(8.9)).toBeNull();
     expect(recommendSize(18.1)).toBeNull();
+  });
+
+  it("chooses the nearest chart edge for a best-effort photo estimate", () => {
+    expect(recommendClosestSize(14.2)).toBe("4");
+    expect(recommendClosestSize(14.5)).toBe("3");
+    expect(recommendClosestSize(5.7)).toBe("9");
+    expect(recommendClosestSize(25)).toBe("0");
+    expect(recommendClosestSize(Number.NaN)).toBeNull();
   });
 
   it("uses the wider repeat for the press-on recommendation", () => {

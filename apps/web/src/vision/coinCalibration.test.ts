@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  acceptBestEffortCoinEllipse,
   assessCoinEllipse,
+  estimateWidthWithCoinEllipse,
   measureWidthWithCoinEllipse,
   type CoinEllipseCalibration,
   type CoinEllipseProposal,
@@ -100,6 +102,20 @@ describe("automatic 50-cent ellipse calibration", () => {
     ).toMatchObject({ status: "rejected", code: "fit_uncertain" });
   });
 
+  it("accepts a detected coin for best-effort sizing without quality questions", () => {
+    const result = acceptBestEffortCoinEllipse(
+      proposal({
+        majorRadiusPx: 55,
+        minorRadiusPx: 30,
+        rimCoverage: 0.5,
+        normalizedResidual: 0.1,
+      }),
+      image,
+    );
+
+    expect(result.status).toBe("accepted");
+  });
+
   it("rejects implausible widths and a reference too far from the nail", () => {
     const calibration = accepted(
       proposal({ majorRadiusPx: 115, minorRadiusPx: 115 }),
@@ -118,6 +134,13 @@ describe("automatic 50-cent ellipse calibration", () => {
         calibration,
       ),
     ).toThrow(/beside/);
+    expect(
+      estimateWidthWithCoinEllipse(
+        { x: 300, y: 350 },
+        { x: 330, y: 350 },
+        calibration,
+      ).widthMm,
+    ).toBeLessThan(5);
   });
 
   it("includes the larger fit, resolution, or coin-tolerance uncertainty", () => {

@@ -25,6 +25,7 @@ interface AutomaticReviewSurfaceProps {
   measurements: readonly AutomaticNailMeasurement[];
   activeDigit: Digit | null;
   editable?: boolean;
+  showDetails?: boolean;
   onSelectDigit: (digit: Digit) => void;
   onWidthLineChange: (digit: Digit, line: NailWidthLine) => void;
 }
@@ -37,6 +38,7 @@ export function AutomaticReviewSurface({
   measurements,
   activeDigit,
   editable = true,
+  showDetails = true,
   onSelectDigit,
   onWidthLineChange,
 }: AutomaticReviewSurfaceProps) {
@@ -209,44 +211,46 @@ export function AutomaticReviewSurface({
             )}
         </div>
       </div>
-      <div
-        className={`automatic-review-list${measurements.length === 1 ? " automatic-review-list--single" : ""}`}
-        aria-label="Detected nails"
-      >
-        {measurements.map((measurement) => {
-          const content = (
-            <>
-              <span>{measurement.digit}</span>
-              <strong>{measurement.projectedWidthMm.toFixed(1)} mm</strong>
-              <small>
-                {measurement.needsReview
-                  ? editable
-                    ? "Check width"
-                    : "Estimate"
-                  : measurement.source === "user-corrected"
-                    ? "Adjusted"
-                    : "Detected"}
-              </small>
-            </>
-          );
-          const className = `automatic-review-list__item${measurement.needsReview ? " needs-review" : ""}`;
-          return editable ? (
-            <button
-              key={measurement.digit}
-              type="button"
-              aria-pressed={activeDigit === measurement.digit}
-              className={className}
-              onClick={() => onSelectDigit(measurement.digit)}
-            >
-              {content}
-            </button>
-          ) : (
-            <div key={measurement.digit} className={className}>
-              {content}
-            </div>
-          );
-        })}
-      </div>
+      {showDetails && (
+        <div
+          className={`automatic-review-list${measurements.length === 1 ? " automatic-review-list--single" : ""}`}
+          aria-label="Detected nails"
+        >
+          {measurements.map((measurement) => {
+            const content = (
+              <>
+                <span>{measurement.digit}</span>
+                <strong>{measurement.projectedWidthMm.toFixed(1)} mm</strong>
+                <small>
+                  {measurement.needsReview
+                    ? editable
+                      ? "Check width"
+                      : "Estimate"
+                    : measurement.source === "user-corrected"
+                      ? "Adjusted"
+                      : "Detected"}
+                </small>
+              </>
+            );
+            const className = `automatic-review-list__item${measurement.needsReview ? " needs-review" : ""}`;
+            return editable ? (
+              <button
+                key={measurement.digit}
+                type="button"
+                aria-pressed={activeDigit === measurement.digit}
+                className={className}
+                onClick={() => onSelectDigit(measurement.digit)}
+              >
+                {content}
+              </button>
+            ) : (
+              <div key={measurement.digit} className={className}>
+                {content}
+              </div>
+            );
+          })}
+        </div>
+      )}
       {active && (
         <p className="fine-print">
           Drag markers 1 and 2 to the widest left and right edges of the{" "}

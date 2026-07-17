@@ -2,7 +2,14 @@
 
 ADR-011 through ADR-020 describe the deployed guided release and its history. ADR-021 defines the feasibility-gated target for the next release. The current guided method remains the production rollback until the automatic method passes its software, physical, privacy, accessibility, performance, and rollout gates.
 
-ADR-022 supersedes ADR-021 for the public beta interaction while retaining its local model and deterministic geometry work.
+ADR-023 supersedes ADR-022 for the public beta interaction while retaining its local model and deterministic geometry work. Earlier ADRs remain as implementation history.
+
+## ADR-023 — Prefer an automatic answer over calibration review
+
+- Status: accepted 2026-07-17.
+- Decision: `/instant` asks only for one photo and one sizing action. It assumes the detected reference is a 23 mm Singapore 50-cent coin, uses the strongest usable nail detection, maps out-of-chart estimates to the nearest size, and never exposes manual calibration or width markers.
+- Reason: customers need a quick recommendation and did not understand reference confirmation, digit selection, confidence warnings, or marker adjustment language.
+- Consequence: the result is deliberately best-effort and can be less accurate than the retained guided workflow. A photo with no usable coin or nail detection still requires a retake.
 
 ## ADR-022 — Ship one selected nail with an assumed 23 mm reference
 

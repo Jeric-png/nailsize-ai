@@ -122,4 +122,34 @@ describe("AutomaticReviewSurface", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/drag markers/i)).not.toBeInTheDocument();
   });
+
+  it("can show only the automatic detection overlay for the simple result", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      createImageData: (width: number, height: number) => ({
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
+      putImageData: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+
+    render(
+      <AutomaticReviewSurface
+        previewUrl="blob:test"
+        image={{ width: 800, height: 800 }}
+        calibration={calibration}
+        detections={[]}
+        measurements={[measurement]}
+        activeDigit={null}
+        editable={false}
+        showDetails={false}
+        onSelectDigit={vi.fn()}
+        onWidthLineChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByAltText(/detected nail width and round reference/i),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Detected nails")).not.toBeInTheDocument();
+    expect(screen.queryByText("Estimate")).not.toBeInTheDocument();
+  });
 });

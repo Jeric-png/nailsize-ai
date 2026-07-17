@@ -2,13 +2,13 @@
 
 ## Active beta method
 
-`auto-assumed23-single-v0.1.0` accepts one photo of one selected nail. The user explicitly instructs the app to treat the complete round reference in the image as exactly `23.00 mm`. This is an input assumption, not denomination recognition or diameter verification.
+`auto-assumed23-single-v0.2.0` accepts one photo of one nail beside a Singapore 50-cent coin. The app automatically treats the detected round reference as exactly `23.00 mm`. This is a product assumption, not denomination recognition or diameter verification.
 
-The browser prepares the image locally, runs the pinned nail-specific YOLOv8-seg artifact described in [`automatic-model-provenance.md`](automatic-model-provenance.md), and proposes nail geometry. Deterministic PCA and transverse-chord geometry derive a visible width line from the strongest usable mask. The proposal remains editable and is never measurement proof by itself.
+The browser prepares the image locally, runs the pinned nail-specific YOLOv8-seg artifact described in [`automatic-model-provenance.md`](automatic-model-provenance.md), and proposes nail geometry. Deterministic PCA and transverse-chord geometry derive a visible width line from the strongest usable mask. The result screen shows this detection as a read-only overlay.
 
 ## Reference fitting and scale
 
-The local edge detector first proposes reference-like ellipses. Accepted geometry requires a complete rim, sufficient pixel diameter, moderate ovality, strong rim coverage, and low residual. If full-frame selection is ambiguous, the user taps the intended reference centre once. A bounded local search then fits the strongest qualifying rim automatically; the beta never asks for eight rim markers.
+The local edge detector proposes reference-like ellipses and the single-nail route uses its strongest confident proposal as a best-effort scale. It does not stop for ovality, rim-quality, or minimum-size questions. If no confident round reference is found, the app asks for another photo instead of opening a calibration screen.
 
 For a width vector rotated into the fitted ellipse axes:
 
@@ -22,9 +22,9 @@ This directional local scale handles moderate apparent ovality but is not a full
 
 ## Review and recommendation
 
-Unusable nail proposals are rejected. A usable proposal produces the result immediately; lower-confidence geometry adds a non-blocking caution. The customer may optionally open two visible width markers, and corrected endpoints replace the proposed width line. An invalid edit is not saved and the detected result remains available.
+Unusable nail proposals are rejected. Any usable proposal produces the result without a confirmation or adjustment step. Detection confidence and calibration details are not exposed as customer decisions.
 
-The UI displays projected width and uncertainty rounded to `0.1 mm`. `platform-default@1` is provisional: size 0 is 18 mm, size 1 is 17 mm, through size 9 at 9 mm. The recommendation uses the uncertainty-adjusted width and returns exactly one conservative best-fit size. A boundary warning may accompany that one result; readings outside the chart receive no default size.
+`platform-default@1` is provisional: size 0 is 18 mm, size 1 is 17 mm, through size 9 at 9 mm. The recommendation uses the uncertainty-adjusted width and always returns exactly one best-fit size. Estimates wider than the chart use size 0; narrower estimates use size 9.
 
 ## Guided rollback
 

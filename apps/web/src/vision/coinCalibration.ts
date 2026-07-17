@@ -127,24 +127,72 @@ export function assessCoinEllipse(
   };
 }
 
+/**
+ * Builds a usable scale from an automatically detected coin without applying
+ * the stricter capture-quality gates used by the validation workflow.
+ */
+export function acceptBestEffortCoinEllipse(
+  proposal: CoinEllipseProposal,
+  image: ImageSize,
+): CoinCalibrationAssessment {
+  if (!isValidImageSize(image) || !isValidProposal(proposal))
+    return rejected(
+      "invalid_geometry",
+      "The nail and 50-cent coin were not clear enough to measure.",
+    );
+
+  const manufacturingUncertainty =
+    SG50_DIAMETER_TOLERANCE_MM / SG50_DIAMETER_MM;
+  const resolutionUncertainty = 2 / (proposal.minorRadiusPx * 2);
+  return {
+    status: "accepted",
+    calibration: {
+      ...proposal,
+      referenceId: "sg-50-cent-third-series-23mm",
+      relativeUncertainty: Math.max(
+        manufacturingUncertainty,
+        proposal.normalizedResidual,
+        resolutionUncertainty,
+      ),
+    },
+  };
+}
+
 export function measureWidthWithCoinEllipse(
   start: PixelPoint,
   end: PixelPoint,
   calibration: CoinEllipseCalibration,
 ): CalibratedWidth {
+  const measured = estimateWidthWithCoinEllipse(start, end, calibration);
+  if (
+    measured.widthMm < MIN_PLAUSIBLE_WIDTH_MM ||
+    measured.widthMm > MAX_PLAUSIBLE_WIDTH_MM
+  )
+    throw new RangeError(
+      "The suggested nail width is outside the supported 5–25 mm range.",
+    );
+  if (measured.distanceFromCoinDiameters > MAX_NAIL_DISTANCE_DIAMETERS)
+    throw new RangeError(
+      "Keep the 50-cent coin beside the nails on the same flat surface.",
+    );
+  return measured;
+}
+
+export function estimateWidthWithCoinEllipse(
+  start: PixelPoint,
+  end: PixelPoint,
+  calibration: CoinEllipseCalibration,
+): CalibratedWidth {
   if (!isFinitePoint(start) || !isFinitePoint(end))
-    throw new RangeError("Nail sidewall points must be finite image coordinates.");
+    throw new RangeError(
+      "Nail sidewall points must be finite image coordinates.",
+    );
 
   const widthMm = physicalLengthMm(
     end.x - start.x,
     end.y - start.y,
     calibration,
   );
-  if (widthMm < MIN_PLAUSIBLE_WIDTH_MM || widthMm > MAX_PLAUSIBLE_WIDTH_MM)
-    throw new RangeError(
-      "The suggested nail width is outside the supported 5–25 mm range.",
-    );
-
   const midpoint = {
     x: (start.x + end.x) / 2,
     y: (start.y + end.y) / 2,
@@ -155,10 +203,6 @@ export function measureWidthWithCoinEllipse(
     calibration,
   );
   const distanceFromCoinDiameters = distanceMm / SG50_DIAMETER_MM;
-  if (distanceFromCoinDiameters > MAX_NAIL_DISTANCE_DIAMETERS)
-    throw new RangeError(
-      "Keep the 50-cent coin beside the nails on the same flat surface.",
-    );
 
   return {
     widthMm,

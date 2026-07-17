@@ -1,5 +1,10 @@
-import { recommendSize, type Digit } from "../guidedSizing";
 import {
+  recommendClosestSize,
+  recommendSize,
+  type Digit,
+} from "../guidedSizing";
+import {
+  estimateWidthWithCoinEllipse,
   measureWidthWithCoinEllipse,
   type CoinEllipseCalibration,
   type ImageSize,
@@ -126,6 +131,7 @@ export function deriveAutomaticSingleNailSizing(input: {
     input.digit,
     candidate,
     input.calibration,
+    true,
   );
   if (typeof measurement === "string") return rejected(measurement);
   return {
@@ -170,6 +176,7 @@ function measurementFor(
     detectionIndex: number;
   },
   calibration: CoinEllipseCalibration,
+  bestEffort = false,
 ): AutomaticNailMeasurement | string {
   const widthLine = transverseWidthLine(candidate.detection.mask);
   if (!widthLine)
@@ -177,11 +184,17 @@ function measurementFor(
 
   let calibrated;
   try {
-    calibrated = measureWidthWithCoinEllipse(
-      widthLine.start,
-      widthLine.end,
-      calibration,
-    );
+    calibrated = bestEffort
+      ? estimateWidthWithCoinEllipse(
+          widthLine.start,
+          widthLine.end,
+          calibration,
+        )
+      : measureWidthWithCoinEllipse(
+          widthLine.start,
+          widthLine.end,
+          calibration,
+        );
   } catch (error) {
     return error instanceof RangeError
       ? error.message
@@ -201,10 +214,11 @@ function measurementFor(
   if (calibrated.uncertaintyMm > 0.6)
     reviewReasons.push("calibration uncertainty");
 
-  const conservative = recommendSize(
+  const sizeRecommendation = bestEffort ? recommendClosestSize : recommendSize;
+  const conservative = sizeRecommendation(
     calibrated.widthMm + calibrated.uncertaintyMm,
   );
-  const centre = recommendSize(calibrated.widthMm);
+  const centre = sizeRecommendation(calibrated.widthMm);
   return {
     digit,
     source: "automatic",
