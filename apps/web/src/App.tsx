@@ -90,7 +90,7 @@ function Landing() {
           <li>Bare, natural nails</li>
           <li>Bright, even lighting</li>
           <li>One round reference treated as exactly 23.00 mm</li>
-          <li>One photo, then a quick review</li>
+          <li>One photo, then your result</li>
         </ul>
       </Card>
       <Link className="button" to="/instant">

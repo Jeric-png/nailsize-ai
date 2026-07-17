@@ -22,7 +22,7 @@ This directional local scale handles moderate apparent ovality but is not a full
 
 ## Review and recommendation
 
-Low-confidence, fragmented, cropped, or otherwise weak nail proposals require review through two visible sidewall handles. Corrected endpoints replace the proposed width line. Invalid geometry fails closed.
+Unusable nail proposals are rejected. A usable proposal produces the result immediately; lower-confidence geometry adds a non-blocking caution. The customer may optionally open two visible width markers, and corrected endpoints replace the proposed width line. An invalid edit is not saved and the detected result remains available.
 
 The UI displays projected width and uncertainty rounded to `0.1 mm`. `platform-default@1` is provisional: size 0 is 18 mm, size 1 is 17 mm, through size 9 at 9 mm. The recommendation uses the uncertainty-adjusted width and returns exactly one conservative best-fit size. A boundary warning may accompany that one result; readings outside the chart receive no default size.
 

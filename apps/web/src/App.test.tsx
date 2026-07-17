@@ -25,7 +25,7 @@ describe("private sizing application shell", () => {
     expect(
       screen.getByRole("link", { name: /size one nail from a photo/i }),
     ).toHaveAttribute("href", "/instant");
-    expect(screen.getByText(/one photo, then a quick review/i)).toBeVisible();
+    expect(screen.getByText(/one photo, then your result/i)).toBeVisible();
     expect(screen.getByText(/1 best-fit suggestion/i)).toBeVisible();
     expect(screen.queryByText(/about one minute/i)).not.toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();

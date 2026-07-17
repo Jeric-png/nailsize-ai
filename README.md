@@ -1,6 +1,6 @@
 # NailSize Guide
 
-NailSize Guide is a browser-only web application that turns one photo of one nail into a reviewable **projected planar width** and one conservative best-fit suggestion. The user selects the digit and explicitly asks the app to treat the round reference in the photo as exactly `23.00 mm`.
+NailSize Guide is a browser-only web application that turns one photo of one nail into a **projected planar width** and one conservative best-fit suggestion. The user selects the digit and explicitly asks the app to treat the round reference in the photo as exactly `23.00 mm`.
 
 The automatic route is `/instant`. It is an experimental sizing aid, not a validated accuracy or fit guarantee. The manual `guided-sg50-coin-v1` workflow remains available as rollback.
 
@@ -10,7 +10,7 @@ The automatic route is `/instant`. It is an experimental sizing aid, not a valid
 2. Confirm the `23.00 mm` reference assumption.
 3. The browser loads pinned same-origin ONNX/WASM assets, proposes the reference rim and nail boundary, and calculates projected width locally.
 4. If other circles or clutter confuse the detector, tap the reference centre once; the app fits the rim automatically. It never asks for eight rim markers in this route.
-5. Review the proposed nail width if requested and receive exactly one best-fit suggestion or an out-of-chart result.
+5. Receive one best-fit suggestion or an out-of-chart result immediately. Adjusting the detected nail width is optional.
 
 The app does not identify the coin or verify its diameter. Using a different-size object while confirming `23.00 mm` scales the result incorrectly.
 

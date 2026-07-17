@@ -7,7 +7,7 @@ ADR-022 supersedes ADR-021 for the public beta interaction while retaining its l
 ## ADR-022 — Ship one selected nail with an assumed 23 mm reference
 
 - Status: accepted 2026-07-14.
-- Decision: `/instant` accepts one photo of one chosen nail and one round reference that the user explicitly tells the app to treat as `23.00 mm`. Automatic reference fitting is followed by at most one centre tap; nail review uses two sidewall handles; the result contains one conservative size suggestion.
+- Decision: `/instant` accepts one photo of one chosen nail and one round reference that the user explicitly tells the app to treat as `23.00 mm`. Automatic reference fitting is followed by at most one centre tap. A usable nail detection shows one conservative suggestion immediately, with two width markers available as an optional correction.
 - Reason: a two-hand workflow and precision rim marking remained too slow for the expected upload-to-result experience. The supplied cluttered one-nail photo also showed that full-frame reference selection needs a simple disambiguation gesture.
 - Consequence: the app cannot claim to identify the coin or verify its diameter. A wrong assumption scales the result incorrectly. Physical accuracy, chart approval, representative performance, and fit validation remain open.
 

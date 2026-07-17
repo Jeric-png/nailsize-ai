@@ -9,7 +9,7 @@
 
 ## Product intent
 
-The customer uploads one photo containing one bare nail and one round reference, chooses the digit, confirms that the reference should be treated as exactly `23.00 mm`, reviews any requested geometry, and receives one best-fit suggestion. Photos and inference stay in browser memory.
+The customer uploads one photo containing one bare nail and one round reference, chooses the digit, confirms that the reference should be treated as exactly `23.00 mm`, and receives one best-fit suggestion. Photos and inference stay in browser memory. Editing the detected width is optional.
 
 This beta optimizes for a short upload-to-result journey. It does not identify coin denomination, prove the reference is 23 mm, measure curved nail-surface length, guarantee tip fit, or establish physical accuracy.
 
@@ -19,8 +19,9 @@ This beta optimizes for a short upload-to-result journey. It does not identify c
 2. Confirm the explicit `23.00 mm` reference assumption.
 3. Run the pinned nail model and deterministic coin/width geometry locally.
 4. If automatic reference selection is ambiguous, ask for one tap at its centre and fit the rim automatically. Never require eight rim markers in this route.
-5. If the proposed nail width needs review, show two editable sidewall handles.
-6. Show exactly one best-fit suggestion or an out-of-chart result, with projected width, uncertainty, chart version, and limitations.
+5. Show exactly one best-fit suggestion or an out-of-chart result immediately after a usable detection.
+6. Offer two editable width markers as a secondary action. A lower-confidence detection gets a plain-language caution, not a mandatory validation gate.
+7. Keep technical method details out of the primary customer result while retaining the estimate and no-fit-guarantee limitations.
 
 The user may replace the photo or restart at any time. Failures must not silently become recommendations.
 
@@ -29,7 +30,7 @@ The user may replace the photo or restart at any time. Failures must not silentl
 - Calm, precise, mobile-first, and non-medical.
 - Square white cards on `#F7FAFC`, charcoal actions, structural borders, restrained motion.
 - Maintain 44 px touch targets, visible focus, keyboard-operable corrections, and live progress/error announcements.
-- Use “projected width”, “best-fit suggestion”, “assumed 23.00 mm reference”, and “needs review”.
+- Lead with “recommended size” and “estimated nail width”. Explain the reference assumption and fit limitation in plain language.
 - Do not use “exact”, “validated”, “AI knows your size”, or “guaranteed fit”.
 - Show one recommendation, not a list of competing sizes.
 

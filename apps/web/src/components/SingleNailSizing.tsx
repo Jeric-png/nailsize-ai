@@ -24,12 +24,12 @@ import {
   releaseCoinReviewContext,
 } from "../vision/automaticMemory";
 import { recalculateAutomaticMeasurement } from "../vision/automaticSizing";
+import type { AutomaticNailMeasurement } from "../vision/automaticSizing";
 import { proposeCoinEllipseAtCenter } from "../vision/coinDetector";
 import { AutomaticReviewSurface } from "./AutomaticReviewSurface";
 import { Button, Card, Eyebrow, StatusMessage } from "./Primitives";
 
 const DIGITS: readonly Digit[] = ["thumb", "index", "middle", "ring", "pinky"];
-const SINGLE_NAIL_METHOD_VERSION = "auto-assumed23-single-v0.1.0";
 const STAGE_LABEL: Record<AutomaticAnalysisStage, string> = {
   preparing: "Preparing the photo",
   "loading-model": "Loading private on-device detection",
@@ -65,6 +65,7 @@ export function SingleNailSizing({
   const captureRef = useRef(capture);
   const analysisRef = useRef(analysis);
   const coinReviewRef = useRef(coinReview);
+  const adjustmentBaselineRef = useRef<AutomaticNailMeasurement | null>(null);
   const requestId = useRef(0);
   captureRef.current = capture;
   analysisRef.current = analysis;
@@ -142,7 +143,8 @@ export function SingleNailSizing({
       return;
     }
     setAnalysis(outcome.analysis);
-    setPhase("review");
+    adjustmentBaselineRef.current = null;
+    setPhase("result");
   }
 
   function reset() {
@@ -157,6 +159,7 @@ export function SingleNailSizing({
     setPhase("capture");
     setError("");
     setCopyStatus("");
+    adjustmentBaselineRef.current = null;
   }
 
   if (phase === "capture")
@@ -274,7 +277,8 @@ export function SingleNailSizing({
         setCoinReview(null);
         setAnalysis(outcome.analysis);
         setError("");
-        setPhase("review");
+        adjustmentBaselineRef.current = null;
+        setPhase("result");
         return;
       }
       if (outcome.status === "coin-review") {
@@ -317,14 +321,34 @@ export function SingleNailSizing({
   const measurement = currentAnalysis.measurements[0];
   const unresolved = measurement.needsReview;
   const resultLabel = measurement.recommendedSize
-    ? `Best-fit size ${measurement.recommendedSize}`
-    : "Outside the provisional chart";
+    ? `Recommended size: ${measurement.recommendedSize}`
+    : "No size recommendation available";
+
+  function beginAdjustment() {
+    adjustmentBaselineRef.current = measurement;
+    setError("");
+    setCopyStatus("");
+    setPhase("review");
+  }
+
+  function keepDetectedResult() {
+    const baseline = adjustmentBaselineRef.current;
+    if (baseline) setAnalysis({ ...currentAnalysis, measurements: [baseline] });
+    adjustmentBaselineRef.current = null;
+    setError("");
+    setPhase("result");
+  }
+
+  function saveAdjustment() {
+    adjustmentBaselineRef.current = null;
+    setError("");
+    setPhase("result");
+  }
 
   function updateWidthLine(widthLine: {
     start: { x: number; y: number };
     end: { x: number; y: number };
   }) {
-    setPhase("review");
     try {
       const updated = recalculateAutomaticMeasurement(
         measurement,
@@ -345,7 +369,7 @@ export function SingleNailSizing({
   async function copy() {
     try {
       await navigator.clipboard.writeText(
-        `${digit}: ${measurement.projectedWidthMm.toFixed(1)} ± ${measurement.uncertaintyMm.toFixed(1)} mm — ${resultLabel}. Assumed 23.00 mm reference; method ${SINGLE_NAIL_METHOD_VERSION}; experimental projected-width beta.`,
+        `${digit[0].toUpperCase() + digit.slice(1)} nail: ${resultLabel.toLowerCase()}. Estimated visible width from this photo: ${measurement.projectedWidthMm.toFixed(1)} mm, with about ${measurement.uncertaintyMm.toFixed(1)} mm of possible variation. Reference treated as 23.00 mm wide.`,
       );
       setCopyStatus("Result copied without the photo.");
     } catch {
@@ -355,23 +379,33 @@ export function SingleNailSizing({
 
   return (
     <div className="page automatic-review-page">
-      <Eyebrow>{phase === "result" ? "Sizing result" : "Quick review"}</Eyebrow>
-      <h1>{resultLabel}</h1>
-      <p className="lede">
-        {measurement.projectedWidthMm.toFixed(1)} ±{" "}
-        {measurement.uncertaintyMm.toFixed(1)} mm projected width. Check that
-        the line reaches the visible sidewalls at the nail’s widest point.
-      </p>
+      <Eyebrow>
+        {phase === "result" ? "Your result" : "Optional adjustment"}
+      </Eyebrow>
+      <h1>
+        {phase === "result" ? resultLabel : "Check the detected nail width"}
+      </h1>
+      {phase === "result" ? (
+        <p className="lede">
+          Estimated visible width of your {digit} nail:{" "}
+          {measurement.projectedWidthMm.toFixed(1)} mm.
+        </p>
+      ) : (
+        <p className="lede">
+          Only change this if the highlighted line looks wrong. Drag the two
+          numbered markers to the widest left and right edges of your nail.
+        </p>
+      )}
       {measurement.requiresPhysicalConfirmation && (
         <StatusMessage>
-          This measurement is near a chart boundary. Confirm it physically
-          before making the set.
+          This measurement is close to two sizes. If possible, compare it with a
+          sample tip before making the set.
         </StatusMessage>
       )}
-      {unresolved && (
-        <StatusMessage tone="error">
-          The proposed outline needs review. Drag A/B to the visible nail
-          sidewalls before accepting the result.
+      {unresolved && phase === "result" && (
+        <StatusMessage>
+          We are less certain about the nail edges in this photo. Adjust the
+          detected width only if the highlighted line looks wrong.
         </StatusMessage>
       )}
       {error && <StatusMessage tone="error">{error}</StatusMessage>}
@@ -382,24 +416,32 @@ export function SingleNailSizing({
         detections={analysis.detections}
         measurements={analysis.measurements}
         activeDigit={digit}
+        editable={phase === "review"}
         onSelectDigit={() => undefined}
         onWidthLineChange={(_, widthLine) => updateWidthLine(widthLine)}
       />
       <StatusMessage>
-        Assumed reference: 23.00 mm. This beta has not passed representative
-        physical-fit validation and does not measure strong nail curvature.
-        Method: {SINGLE_NAIL_METHOD_VERSION}.
+        This photo estimate may vary by about{" "}
+        {measurement.uncertaintyMm.toFixed(1)} mm. Nail curve and camera angle
+        can also affect fit. The round reference was treated as 23.00 mm wide.
       </StatusMessage>
       <div className="action-stack">
         {phase === "review" ? (
-          <Button
-            disabled={unresolved || Boolean(error)}
-            onClick={() => setPhase("result")}
-          >
-            Accept this result
-          </Button>
+          <>
+            <Button disabled={Boolean(error)} onClick={saveAdjustment}>
+              Save adjustment
+            </Button>
+            <Button className="button--secondary" onClick={keepDetectedResult}>
+              Keep detected result
+            </Button>
+          </>
         ) : (
-          <Button onClick={() => void copy()}>Copy text-only result</Button>
+          <>
+            <Button onClick={() => void copy()}>Copy result</Button>
+            <Button className="button--secondary" onClick={beginAdjustment}>
+              Adjust detected width
+            </Button>
+          </>
         )}
         <Button className="button--secondary" onClick={reset}>
           Start over and erase photo

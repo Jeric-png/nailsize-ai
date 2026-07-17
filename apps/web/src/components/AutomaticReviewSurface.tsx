@@ -24,6 +24,7 @@ interface AutomaticReviewSurfaceProps {
   detections: readonly YoloV8SegDetection[];
   measurements: readonly AutomaticNailMeasurement[];
   activeDigit: Digit | null;
+  editable?: boolean;
   onSelectDigit: (digit: Digit) => void;
   onWidthLineChange: (digit: Digit, line: NailWidthLine) => void;
 }
@@ -35,13 +36,16 @@ export function AutomaticReviewSurface({
   detections,
   measurements,
   activeDigit,
+  editable = true,
   onSelectDigit,
   onWidthLineChange,
 }: AutomaticReviewSurfaceProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<0 | 1 | null>(null);
-  const active = measurements.find(({ digit }) => digit === activeDigit);
+  const active = editable
+    ? measurements.find(({ digit }) => digit === activeDigit)
+    : undefined;
 
   useEffect(() => {
     const canvas = maskCanvasRef.current;
@@ -137,7 +141,7 @@ export function AutomaticReviewSurface({
       <div className="annotation-image">
         <img
           src={previewUrl}
-          alt="Nail and coin detection review"
+          alt="Detected nail width and round reference"
           draggable={false}
         />
         <canvas
@@ -168,7 +172,7 @@ export function AutomaticReviewSurface({
             {measurements.map((measurement) => (
               <line
                 key={measurement.digit}
-                className={`automatic-width-line${measurement.needsReview ? " automatic-width-line--review" : ""}${activeDigit === measurement.digit ? " automatic-width-line--active" : ""}`}
+                className={`automatic-width-line${measurement.needsReview ? " automatic-width-line--review" : ""}${editable && activeDigit === measurement.digit ? " automatic-width-line--active" : ""}`}
                 x1={measurement.widthLine.start.x}
                 y1={measurement.widthLine.start.y}
                 x2={measurement.widthLine.end.x}
@@ -188,7 +192,7 @@ export function AutomaticReviewSurface({
                     left: `${(point.x / image.width) * 100}%`,
                     top: `${(point.y / image.height) * 100}%`,
                   }}
-                  aria-label={`${index === 0 ? "First" : "Second"} sidewall of ${active.digit}`}
+                  aria-label={`${index === 0 ? "First" : "Second"} width marker for ${active.digit} nail`}
                   onPointerDown={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
@@ -199,38 +203,55 @@ export function AutomaticReviewSurface({
                     moveWithKeyboard(event, index as 0 | 1, point)
                   }
                 >
-                  <span>{index === 0 ? "A" : "B"}</span>
+                  <span>{index + 1}</span>
                 </button>
               ),
             )}
         </div>
       </div>
-      <div className="automatic-review-list" aria-label="Detected nails">
-        {measurements.map((measurement) => (
-          <button
-            key={measurement.digit}
-            type="button"
-            aria-pressed={activeDigit === measurement.digit}
-            className={measurement.needsReview ? "needs-review" : ""}
-            onClick={() => onSelectDigit(measurement.digit)}
-          >
-            <span>{measurement.digit}</span>
-            <strong>{measurement.projectedWidthMm.toFixed(1)} mm</strong>
-            <small>
-              {measurement.needsReview
-                ? "Adjust line"
-                : measurement.source === "user-corrected"
-                  ? "Adjusted"
-                  : "Automatic"}
-            </small>
-          </button>
-        ))}
+      <div
+        className={`automatic-review-list${measurements.length === 1 ? " automatic-review-list--single" : ""}`}
+        aria-label="Detected nails"
+      >
+        {measurements.map((measurement) => {
+          const content = (
+            <>
+              <span>{measurement.digit}</span>
+              <strong>{measurement.projectedWidthMm.toFixed(1)} mm</strong>
+              <small>
+                {measurement.needsReview
+                  ? editable
+                    ? "Check width"
+                    : "Estimate"
+                  : measurement.source === "user-corrected"
+                    ? "Adjusted"
+                    : "Detected"}
+              </small>
+            </>
+          );
+          const className = `automatic-review-list__item${measurement.needsReview ? " needs-review" : ""}`;
+          return editable ? (
+            <button
+              key={measurement.digit}
+              type="button"
+              aria-pressed={activeDigit === measurement.digit}
+              className={className}
+              onClick={() => onSelectDigit(measurement.digit)}
+            >
+              {content}
+            </button>
+          ) : (
+            <div key={measurement.digit} className={className}>
+              {content}
+            </div>
+          );
+        })}
       </div>
       {active && (
         <p className="fine-print">
-          Drag A and B to the visible sidewalls at the widest part of the{" "}
-          {active.digit} nail. Arrow keys move a selected handle by one
-          displayed pixel; Shift moves eight.
+          Drag markers 1 and 2 to the widest left and right edges of the{" "}
+          {active.digit} nail. You can also select a marker and use the arrow
+          keys; hold Shift for larger moves.
         </p>
       )}
     </div>

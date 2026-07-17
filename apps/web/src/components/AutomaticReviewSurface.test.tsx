@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AutomaticNailMeasurement } from "../vision/automaticSizing";
@@ -36,6 +36,7 @@ const measurement: AutomaticNailMeasurement = {
 };
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
 });
 
@@ -74,7 +75,7 @@ describe("AutomaticReviewSurface", () => {
     );
 
     const first = screen.getByRole("button", {
-      name: /first sidewall of index/i,
+      name: /first width marker for index nail/i,
     });
     fireEvent.keyDown(first, { key: "ArrowRight" });
     expect(onWidthLineChange).toHaveBeenLastCalledWith("index", {
@@ -87,5 +88,38 @@ describe("AutomaticReviewSurface", () => {
       start: { x: 100, y: 200 + (3000 / 240) * 8 },
       end: measurement.widthLine.end,
     });
+  });
+
+  it("shows the detected result without editing controls when adjustment is closed", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      createImageData: (width: number, height: number) => ({
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
+      putImageData: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+
+    render(
+      <AutomaticReviewSurface
+        previewUrl="blob:test"
+        image={{ width: 800, height: 800 }}
+        calibration={calibration}
+        detections={[]}
+        measurements={[measurement]}
+        activeDigit="index"
+        editable={false}
+        onSelectDigit={vi.fn()}
+        onWidthLineChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByAltText(/detected nail width and round reference/i),
+    ).toBeVisible();
+    expect(screen.getByText("Estimate")).toBeVisible();
+    expect(screen.getByText("Estimate").closest("button")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /width marker/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/drag markers/i)).not.toBeInTheDocument();
   });
 });

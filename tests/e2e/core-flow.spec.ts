@@ -521,7 +521,7 @@ test("automatic sizing loads the pinned runtime locally without a silent result"
 
   await expect(
     page.getByRole("heading", {
-      name: /upload one nail photo|tap the round reference once|best-fit size|outside the provisional chart/i,
+      name: /upload one nail photo|tap the round reference once|recommended size|no size recommendation available/i,
     }),
   ).toBeVisible({ timeout: 60_000 });
 

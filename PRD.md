@@ -2,7 +2,7 @@
 
 ## Product summary
 
-NailSize is a mobile-first, browser-only web application that turns one photo of one nail into one reviewable projected-width estimate and one conservative best-fit press-on suggestion. The user selects the digit and explicitly instructs the app to treat the round reference in the photo as exactly `23.00 mm`.
+NailSize is a mobile-first, browser-only web application that turns one photo of one nail into one projected-width estimate and one conservative best-fit press-on suggestion. The user selects the digit and explicitly instructs the app to treat the round reference in the photo as exactly `23.00 mm`.
 
 The automatic beta is experimental. It is functionally implemented but has not passed representative physical sizing or supplier-tip validation.
 
@@ -10,7 +10,8 @@ The automatic beta is experimental. It is functionally implemented but has not p
 
 - Reduce the journey to one digit selection, one photo, one reference confirmation, and one result.
 - Run image processing and the pinned nail model locally in the browser.
-- Automatically propose the reference rim and nail width; request only a one-tap reference correction or two-handle width review when needed.
+- Automatically propose the reference rim and nail width; request only a one-tap reference correction when the scale cannot be established.
+- Show the recommendation immediately after a usable detection and keep two-handle nail-width adjustment optional.
 - Return exactly one best-fit suggestion, or fail closed when the evidence is unusable.
 - Preserve the manual guided flow as rollback.
 
@@ -30,8 +31,9 @@ The automatic beta is experimental. It is functionally implemented but has not p
 4. Normalize the image and run same-origin ONNX/WASM inference locally.
 5. Propose the reference ellipse and nail width automatically.
 6. When reference detection is ambiguous, ask for one centre tap and fit the rim automatically; do not ask for eight rim markers.
-7. When the proposed width is uncertain, show two editable sidewall handles for review.
-8. Display one conservative best-fit suggestion or an out-of-chart result, plus width, uncertainty, method/chart versions, and a no-fit-guarantee notice.
+7. Display one conservative best-fit suggestion or an out-of-chart result immediately after a usable detection.
+8. If confidence is lower, show a plain-language caution and offer two editable width markers as an optional correction. Never require this correction to reveal the result.
+9. Keep technical method and chart versions in the product documentation rather than the main customer result.
 
 ## Measurement contract
 
@@ -54,9 +56,9 @@ Method identifier: `auto-assumed23-single-v0.1.0`.
 
 ## Acceptance criteria
 
-- One valid photo can reach one reviewable best-fit result.
+- One valid photo reaches one best-fit result without a second confirmation step.
 - Ambiguous reference detection requires at most one centre tap, not rim-by-rim marking.
-- Uncertain nail geometry is recoverable through two sidewall handles.
+- Lower-confidence but usable nail geometry is shown with a caution and is optionally correctable through two width markers.
 - Invalid files, stale jobs, checksum failures, decode errors, and unusable geometry fail closed and can be retried.
 - Reset/reload removes the session and object URLs are released.
 - Lint, typecheck, unit, build, artifact audit, E2E, compatibility, and dependency checks pass.
