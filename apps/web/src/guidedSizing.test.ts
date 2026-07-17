@@ -9,6 +9,7 @@ import {
   measureSample,
   recommendClosestSize,
   recommendSize,
+  referenceWidthForSize,
   validateCoinCalibration,
   validateRenderedCoinSize,
   type EdgePair,
@@ -379,6 +380,13 @@ describe("repeatability and size mapping", () => {
     expect(recommendClosestSize(5.7)).toBe("9");
     expect(recommendClosestSize(25)).toBe("0");
     expect(recommendClosestSize(Number.NaN)).toBeNull();
+  });
+
+  it("returns the chart reference width for a press-on size", () => {
+    expect(referenceWidthForSize("0")).toBe(18);
+    expect(referenceWidthForSize("4")).toBe(14);
+    expect(referenceWidthForSize("9")).toBe(9);
+    expect(referenceWidthForSize("unknown")).toBeNull();
   });
 
   it("uses the wider repeat for the press-on recommendation", () => {

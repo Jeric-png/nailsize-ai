@@ -382,6 +382,10 @@ export function recommendClosestSize(widthMm: number): string | null {
   ).size;
 }
 
+export function referenceWidthForSize(size: string): number | null {
+  return CHART.find((entry) => entry.size === size)?.widthMm ?? null;
+}
+
 function createCoinCalibration(
   markers: CoinMarkers,
   dimensions: ImageDimensions,

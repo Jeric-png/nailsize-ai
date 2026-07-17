@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { recommendClosestSize } from "../guidedSizing";
+import {
+  recommendClosestSize,
+  referenceWidthForSize,
+} from "../guidedSizing";
 import { IMAGE_FILE_ACCEPT, prepareImage } from "../imagePreparation";
 import { analyzeAutomaticPhoto } from "../vision/automaticAnalysis";
 import type {
@@ -206,11 +209,12 @@ export function SingleNailSizing({
     measurement.recommendedSize ??
     recommendClosestSize(measurement.projectedWidthMm) ??
     "9";
+  const referenceWidthMm = referenceWidthForSize(recommendedSize) ?? 9;
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(
-        `Recommended press-on nail size: ${recommendedSize}`,
+        `Recommended press-on nail size: ${recommendedSize}\nReference width: ${referenceWidthMm} mm`,
       );
       setCopyStatus("Size copied.");
     } catch {
@@ -222,6 +226,9 @@ export function SingleNailSizing({
     <div className="page automatic-review-page">
       <Eyebrow>Your result</Eyebrow>
       <h1>Recommended press-on size: {recommendedSize}</h1>
+      <p className="lede">
+        Reference width: <strong>{referenceWidthMm} mm</strong>
+      </p>
       <p className="lede">
         We matched the nail width to the 50-cent coin in your photo.
       </p>

@@ -121,6 +121,9 @@ describe("single-nail sizing", () => {
     await screen.findByRole("heading", {
       name: /recommended press-on size: 4/i,
     });
+    expect(screen.getByText(/reference width:/i)).toHaveTextContent(
+      "Reference width: 14 mm",
+    );
     expect(analyzePhoto).toHaveBeenCalledWith(
       "right",
       expect.any(File),
@@ -140,7 +143,7 @@ describe("single-nail sizing", () => {
     fireEvent.click(screen.getByRole("button", { name: /copy size/i }));
     await waitFor(() =>
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        "Recommended press-on nail size: 4",
+        "Recommended press-on nail size: 4\nReference width: 14 mm",
       ),
     );
     expect(screen.getByText("Size copied.")).toBeVisible();
