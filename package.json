@@ -17,9 +17,9 @@
     "typecheck": "npm run typecheck --workspace @nailsize/web"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.2",
-    "@playwright/test": "^1.54.1",
-    "prettier": "^3.6.2"
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.62.1",
+    "prettier": "^3.9.6"
   },
   "overrides": {
     "esbuild": "0.28.1"
