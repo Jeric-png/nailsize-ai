@@ -1,4 +1,4 @@
-FROM cgr.dev/chainguard/wolfi-base@sha256:02dab76bd852a70556b5b2002195c8a5fdab77d323c433bf6642aab080489795 AS builder
+FROM cgr.dev/chainguard/wolfi-base@sha256:03c6561658909fc4eadd0b2dc717375df40a22cc05455b8f82f1f1974e7e4427 AS builder
 
 RUN apk add --no-cache \
         py3.12-pip \
@@ -15,7 +15,7 @@ RUN python3.12 -m venv /opt/model-tools \
     && python3.12 -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir '.[landmarks]'
 
-FROM cgr.dev/chainguard/wolfi-base@sha256:02dab76bd852a70556b5b2002195c8a5fdab77d323c433bf6642aab080489795 AS runtime
+FROM cgr.dev/chainguard/wolfi-base@sha256:03c6561658909fc4eadd0b2dc717375df40a22cc05455b8f82f1f1974e7e4427 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
