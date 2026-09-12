@@ -9,10 +9,10 @@ dependencies = ["jsonschema>=4.25,<5", "numpy>=2.2,<3"]
 training = [
   "onnx>=1.22,<2",
   "onnxruntime>=1.27,<2",
-  "onnxscript==0.7.1",
+  "onnxscript==0.7.2",
   "pillow>=12.3,<13",
-  "torch==2.13.0",
-  "torchvision==0.28.0",
+  "torch==2.14.0",
+  "torchvision==0.29.0",
 ]
 
 [project.scripts]
